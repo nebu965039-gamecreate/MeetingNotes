@@ -1,6 +1,7 @@
 package com.meetingnotes.ui.result
 
 import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.model.MeetingSummary
@@ -45,7 +45,7 @@ fun ResultScreen(
     onBack: () -> Unit
 ) {
     val state by viewModel.summaryState.collectAsState()
-    val activity = LocalContext.current as Activity
+    val activity = LocalActivity.current as Activity
 
     Scaffold(
         topBar = {

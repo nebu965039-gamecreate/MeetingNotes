@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  商談メモは機密性の高いクライアント情報を含み、クラウド同期機能を持たない。
+  クラウドバックアップ・端末間データ転送のいずれも無効化し、
+  アプリデータが端末外へ出ないことを明確にする。
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+    </device-transfer>
+</data-extraction-rules>

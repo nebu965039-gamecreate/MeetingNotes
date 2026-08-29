@@ -14,6 +14,18 @@ val localProperties = Properties().apply {
     }
 }
 
+// リリース署名用。keystore.properties はgitignore対象(keystore.properties.example を参照)。
+// 未設定の場合、release ビルドは未署名になる(Play App Signing のアップロード鍵をここに設定する)。
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+val hasReleaseKeystore = keystoreProperties.getProperty("storeFile")?.let {
+    rootProject.file(it).exists()
+} ?: false
+
 android {
     namespace = "com.meetingnotes"
     compileSdk = 37
@@ -33,10 +45,27 @@ android {
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn("keystore.properties が未設定のため release ビルドは未署名になります。")
+                null
+            }
         }
     }
 

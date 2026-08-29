@@ -10,3 +10,8 @@ build/
 local.properties
 .kotlin/
 .claude/
+
+# リリース署名(秘匿情報)
+keystore.properties
+*.jks
+*.keystore

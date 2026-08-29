@@ -3,6 +3,7 @@ package com.meetingnotes.ui.recording
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -48,7 +49,6 @@ import androidx.core.content.ContextCompat
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.meetingnotes.ui.MeetingViewModel
@@ -70,7 +70,7 @@ fun RecordingScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val creditBalance by viewModel.creditBalance.collectAsState()
     val isRewardedAdLoaded by viewModel.isRewardedAdLoaded.collectAsState()
-    val activity = LocalContext.current as Activity
+    val activity = LocalActivity.current as Activity
 
     var permissionDenied by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>プライバシーポリシー — 商談メモ</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+         line-height: 1.8; max-width: 760px; margin: 0 auto; padding: 2rem 1.2rem; }
+  h1 { font-size: 1.6rem; } h2 { font-size: 1.2rem; margin-top: 2rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid #8888; padding: .5rem .6rem; text-align: left; font-size: .95rem; }
+  code { background: #8881; padding: .1rem .3rem; border-radius: 3px; }
+  .updated { color: #888; font-size: .9rem; }
+</style>
+</head>
+<body>
+<h1>プライバシーポリシー — 商談メモ</h1>
+<p class="updated">最終更新日: 2026-08-30</p>
+<p>本プライバシーポリシーは、Androidアプリ「商談メモ」(以下「本アプリ」)における利用者情報の取扱いについて定めるものです。</p>
+
+<h2>1. 事業者情報</h2>
+<ul>
+  <li>提供者: manaapps</li>
+  <li>連絡先: <a href="mailto:contact.manaapps@gmail.com">contact.manaapps@gmail.com</a></li>
+</ul>
+
+<h2>2. 収集する情報と利用目的</h2>
+<h3>2.1 音声(マイク)</h3>
+<p>本アプリは商談の録音のためにマイクへのアクセス(<code>RECORD_AUDIO</code> 権限)を使用します。音声は端末内のオンデバイス音声認識機能によってその場で文字起こしされます。<strong>録音した音声データそのものをファイルとして保存したり、外部サーバーへ送信することはありません。</strong></p>
+<h3>2.2 文字起こしテキスト・商談メモ</h3>
+<p>文字起こしテキスト、要約結果、クライアント名、商談タイトルは<strong>利用者の端末内のデータベースにのみ保存</strong>されます。要約生成のため、<strong>文字起こしテキストを Anthropic PBC の Claude API へ HTTPS 通信で送信</strong>します。送信されたテキストは要約結果の生成にのみ使用され、Anthropic 社の取扱いは<a href="https://www.anthropic.com/legal/privacy">同社のプライバシーポリシー</a>に従います。本アプリの提供者は商談内容を独自のサーバーに収集・保存しません。</p>
+<h3>2.3 端末識別子(無料利用枠の管理)</h3>
+<p>無料利用枠の管理のため、Android の端末識別子(<code>ANDROID_ID</code>)を <strong>SHA-256 でハッシュ化した値</strong>を端末内データベースに保存します。元の識別子は保存せず、ハッシュ値を外部へ送信することもありません。</p>
+<h3>2.4 広告(AdMob)</h3>
+<p>本アプリは Google の AdMob を利用して広告を表示します。AdMob は広告識別子、デバイス情報、おおよその位置情報、アプリの利用状況などを収集する場合があります。Google による取扱いは<a href="https://policies.google.com/technologies/ads">Google 広告ポリシー</a>および<a href="https://policies.google.com/privacy">Google プライバシーポリシー</a>に従います。</p>
+<h3>2.5 エクスポート機能</h3>
+<p>PDF / Word / メール文面のエクスポートは、利用者が共有先・保存先を明示的に選択した場合にのみ当該アプリ・サービスへデータが渡されます。</p>
+
+<h2>3. データの保存場所と第三者提供</h2>
+<table>
+  <tr><th>データ</th><th>保存場所</th><th>第三者提供</th></tr>
+  <tr><td>音声データ</td><td>保存しない</td><td>なし</td></tr>
+  <tr><td>文字起こし・商談メモ</td><td>端末内のみ</td><td>要約時に文字起こしテキストを Anthropic へ送信</td></tr>
+  <tr><td>端末識別子ハッシュ</td><td>端末内のみ</td><td>なし</td></tr>
+  <tr><td>広告関連データ</td><td>—</td><td>Google(AdMob)が収集</td></tr>
+</table>
+<p>本アプリの提供者は、上記以外に利用者情報を第三者へ販売・提供しません。</p>
+
+<h2>4. 端末のバックアップ</h2>
+<p>本アプリは、Android のシステムによるクラウドバックアップおよび端末間データ転送の対象外に設定しています。本アプリで作成したデータが、利用者本人の端末外に自動的に保存・転送されることはありません。</p>
+
+<h2>5. 使用する権限</h2>
+<table>
+  <tr><th>権限</th><th>用途</th></tr>
+  <tr><td>マイク(<code>RECORD_AUDIO</code>)</td><td>商談の録音・文字起こし</td></tr>
+  <tr><td>インターネット(<code>INTERNET</code>)</td><td>要約API(Claude)との通信、広告の取得</td></tr>
+</table>
+
+<h2>6. 児童のプライバシー</h2>
+<p>本アプリは13歳未満の児童を対象としていません。</p>
+
+<h2>7. データの削除</h2>
+<p>アプリ内で作成したデータはアプリ内の操作で個別に削除できます。アプリをアンインストールすると、端末内に保存されたすべてのデータが削除されます。</p>
+
+<h2>8. 本ポリシーの変更</h2>
+<p>本ポリシーは必要に応じて改定されることがあります。</p>
+
+<h2>9. お問い合わせ</h2>
+<p>本ポリシーに関するお問い合わせは <a href="mailto:contact.manaapps@gmail.com">contact.manaapps@gmail.com</a> までご連絡ください。</p>
+</body>
+</html>
