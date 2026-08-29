@@ -1,0 +1,4 @@
+sdk.dir=C\:\\Users\\zhong\\AppData\\Local\\Android\\Sdk
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# TEMP: Claude APIキー到着までの一時的なE2E確認用(本番では不要、GeminiClient.kt参照)
+GEMINI_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxx
