@@ -80,6 +80,8 @@ fun ClientDetailScreen(
     var meetingToRename by remember { mutableStateOf<MeetingEntity?>(null) }
     var meetingToMove by remember { mutableStateOf<MeetingEntity?>(null) }
     var meetingToDelete by remember { mutableStateOf<MeetingEntity?>(null) }
+    var folderToRename by remember { mutableStateOf<FolderEntity?>(null) }
+    var folderToDelete by remember { mutableStateOf<FolderEntity?>(null) }
 
     Scaffold(
         topBar = {
@@ -165,19 +167,13 @@ fun ClientDetailScreen(
                     val folderMeetings = meetings.filter { it.folderId == folder.id }
                     val isExpanded = expandedFolders[folder.id] == true
                     item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { expandedFolders[folder.id] = !isExpanded }
-                                .padding(top = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (isExpanded) Icons.Filled.ExpandMore else Icons.Filled.ChevronRight,
-                                contentDescription = if (isExpanded) "折りたたむ" else "展開する"
-                            )
-                            Text(text = folder.name, style = MaterialTheme.typography.titleSmall)
-                        }
+                        FolderHeaderRow(
+                            folder = folder,
+                            isExpanded = isExpanded,
+                            onToggleExpand = { expandedFolders[folder.id] = !isExpanded },
+                            onRename = { folderToRename = folder },
+                            onDelete = { folderToDelete = folder }
+                        )
                     }
                     if (isExpanded) {
                         if (folderMeetings.isEmpty()) {
@@ -294,6 +290,79 @@ fun ClientDetailScreen(
                 meetingToDelete = null
             }
         )
+    }
+
+    folderToRename?.let { folder ->
+        TextInputDialog(
+            title = "フォルダ名を変更",
+            label = "フォルダ名",
+            initialValue = folder.name,
+            confirmLabel = "変更",
+            onDismiss = { folderToRename = null },
+            onConfirm = { name ->
+                viewModel.renameFolder(folder.id, name)
+                folderToRename = null
+            }
+        )
+    }
+
+    folderToDelete?.let { folder ->
+        ConfirmDialog(
+            title = "フォルダを削除",
+            text = "「${folder.name}」を削除します。含まれる商談は削除されず、未分類に戻ります。",
+            onDismiss = { folderToDelete = null },
+            onConfirm = {
+                viewModel.deleteFolder(folder.id)
+                folderToDelete = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun FolderHeaderRow(
+    folder: FolderEntity,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggleExpand)
+            .padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            Icon(
+                imageVector = if (isExpanded) Icons.Filled.ExpandMore else Icons.Filled.ChevronRight,
+                contentDescription = if (isExpanded) "折りたたむ" else "展開する"
+            )
+            Text(text = folder.name, style = MaterialTheme.typography.titleSmall)
+        }
+        IconButton(onClick = { menuExpanded = true }) {
+            Icon(Icons.Filled.MoreVert, contentDescription = "フォルダメニュー")
+        }
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(
+                text = { Text("名前を変更") },
+                onClick = {
+                    menuExpanded = false
+                    onRename()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("削除") },
+                onClick = {
+                    menuExpanded = false
+                    onDelete()
+                }
+            )
+        }
     }
 }
 

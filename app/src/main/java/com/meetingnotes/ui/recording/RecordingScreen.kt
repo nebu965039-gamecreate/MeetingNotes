@@ -1,6 +1,10 @@
 package com.meetingnotes.ui.recording
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -35,9 +39,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -65,8 +72,27 @@ fun RecordingScreen(
     val isRewardedAdLoaded by viewModel.isRewardedAdLoaded.collectAsState()
     val activity = LocalContext.current as Activity
 
+    var permissionDenied by remember { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            permissionDenied = false
+            viewModel.beginRecordingFlow(clientId)
+        } else {
+            permissionDenied = true
+        }
+    }
+
     LaunchedEffect(clientId) {
-        viewModel.beginRecordingFlow(clientId)
+        val hasPermission = ContextCompat.checkSelfPermission(
+            activity, Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            viewModel.beginRecordingFlow(clientId)
+        } else {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
     }
 
     val handleCancel: () -> Unit = {
@@ -86,6 +112,16 @@ fun RecordingScreen(
             )
         }
     ) { padding ->
+        if (permissionDenied) {
+            PermissionDeniedContent(
+                onRetry = { permissionLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            )
+            return@Scaffold
+        }
+
         when (phase) {
             RecordingPhase.Countdown -> CountdownContent(
                 secondsLeft = countdownSeconds,
@@ -128,6 +164,29 @@ fun RecordingScreen(
                     .padding(padding)
                     .padding(16.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun PermissionDeniedContent(onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "録音にはマイクの許可が必要です。",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = "設定アプリからこのアプリのマイク権限を許可してください。",
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
+        )
+        Button(onClick = onRetry) {
+            Text("もう一度許可をリクエスト")
         }
     }
 }

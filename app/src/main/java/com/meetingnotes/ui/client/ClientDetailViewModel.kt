@@ -44,6 +44,16 @@ class ClientDetailViewModel(
         viewModelScope.launch { repository.addFolder(clientId, trimmed) }
     }
 
+    fun renameFolder(folderId: Long, name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch { repository.renameFolder(folderId, trimmed) }
+    }
+
+    fun deleteFolder(folderId: Long) {
+        viewModelScope.launch { repository.deleteFolder(folderId) }
+    }
+
     fun renameMeeting(meetingId: Long, title: String) {
         val trimmed = title.trim()
         if (trimmed.isEmpty()) return
