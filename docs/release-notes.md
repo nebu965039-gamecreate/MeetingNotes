@@ -1,0 +1,76 @@
+# リリースノート — 商談メモ
+
+Play Console >「リリース」>「テスト > クローズドテスト」>「新しいリリースを作成」の
+「リリースノート」欄に記入する文章。
+
+## 形式・制限
+
+- **1 言語あたり 500 文字以内**。
+- Console の UI では言語タブ(日本語)にプレーンテキストを直接入力するだけでよい。
+- API や複数言語で管理する場合は `<ja-JP> ... </ja-JP>` のように言語タグで囲む。
+- クローズドテストでは、この文章は**テスターにも表示される**(ストアのオプトインページ / アプリ更新時)。
+  そのため初回は「何を試してほしいか」「フィードバックの送り先」を書くとよい。
+
+---
+
+## 初回クローズドテスト (versionName 0.1.0 / versionCode 1)
+
+```
+商談メモ 初回テスト版です。ご協力ありがとうございます。
+
+■ 試していただきたいこと
+・商談を録音し、文字起こし → AI要約(サマリー・決定事項・懸念点・ToDo・次回打ち合わせ)が生成されるか
+・実機での日本語音声認識の精度(静かな場所 / 少し雑音のある場所)
+・クライアント / フォルダ / グループでの整理
+・PDF・Word・メール文面でのエクスポート
+
+■ フィードバック送付先
+contact.manaapps@gmail.com
+不具合や使いにくい点は、些細なことでもお知らせください。スクリーンショットや、起きた操作手順を添えていただけると助かります。
+```
+
+(約 210 文字)
+
+### 英語も登録する場合 (en-US)
+
+```
+Thanks for testing 商談メモ (MeetingNotes) — a meeting recorder & AI summarizer for freelancers.
+
+Please try:
+- Record a meeting, then check the transcript and AI summary (decisions, concerns, to-dos, next meeting)
+- On-device Japanese speech recognition accuracy
+- Organizing clients into folders / groups
+- Export to PDF / Word / email text
+
+Send feedback to contact.manaapps@gmail.com — bug reports, rough edges, anything. Steps to reproduce and screenshots help a lot.
+```
+
+---
+
+## 次回以降のリリース用テンプレート
+
+### 軽微な修正のみ
+
+```
+・不具合の修正と動作の安定性向上
+```
+
+### 変更内容がある場合(例)
+
+```
+【改善】
+・録音中の音声レベル表示を見やすく調整
+・エクスポートしたPDFのレイアウトを改善
+
+【修正】
+・特定の条件で要約が失敗する不具合を修正
+・フォルダ名の変更が一覧に反映されないことがある問題を修正
+
+ご報告ありがとうございます。引き続きフィードバックをお待ちしています(contact.manaapps@gmail.com)。
+```
+
+### 運用メモ
+
+- コード/リソースを変更したら `app/build.gradle.kts` の `versionCode` を +1、必要なら `versionName` も更新してから `./gradlew.bat bundleRelease`。
+- 「以前のリリースからコピー」を使うと前回のノートが入るので、変更点に書き換える。
+- ユーザー向けに意味のある変更だけを書く(内部リファクタリングやテスト追加は書かない)。
