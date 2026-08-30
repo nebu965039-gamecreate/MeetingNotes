@@ -4,7 +4,23 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,28c-11,0 -20,9 -20,20c0,7.6 4.2,14.2 10.4,17.6L42,80l14.7,-9.1c8.9,-2.3 15.3,-9.9 15.3,-22.9c0,-11 -9,-20 -18,-20z" />
+    <!-- 512座標系のマーク(ふきだし + メモ罫線)をセーフゾーン内に配置 -->
+    <group
+        android:scaleX="0.15"
+        android:scaleY="0.15"
+        android:translateX="15.6"
+        android:translateY="15">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M136,104h240a48,48 0 0 1 48,48v152a48,48 0 0 1 -48,48H236l-74,60a10,10 0 0 1 -16,-8v-52h-10a48,48 0 0 1 -48,-48V152a48,48 0 0 1 48,-48z" />
+        <path
+            android:fillColor="#6750A4"
+            android:pathData="M181,168h150a13,13 0 0 1 0,26h-150a13,13 0 0 1 0,-26z" />
+        <path
+            android:fillColor="#6750A4"
+            android:pathData="M181,222h150a13,13 0 0 1 0,26h-150a13,13 0 0 1 0,-26z" />
+        <path
+            android:fillColor="#6750A4"
+            android:pathData="M181,276h78a13,13 0 0 1 0,26h-78a13,13 0 0 1 0,-26z" />
+    </group>
 </vector>
