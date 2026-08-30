@@ -31,7 +31,9 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.meetingnotes"
+        // ストア上のアプリ識別子(公開後は変更不可)。コード上のパッケージ名(namespace)は
+        // com.meetingnotes のまま。両者は異なっていてよい。
+        applicationId = "com.manaapps.meetingnotes"
         minSdk = 33
         targetSdk = 37
         versionCode = 1
