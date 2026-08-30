@@ -50,6 +50,7 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
     private var recordingStartedAt: Long = 0L
     private var recordingEndedAt: Long = 0L
     private var countdownJob: Job? = null
+    private var transcriptionEventsJob: Job? = null
 
     val liveTranscript: StateFlow<String> = transcriptionManager.transcript
     val audioLevel: StateFlow<Float> = transcriptionManager.audioLevel
@@ -102,8 +103,10 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
     private fun beginActualRecording() {
         _recordingPhase.value = RecordingPhase.Recording
         recordingStartedAt = System.currentTimeMillis()
+        _errorMessage.value = null
         transcriptionManager.start()
-        viewModelScope.launch {
+        transcriptionEventsJob?.cancel()
+        transcriptionEventsJob = viewModelScope.launch {
             transcriptionManager.events.collect { event ->
                 when (event) {
                     is TranscriptionEvent.Unsupported ->
@@ -120,6 +123,8 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
     fun cancelRecordingFlow() {
         countdownJob?.cancel()
         countdownJob = null
+        transcriptionEventsJob?.cancel()
+        transcriptionEventsJob = null
         transcriptionManager.stop()
         _recordingPhase.value = RecordingPhase.Countdown
     }
@@ -136,6 +141,8 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
 
     private fun finalizeStop() {
         recordingEndedAt = System.currentTimeMillis()
+        transcriptionEventsJob?.cancel()
+        transcriptionEventsJob = null
         transcriptionManager.stop()
         val preprocessed = transcriptPreprocessor.preprocess(liveTranscript.value)
         originalTranscript = preprocessed
