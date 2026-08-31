@@ -23,7 +23,7 @@
 | 画面遷移 | Navigation Compose 2.9.8 |
 | DB | Room 2.8.4(KSPでコード生成) |
 | 通信 | OkHttp 5.5.0 + kotlinx.serialization.json 1.11.0(Retrofit不使用、手組みのHTTPクライアント) |
-| 要約AI | Anthropic Claude API(Messages API、tool_use機能呼び出し、モデル: `claude-haiku-4-5-20251001`) |
+| 要約AI | Anthropic Claude API(Messages API、tool_use、モデル: `claude-haiku-4-5-20251001`)。APIキーをアプリに埋め込まないため自前の中継 Cloudflare Worker(`server/`)経由で呼ぶ |
 | 音声認識 | Android標準`SpeechRecognizer`のオンデバイス版(`createOnDeviceSpeechRecognizer`)。ML Kitではない |
 | 広告 | AdMob(`play-services-ads` 25.4.0) |
 | ビルド | AGP 9.1.0 / Gradle 9.3.1 / KSP 2.3.11 |
@@ -45,7 +45,7 @@ app/src/main/java/com/meetingnotes/
 │   ├── local/                   # Room: Entity/DAO/Database(ClientEntity, MeetingEntity, FolderEntity,
 │   │                             #        ClientGroupEntity, TodoEntity, UserCreditsEntity 等)
 │   ├── model/                   # ドメインモデル(MeetingSummary等、DTOと分離)
-│   └── remote/                  # AnthropicClient(Claude Messages API)
+│   └── remote/                  # AnthropicClient(要約プロキシWorker経由でClaudeを呼ぶ)
 ├── export/                      # PDF(PdfExporter)/Word(WordExporter)/メール文面のエクスポート
 ├── speech/                      # TranscriptionManager(SpeechRecognizerラッパー)、TranscriptPreprocessor
 ├── ui/
@@ -60,16 +60,21 @@ app/src/main/java/com/meetingnotes/
 
 app/src/test/java/...            # JVMユニットテスト(gradlewで実行、エミュレータ不要)
 app/src/androidTest/java/...     # インストルメンテーションテスト(実機/エミュレータが必要)
+app/schemas/...                  # Room スキーマ履歴(exportSchema。マイグレーション用にコミット)
+
+server/                          # 要約プロキシ(Cloudflare Worker、TypeScript)。server/README.md 参照
 ```
 
 ## セットアップ
 
-1. `local.properties.example` を `local.properties` にコピーし、以下を設定する(このファイルはgitignore対象):
+1. 要約プロキシ Worker をデプロイする(`server/README.md` 参照)。デプロイ後の URL とトークンを控える。
+2. `local.properties.example` を `local.properties` にコピーし、以下を設定する(このファイルはgitignore対象):
    ```
    sdk.dir=<Android SDKのパス>
-   ANTHROPIC_API_KEY=<Anthropic APIキー>
+   SUMMARY_PROXY_URL=<Worker の /summarize URL>
+   SUMMARY_PROXY_APP_TOKEN=<Worker に登録した APP_TOKEN と同じ文字列>
    ```
-2. Android Studio または `gradlew` でビルド
+3. Android Studio または `gradlew` でビルド
 
 ## ビルド・実行
 

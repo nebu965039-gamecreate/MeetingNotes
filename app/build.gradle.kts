@@ -45,8 +45,12 @@ android {
         versionCode = 5
         versionName = "0.1.4"
 
-        val anthropicApiKey = localProperties.getProperty("ANTHROPIC_API_KEY") ?: ""
-        buildConfigField("String", "ANTHROPIC_API_KEY", "\"$anthropicApiKey\"")
+        // 要約は自前の中継Worker(server/)経由で呼ぶ。アプリにAPIキーは持たない。
+        // URL・トークンは秘匿情報ではないが、環境ごとに変わるので local.properties から読む。
+        val summaryProxyUrl = localProperties.getProperty("SUMMARY_PROXY_URL") ?: ""
+        buildConfigField("String", "SUMMARY_PROXY_URL", "\"$summaryProxyUrl\"")
+        val summaryProxyAppToken = localProperties.getProperty("SUMMARY_PROXY_APP_TOKEN") ?: ""
+        buildConfigField("String", "SUMMARY_PROXY_APP_TOKEN", "\"$summaryProxyAppToken\"")
 
         // --- AdMob ---
         // 既定は Google 公式テスト広告(クローズドテスト・ローカル開発はすべてこれ)。

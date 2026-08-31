@@ -14,7 +14,8 @@ Kotlin 2.4.0 / Jetpack Compose(Material3、BOM 2026.08.00) / Navigation Compose 
 
 - `app/src/main/java/com/meetingnotes/MeetingNotesApp.kt` — DB/Repository/AdMob初期化の起点。新しいDAOやリポジトリメソッドを追加したら、ここでの配線漏れがないか確認する
 - `app/src/main/java/com/meetingnotes/ui/MeetingViewModel.kt` — 録音〜要約〜保存の状態機械(`RecordingPhase`: Countdown/Recording/Stopping/Editing)。録音画面・結果画面の両方から参照される共有ViewModel(`Navigation.kt`のNavHost外側で1つだけ生成)
-- `app/src/main/java/com/meetingnotes/data/remote/AnthropicClient.kt` — 要約クライアント(Claude Messages API、tool_use)
+- `app/src/main/java/com/meetingnotes/data/remote/AnthropicClient.kt` — 要約クライアント。APIキーはアプリに持たず、`server/` の中継Worker(`SUMMARY_PROXY_URL`)へ `{transcript}` をPOSTする。Workerが Anthropic のレスポンスをそのまま返すためパース処理(`MessagesResponse`/`SummaryDto`)は不変。プロンプト・toolスキーマ・モデルは **Worker側(`server/src/index.ts`)** にある
+- `server/` — 要約プロキシ(Cloudflare Worker、TypeScript)。デプロイ手順は `server/README.md`。秘密情報(`ANTHROPIC_API_KEY`, `APP_TOKEN`)は `wrangler secret` 管理でリポジトリに入らない
 - `app/src/main/java/com/meetingnotes/data/MeetingRepository.kt` — 全DAOを束ねる単一リポジトリ。新機能を足す時はまずここにメソッドを足す
 - `app/src/main/java/com/meetingnotes/data/local/MeetingNotesDatabase.kt` — Room DB定義。現在 version = 5
 
@@ -85,13 +86,14 @@ MVP相当の機能は一通り実装済み。Google Play Console でのクロー
 - **アプリアイコン刷新**(AGPテンプレート→「ふきだし+メモ罫線」/ M3 baseline purple `#6750A4`。`ic_launcher_foreground/monochrome/background`)
 - `applicationId` を `com.manaapps.meetingnotes` に確定(公開後変更不可)。namespace は `com.meetingnotes` のまま
 - `allowBackup="false"` + `data_extraction_rules.xml`(クラウドバックアップ・端末間転送を除外)
+- **APIキープロキシ フェーズ1**(2026-09-01): `server/`(Cloudflare Worker、TS)。アプリは `AnthropicClient` から Worker へ `{transcript}` を POST するだけ。`ANTHROPIC_API_KEY` はアプリから削除、`SUMMARY_PROXY_URL` / `SUMMARY_PROXY_APP_TOKEN` を `local.properties` から読む。プロンプト/toolスキーマ/モデルは Worker 側に移動。デプロイ・秘密登録は `server/README.md`
 - **AdMob 本番ユニットID登録済み・切替はフラグ制御**(2026-08-31〜09-01): 本番アカウント `ca-app-pub-7474417689976149`。`build.gradle.kts` は `local.properties` の `ADMOB_USE_PRODUCTION_ADS`(既定 false)で本番/テストを切替。**クローズドテスト・ローカル開発はすべてテスト広告のまま**(Google公式テストID)= 無効トラフィックのリスクなし。本番/オープンテスト用の AAB をビルドするときだけ `ADMOB_USE_PRODUCTION_ADS=true` にする。App ID は `manifestPlaceholders["admobAppId"]`、ユニットIDは `BuildConfig.ADMOB_*_UNIT_ID`。本番切替後に実機テスターへテスト広告を出す用の `ADMOB_TEST_DEVICE_IDS`(カンマ区切り)→ `MeetingNotesApp` で `RequestConfiguration.setTestDeviceIds`
 
 ### 未完了のタスク(優先度順)
 
-1. **APIキー保護のバックエンドプロキシ**(公開前に必須、ホスティング先未決定): 現状 `ANTHROPIC_API_KEY` は BuildConfig 埋め込みでリバースエンジニアリング可能。クローズドテスト中はユーザー判断で保留中(専用キー + Anthropic コンソールの支出上限で緩和)。オープンテスト/本番公開の前に必須
+1. **APIキープロキシ フェーズ2**(製品版公開前): フェーズ1(共有トークン + 文字数上限 + Worker側でリクエスト固定)は実装済み(`server/`、Cloudflare Workers)。残りは Play Integrity 検証、Cloudflare の Rate Limiting、端末ごとの利用回数上限を Worker + KV でサーバー管理(不正リセット対策と統合)。`server/README.md` の「フェーズ2」参照
 2. Google Play Billing Library(定期購入)の実装(Play Console 側のアプリ登録・商品設定が前提)
-3. 不正リセット対策フェーズ2(匿名照合サーバー、ホスティング先未決定)。プロキシ化と相乗り可能
+3. 不正リセット対策フェーズ2(端末ごとのクレジット管理をサーバー側へ)。上記プロキシ フェーズ2に統合
 4. 透かしのON/OFFをサブスク状態で自動判定(Billing 実装後)
 5. PDF への画像ロゴ埋め込み(レイアウトは改善済み。テキストワードマークを画像に差し替え。アイコンSVGを流用可能)
 

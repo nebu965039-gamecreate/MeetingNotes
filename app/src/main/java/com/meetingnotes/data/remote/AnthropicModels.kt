@@ -5,39 +5,13 @@ import com.meetingnotes.data.model.Decision
 import com.meetingnotes.data.model.MeetingSummary
 import com.meetingnotes.data.model.NextMeeting
 import com.meetingnotes.data.model.TodoItem
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
 
+/** アプリ → 要約プロキシ Worker へのリクエスト本文。 */
 @Serializable
-data class MessagesRequest(
-    val model: String,
-    @SerialName("max_tokens") val maxTokens: Int,
-    val temperature: Double,
-    val system: String,
-    val messages: List<ChatMessage>,
-    val tools: List<ToolDefinition>,
-    @SerialName("tool_choice") val toolChoice: ToolChoice
-)
-
-@Serializable
-data class ChatMessage(
-    val role: String,
-    val content: String
-)
-
-@Serializable
-data class ToolDefinition(
-    val name: String,
-    val description: String,
-    @SerialName("input_schema") val inputSchema: JsonObject
-)
-
-@Serializable
-data class ToolChoice(
-    val type: String = "tool",
-    val name: String
+data class SummarizeRequest(
+    val transcript: String
 )
 
 @Serializable

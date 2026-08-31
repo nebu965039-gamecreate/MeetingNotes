@@ -1,0 +1,20 @@
+# 商談メモ 要約プロキシ Worker
+#
+# 秘密情報はこのファイルに書かず、wrangler secret で登録する:
+#   npx wrangler secret put ANTHROPIC_API_KEY   # Anthropic のAPIキー
+#   npx wrangler secret put APP_TOKEN           # アプリ⇔Worker の共有トークン(ランダム文字列)
+#
+# デプロイ:
+#   npm install
+#   npx wrangler login
+#   npx wrangler deploy
+# → 出力される https://meetingnotes-summary-proxy.<subdomain>.workers.dev/summarize を
+#   アプリの local.properties の SUMMARY_PROXY_URL に設定する。
+
+name = "meetingnotes-summary-proxy"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+
+# 1リクエストあたりの上限(文字起こしテキストの最大文字数)。超えると 413 を返す。
+[vars]
+MAX_TRANSCRIPT_CHARS = "60000"
