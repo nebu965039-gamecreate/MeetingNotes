@@ -36,8 +36,8 @@ android {
         applicationId = "com.manaapps.meetingnotes"
         minSdk = 33
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "0.1.2"
 
         val anthropicApiKey = localProperties.getProperty("ANTHROPIC_API_KEY") ?: ""
         buildConfigField("String", "ANTHROPIC_API_KEY", "\"$anthropicApiKey\"")
@@ -45,6 +45,21 @@ android {
         // TEMP: Claude APIキー到着までの一時的なE2E確認用(GeminiClient.kt参照)
         val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") ?: ""
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
+
+        // AdMob。ここは本番ID。debug ビルドでは buildTypes.debug でテストIDに上書きする。
+        // 広告ユニットIDは秘匿情報ではない(公開APKに必ず含まれる)。
+        manifestPlaceholders["admobAppId"] = "ca-app-pub-7474417689976149~4169817438"
+        buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"ca-app-pub-7474417689976149/9542502966\"")
+        buildConfigField("String", "ADMOB_INTERSTITIAL_UNIT_ID", "\"ca-app-pub-7474417689976149/9522321669\"")
+        buildConfigField("String", "ADMOB_REWARDED_UNIT_ID", "\"ca-app-pub-7474417689976149/1355574535\"")
+
+        // 実機テスターにテスト広告を配信するための端末ID(カンマ区切り、local.properties)。
+        // 未設定なら空。エミュレータは登録不要で常にテスト広告になる。
+        // テスターの端末IDは、そのアプリ起動時の logcat の
+        //   "Use RequestConfiguration.Builder().setTestDeviceIds(Arrays.asList(\"XXXX\"))"
+        // という行から取得して local.properties に追記する。
+        val admobTestDeviceIds = localProperties.getProperty("ADMOB_TEST_DEVICE_IDS") ?: ""
+        buildConfigField("String", "ADMOB_TEST_DEVICE_IDS", "\"$admobTestDeviceIds\"")
     }
 
     signingConfigs {
@@ -59,6 +74,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            // ローカル開発では常に Google 公式テストIDを使い、本番アカウントに
+            // トラフィックを発生させない。
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
+            buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
+            buildConfigField("String", "ADMOB_INTERSTITIAL_UNIT_ID", "\"ca-app-pub-3940256099942544/1033173712\"")
+            buildConfigField("String", "ADMOB_REWARDED_UNIT_ID", "\"ca-app-pub-3940256099942544/5224354917\"")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

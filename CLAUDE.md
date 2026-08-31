@@ -70,37 +70,36 @@ adb shell am start -n com.manaapps.meetingnotes/com.meetingnotes.MainActivity
 - DBスキーマを変更する場合はEntityにデフォルト値を持つフィールドとして追加すると、既存のテストコードの修正が不要になることが多い(実例: `endedAt: Long? = null`, `groupId: Long? = null`)
 - テスト(ユニット+インストルメンテーション)は改修のたびに実行し、可能であればエミュレータでの実機確認も行う
 
-## 現在の開発状況(2026-08-30時点)
+## 現在の開発状況(2026-08-31時点)
 
-MVP相当の機能は一通り実装済み。直近はGoogle Play Consoleでのクローズドテスト提出に向けた準備を進めていた。
+MVP相当の機能は一通り実装済み。Google Play Console でのクローズドテストを開始し、テスター報告の不具合対応を回している段階。すべての変更はコミット・push 済み(`origin/main`、`github.com/nebu965039-gamecreate/MeetingNotes`、**Public**)。
 
-**Gitの状態に注意**: リポジトリは初期化・イニシャルコミット済みだが、直近の以下の変更は**未コミット**(`git status`で確認可能):
-- `ads/BannerAdView.kt`(アダプティブバナー化)
-- `ui/client/ClientDetailScreen.kt`・`ClientDetailViewModel.kt`(フォルダの名前変更・削除UI追加)
-- `ui/client/ClientListScreen.kt`(クライアントグループのフォルダ風デザイン刷新)
-- `ui/recording/RecordingScreen.kt`(RECORD_AUDIO実行時権限リクエストの追加、下記の重大バグ修正)
+現在 `versionCode = 3` / `versionName = "0.1.2"`。Play Console 提出の詳細な進捗・手順は `docs/` を参照(`play-console-checklist.md` の「あなたの作業手順 STEP 0-7」、`play-data-safety.md`、`play-store-listing.md`、`release-notes.md`)。
 
-作業を再開する際は、まずこれらの変更をコミットするかどうかユーザーに確認すること。
+### 対応済み(Play Console クローズドテスト準備)
 
-## 未完了のタスク
+- リリース署名設定(`signingConfigs`、`keystore.properties` 方式、Play App Signing)。ユーザーがアップロード鍵 `upload-keystore.jks` を生成済み(ローカルのみ・未コミット)。`./gradlew.bat bundleRelease` で署名済み AAB が出る
+- プライバシーポリシー(`docs/privacy-policy.md/html`)。GitHub Pages で公開: `https://nebu965039-gamecreate.github.io/MeetingNotes/privacy-policy.html`
+- データセーフティ フォームの記入内容(`docs/play-data-safety.md`)
+- ストア掲載テキスト(`docs/play-store-listing.md`)+ アイコン512×512 / フィーチャーグラフィック1024×500 / スクリーンショット4枚(`docs/store-assets/`)
+- **アプリアイコン刷新**(AGPテンプレート→「ふきだし+メモ罫線」/ M3 baseline purple `#6750A4`。`ic_launcher_foreground/monochrome/background`)
+- `applicationId` を `com.manaapps.meetingnotes` に確定(公開後変更不可)。namespace は `com.meetingnotes` のまま
+- `allowBackup="false"` + `data_extraction_rules.xml`(クラウドバックアップ・端末間転送を除外)
+- **AdMob 本番ID差し替え**(2026-08-31): App ID + バナー/インタースティシャル/リワードの全ユニットIDを本番へ。`build.gradle.kts` の `buildTypes` で **release=本番ID / debug=Google公式テストID** に分岐。`manifestPlaceholders["admobAppId"]` + `BuildConfig.ADMOB_*_UNIT_ID`。実機テスターへのテスト広告配信用に `local.properties` の `ADMOB_TEST_DEVICE_IDS`(カンマ区切り)→ `MeetingNotesApp` で `RequestConfiguration.setTestDeviceIds`
 
-優先度順:
+### 未完了のタスク(優先度順)
 
-1. **Play Consoleクローズドテスト提出の準備**
-   - リリースビルドの署名設定(`build.gradle.kts`に`signingConfigs`が未設定。Play App Signing推奨)
-   - プライバシーポリシーページの作成・URL準備(提出必須)
-   - データセーフティフォームの記入(収集データ・第三者提供の申告)
-   - ストア掲載情報(アイコン512×512、フィーチャーグラフィック1024×500、スクリーンショット2枚以上)
-2. **APIキー保護のバックエンドプロキシ**(公開前に必須、ホスティング先未決定): 現状`ANTHROPIC_API_KEY`はBuildConfigに直接埋め込まれておりリバースエンジニアリングで読み取り可能
-3. AdMob本番アカウント・広告ユニットIDへの差し替え(現在は全てGoogle公式テストID。クローズドテスト中はテストIDのままでよい)
-4. Google Play Billing Library(定期購入)の実装(Play Console側のアプリ登録・商品設定が前提)
-5. 不正リセット対策フェーズ2(匿名照合サーバー、ホスティング先未決定)
-6. カスタムアプリアイコンへの差し替え(現在AGPデフォルトのテンプレートアイコン)
-7. PDFへの画像ロゴ埋め込み(レイアウト自体は改善済み、テキストのワードマークを画像に差し替え)
-8. 透かしのON/OFFをサブスク状態で自動判定する仕組み(Billing実装後に対応)
+1. **APIキー保護のバックエンドプロキシ**(公開前に必須、ホスティング先未決定): 現状 `ANTHROPIC_API_KEY` は BuildConfig 埋め込みでリバースエンジニアリング可能。クローズドテスト中はユーザー判断で保留中(専用キー + Anthropic コンソールの支出上限で緩和)。オープンテスト/本番公開の前に必須
+2. Google Play Billing Library(定期購入)の実装(Play Console 側のアプリ登録・商品設定が前提)
+3. 不正リセット対策フェーズ2(匿名照合サーバー、ホスティング先未決定)。プロキシ化と相乗り可能
+4. `fallbackToDestructiveMigration(true)` の見直し(正式公開前。アプリ更新でローカルデータが消える)
+5. 透かしのON/OFFをサブスク状態で自動判定(Billing 実装後)
+6. PDF への画像ロゴ埋め込み(レイアウトは改善済み。テキストワードマークを画像に差し替え。アイコンSVGを流用可能)
+7. `GEMINI_API_KEY` / `GeminiClient.kt`(未使用の検証コード)の削除
 
 ## 既知の問題
 
-- **【重大・修正済み、要再検証】RECORD_AUDIO実行時権限の実装漏れ**: マニフェストに宣言はあったが実行時リクエストが存在せず、録音機能が実機で全く動作しない状態だった(2026-08-30発見・修正)。`RecordingScreen.kt`に`ActivityResultContracts.RequestPermission`による実行時リクエストを追加し、エミュレータで権限ダイアログの表示・許可後のエラー解消までは確認済み。**ただし実機での日本語音声認識自体が正しく動くかは未検証**(エミュレータは音声入力できないため)。友人テスターでの実機確認が次のステップ
-- リリースビルド用の署名設定が無い(上記「未完了のタスク」参照)
-- `fallbackToDestructiveMigration(true)`のため、DBスキーマを変更するアプリ更新のたびにローカルデータが失われる(プレリリース段階の割り切り。正式公開前に要見直し)
+- **【修正済み・実機再検証待ち】録音の音声認識エラー(`ERROR_CLIENT` / code=5)**: テスターの実機で発生(2026-08-31)。`TranscriptionManager` がセッション再開を `onEndOfSpeech` と `onResults`/`onError` で二重に行い、かつコールバック内から同期的に `startListening` していたのが原因。再開をメインHandler経由の遅延実行に一本化・多重起動ガード追加・code=5/8 は認識器を作り直して自動リトライ(連続5回超で打ち切り)に変更。エミュレータは日本語モデルが無く code=5 の再現不可のため、**テスターの実機での再テストが必要**
+- **【修正済み・実機再検証待ち】下部ボタンがナビゲーションバーと重なる**: targetSdk 35+ の edge-to-edge 強制が原因。`ClientDetailScreen`(録音開始)/`ClientListScreen`/`ResultScreen` の `bottomBar` に `navigationBarsPadding()` を追加。エミュレータで解消を確認、実機(3ボタン/ジェスチャー両方)の確認待ち
+- **【要再検証】実機での日本語音声認識の精度**: エミュレータは音声入力できないため未検証。テスターの実地確認が進行中
+- `fallbackToDestructiveMigration(true)` のため、DBスキーマ変更のアプリ更新でローカルデータが失われる(プレリリース段階の割り切り。正式公開前に要見直し)

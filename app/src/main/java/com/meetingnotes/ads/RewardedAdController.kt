@@ -9,6 +9,7 @@ import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
+import com.meetingnotes.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,7 +18,7 @@ private const val TAG = "RewardedAdController"
 
 /**
  * 無料枠クレジット獲得用のリワード広告(仕様書7.1)。
- * TEST_AD_UNIT_ID はGoogle公式のテスト広告ユニットID。本番配信前に実際のユニットIDへ差し替える。
+ * 広告ユニットIDは BuildConfig 経由(release=本番 / debug=Google公式テストID)。
  */
 class RewardedAdController(private val appContext: Context) {
 
@@ -29,7 +30,7 @@ class RewardedAdController(private val appContext: Context) {
     fun load() {
         RewardedAd.load(
             appContext,
-            TEST_AD_UNIT_ID,
+            BuildConfig.ADMOB_REWARDED_UNIT_ID,
             AdRequest.Builder().build(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
@@ -66,9 +67,5 @@ class RewardedAdController(private val appContext: Context) {
             return
         }
         ad.show(activity) { onRewardEarned() }
-    }
-
-    companion object {
-        const val TEST_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
     }
 }

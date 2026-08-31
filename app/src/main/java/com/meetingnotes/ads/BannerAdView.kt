@@ -9,13 +9,14 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
+import com.meetingnotes.BuildConfig
 
 /**
  * 無料ユーザー向けバナー広告(仕様書7章)。ホーム画面(クライアント一覧)・要約結果画面に配置し、
  * 録音中・要約中の画面には表示しない。
  * 画面幅に高さを最適化する「アダプティブバナー」を使用(固定サイズの標準バナーよりeCPMが
  * 平均15〜20%高いとGoogleが案内しているため)。
- * TEST_AD_UNIT_ID はGoogle公式のテスト広告ユニットID。本番配信前に実際のユニットIDへ差し替える。
+ * 広告ユニットIDは BuildConfig 経由(release=本番 / debug=Google公式テストID)。
  */
 @Composable
 fun BannerAdView(modifier: Modifier = Modifier) {
@@ -27,12 +28,10 @@ fun BannerAdView(modifier: Modifier = Modifier) {
         factory = {
             AdView(context).apply {
                 setAdSize(AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, screenWidthDp))
-                adUnitId = TEST_AD_UNIT_ID
+                adUnitId = BuildConfig.ADMOB_BANNER_UNIT_ID
                 loadAd(AdRequest.Builder().build())
             }
         },
         onRelease = { it.destroy() }
     )
 }
-
-private const val TEST_AD_UNIT_ID = "ca-app-pub-3940256099942544/9214589741"

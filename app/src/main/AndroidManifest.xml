@@ -23,10 +23,11 @@
             </intent-filter>
         </activity>
 
-        <!-- AdMob公式テストApp ID(アカウント不要)。本番配信前に実際のApp IDへ差し替える -->
+        <!-- AdMob App ID。build.gradle.kts の manifestPlaceholders["admobAppId"] から注入。
+             release=本番ID / debug=Google公式テストID。 -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="${admobAppId}" />
 
         <!-- PDF/Word書き出しファイルを共有シートに渡すためのFileProvider -->
         <provider

@@ -2,3 +2,7 @@ sdk.dir=C\:\\Users\\zhong\\AppData\\Local\\Android\\Sdk
 ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 # TEMP: Claude APIキー到着までの一時的なE2E確認用(本番では不要、GeminiClient.kt参照)
 GEMINI_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# release ビルドの実機テスターにテスト広告を出す端末ID(カンマ区切り、任意)。
+# アプリ起動時の logcat の "setTestDeviceIds(Arrays.asList("XXXX"))" の XXXX を追記する。
+# debug ビルドやエミュレータは常にテスト広告なので設定不要。
+ADMOB_TEST_DEVICE_IDS=

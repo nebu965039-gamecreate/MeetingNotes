@@ -9,6 +9,7 @@ import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+import com.meetingnotes.BuildConfig
 
 private const val TAG = "InterstitialAdController"
 private const val PREFS_NAME = "ads_prefs"
@@ -17,7 +18,7 @@ private const val KEY_LAST_SHOWN_AT = "last_interstitial_shown_at"
 /**
  * 要約完了時に表示するインタースティシャル広告(仕様書7.3)。
  * 頻度キャップ(既定1時間)を超えて連続表示しない。未ロードの場合は無音でスキップする。
- * TEST_AD_UNIT_ID はGoogle公式のテスト広告ユニットID。本番配信前に実際のユニットIDへ差し替える。
+ * 広告ユニットIDは BuildConfig 経由(release=本番 / debug=Google公式テストID)。
  */
 class InterstitialAdController(
     private val appContext: Context,
@@ -29,7 +30,7 @@ class InterstitialAdController(
     fun load() {
         InterstitialAd.load(
             appContext,
-            TEST_AD_UNIT_ID,
+            BuildConfig.ADMOB_INTERSTITIAL_UNIT_ID,
             AdRequest.Builder().build(),
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
@@ -71,9 +72,5 @@ class InterstitialAdController(
 
         ad.show(activity)
         prefs.edit().putLong(KEY_LAST_SHOWN_AT, now).apply()
-    }
-
-    companion object {
-        const val TEST_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
     }
 }
