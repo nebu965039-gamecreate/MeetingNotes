@@ -139,7 +139,7 @@
 | 項目 | 状態 | 公開前の必須度 |
 |---|---|---|
 | APIキーがクライアント埋め込み(`ANTHROPIC_API_KEY` が BuildConfig) | 未対応(ユーザー判断で保留) | **必須**(バックエンドプロキシ化)。クローズド中は専用キー + Anthropic の支出上限で緩和 |
-| AdMob 本番ID化 | **済**(2026-08-31)。release=本番ID / debug=テストID。App ID + 全ユニット | クローズド中は `ADMOB_TEST_DEVICE_IDS` にテスター端末IDを登録して実トラフィックを出さないこと |
+| AdMob 本番ユニットID | 登録済み・**既定はテスト広告**。`local.properties` の `ADMOB_USE_PRODUCTION_ADS` で切替 | クローズドテストはテスト広告のまま提出(リスクなし)。オープンテスト/本番移行時に `true` + AdMob でストア掲載情報をリンク → 配信制限解除 |
 | `fallbackToDestructiveMigration(true)`(更新でローカルデータ消失) | 未対応 | 正式公開前に Migration 実装 or 方針決定 |
 | `isMinifyEnabled = false`(難読化なし) | 現状維持 | 任意。有効化する場合 kotlinx.serialization / Room / AdMob の keep ルールが必要 |
 | `GEMINI_API_KEY` / `GeminiClient.kt`(未使用の検証コード) | リリースに同梱される | 任意。公開前に削除推奨 |

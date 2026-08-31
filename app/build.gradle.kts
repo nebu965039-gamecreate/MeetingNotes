@@ -36,8 +36,8 @@ android {
         applicationId = "com.manaapps.meetingnotes"
         minSdk = 33
         targetSdk = 37
-        versionCode = 3
-        versionName = "0.1.2"
+        versionCode = 4
+        versionName = "0.1.3"
 
         val anthropicApiKey = localProperties.getProperty("ANTHROPIC_API_KEY") ?: ""
         buildConfigField("String", "ANTHROPIC_API_KEY", "\"$anthropicApiKey\"")
@@ -46,18 +46,41 @@ android {
         val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") ?: ""
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
 
-        // AdMob。ここは本番ID。debug ビルドでは buildTypes.debug でテストIDに上書きする。
+        // --- AdMob ---
+        // 既定は Google 公式テスト広告(クローズドテスト・ローカル開発はすべてこれ)。
+        // 本番/オープンテストのAABをビルドするときだけ local.properties に
+        //   ADMOB_USE_PRODUCTION_ADS=true
+        // を設定して本番の広告ユニットに切り替える。
         // 広告ユニットIDは秘匿情報ではない(公開APKに必ず含まれる)。
-        manifestPlaceholders["admobAppId"] = "ca-app-pub-7474417689976149~4169817438"
-        buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"ca-app-pub-7474417689976149/9542502966\"")
-        buildConfigField("String", "ADMOB_INTERSTITIAL_UNIT_ID", "\"ca-app-pub-7474417689976149/9522321669\"")
-        buildConfigField("String", "ADMOB_REWARDED_UNIT_ID", "\"ca-app-pub-7474417689976149/1355574535\"")
+        val useProductionAds =
+            (localProperties.getProperty("ADMOB_USE_PRODUCTION_ADS") ?: "false").toBoolean()
+        logger.lifecycle("AdMob: ${if (useProductionAds) "本番広告ユニット" else "テスト広告ユニット"}")
 
-        // 実機テスターにテスト広告を配信するための端末ID(カンマ区切り、local.properties)。
-        // 未設定なら空。エミュレータは登録不要で常にテスト広告になる。
-        // テスターの端末IDは、そのアプリ起動時の logcat の
+        val admobAppId: String
+        val admobBanner: String
+        val admobInterstitial: String
+        val admobRewarded: String
+        if (useProductionAds) {
+            admobAppId = "ca-app-pub-7474417689976149~4169817438"
+            admobBanner = "ca-app-pub-7474417689976149/9542502966"
+            admobInterstitial = "ca-app-pub-7474417689976149/9522321669"
+            admobRewarded = "ca-app-pub-7474417689976149/1355574535"
+        } else {
+            admobAppId = "ca-app-pub-3940256099942544~3347511713"
+            admobBanner = "ca-app-pub-3940256099942544/9214589741"
+            admobInterstitial = "ca-app-pub-3940256099942544/1033173712"
+            admobRewarded = "ca-app-pub-3940256099942544/5224354917"
+        }
+        manifestPlaceholders["admobAppId"] = admobAppId
+        buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"$admobBanner\"")
+        buildConfigField("String", "ADMOB_INTERSTITIAL_UNIT_ID", "\"$admobInterstitial\"")
+        buildConfigField("String", "ADMOB_REWARDED_UNIT_ID", "\"$admobRewarded\"")
+
+        // 本番広告に切り替えたあとも実機テスターにテスト広告を出すための端末ID
+        // (カンマ区切り、local.properties)。テスト広告のうちは不要。
+        // 端末IDはアプリ起動時の logcat の
         //   "Use RequestConfiguration.Builder().setTestDeviceIds(Arrays.asList(\"XXXX\"))"
-        // という行から取得して local.properties に追記する。
+        // から取得する。エミュレータは登録不要。
         val admobTestDeviceIds = localProperties.getProperty("ADMOB_TEST_DEVICE_IDS") ?: ""
         buildConfigField("String", "ADMOB_TEST_DEVICE_IDS", "\"$admobTestDeviceIds\"")
     }
@@ -74,14 +97,6 @@ android {
     }
 
     buildTypes {
-        debug {
-            // ローカル開発では常に Google 公式テストIDを使い、本番アカウントに
-            // トラフィックを発生させない。
-            manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
-            buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
-            buildConfigField("String", "ADMOB_INTERSTITIAL_UNIT_ID", "\"ca-app-pub-3940256099942544/1033173712\"")
-            buildConfigField("String", "ADMOB_REWARDED_UNIT_ID", "\"ca-app-pub-3940256099942544/5224354917\"")
-        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
