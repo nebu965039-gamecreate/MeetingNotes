@@ -26,6 +26,12 @@ val hasReleaseKeystore = keystoreProperties.getProperty("storeFile")?.let {
     rootProject.file(it).exists()
 } ?: false
 
+// Room スキーマ履歴を app/schemas/ に書き出す。スキーマ変更時はこのJSONを
+// コミットし、対応する Migration を data/local/Migrations.kt に追加する。
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 android {
     namespace = "com.meetingnotes"
     compileSdk = 37
@@ -36,15 +42,11 @@ android {
         applicationId = "com.manaapps.meetingnotes"
         minSdk = 33
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.1.3"
+        versionCode = 5
+        versionName = "0.1.4"
 
         val anthropicApiKey = localProperties.getProperty("ANTHROPIC_API_KEY") ?: ""
         buildConfigField("String", "ANTHROPIC_API_KEY", "\"$anthropicApiKey\"")
-
-        // TEMP: Claude APIキー到着までの一時的なE2E確認用(GeminiClient.kt参照)
-        val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") ?: ""
-        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
 
         // --- AdMob ---
         // 既定は Google 公式テスト広告(クローズドテスト・ローカル開発はすべてこれ)。
@@ -112,6 +114,11 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    // Room のマイグレーションテスト(MigrationTestHelper)がスキーマJSONを読めるようにする。
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
 
     compileOptions {

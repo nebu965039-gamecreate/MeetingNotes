@@ -14,14 +14,14 @@ Kotlin 2.4.0 / Jetpack Compose(Material3、BOM 2026.08.00) / Navigation Compose 
 
 - `app/src/main/java/com/meetingnotes/MeetingNotesApp.kt` — DB/Repository/AdMob初期化の起点。新しいDAOやリポジトリメソッドを追加したら、ここでの配線漏れがないか確認する
 - `app/src/main/java/com/meetingnotes/ui/MeetingViewModel.kt` — 録音〜要約〜保存の状態機械(`RecordingPhase`: Countdown/Recording/Stopping/Editing)。録音画面・結果画面の両方から参照される共有ViewModel(`Navigation.kt`のNavHost外側で1つだけ生成)
-- `app/src/main/java/com/meetingnotes/data/remote/AnthropicClient.kt` — 本番で使用する要約クライアント。`GeminiClient.kt`は開発中の一時検証用で**現在は未使用**(削除はしていない)
+- `app/src/main/java/com/meetingnotes/data/remote/AnthropicClient.kt` — 要約クライアント(Claude Messages API、tool_use)
 - `app/src/main/java/com/meetingnotes/data/MeetingRepository.kt` — 全DAOを束ねる単一リポジトリ。新機能を足す時はまずここにメソッドを足す
 - `app/src/main/java/com/meetingnotes/data/local/MeetingNotesDatabase.kt` — Room DB定義。現在 version = 5
 
 ## アーキテクチャ・設計上の重要事項
 
 - **フォルダ/グループのパターンが2箇所ある**: 商談を整理する「フォルダ」(`FolderEntity`、クライアントに紐付く)と、クライアントを整理する「グループ」(`ClientGroupEntity`、独立エンティティ)。どちらも「手動作成→対象に1つだけ割り当て→デフォルト未展開の折りたたみUI→未分類/未展開は常時表示→削除時は対象を消さずSET_NULLで未分類に戻す」という同じ設計パターンを踏襲している。片方に機能を足すときはもう片方への横展開が必要か確認する(実際に「フォルダに名前変更・削除UIが無い」という抜けが過去に発生した)
-- **DBスキーマ変更はversion番号を上げるだけでよい**: `MeetingNotesApp.kt`で`fallbackToDestructiveMigration(true)`を設定済みのため、正式なMigrationコードは書かなくてよい(プレリリース段階のため許容している判断)。ただし本番リリース後にこの前提のままだと**アプリ更新のたびに利用者のローカルデータが消える**ので、正式公開前に見直すこと
+- **DBスキーマ変更時は正式なMigrationを書く**(2026-09-01〜。以前の`fallbackToDestructiveMigration(true)`全面適用から変更した): `MeetingNotesApp.kt`は`fallbackToDestructiveMigrationFrom(dropAllTables = true, 1, 2, 3, 4)`のみ。**version 5(クローズドテスト初回配信)以降は破壊的フォールバックしない**ため、v5→v6以降の変更で`data/local/Migrations.kt`に`Migration`を書かないとアプリ更新時にクラッシュする(=書き忘れ防止)。手順: (1) Entity変更+`MeetingNotesDatabase`の`version`を+1 (2) ビルドで`app/schemas/<db>/<新version>.json`が生成される→**コミット** (3) `Migrations.kt`に`MIGRATION_x_y`を追加し`databaseMigrations`に含める (4) `app/src/androidTest`に`MigrationTestHelper`でテスト追加。`exportSchema = true`。v1〜v4は開発中・旧テストビルドのみなので破壊的マイグレーション許容
 - **共有ViewModelのライフサイクル**: `MeetingViewModel`はNavHost外側で生成され画面をまたいで生存する。録音中の状態(カウントダウンJob等)を持つため、画面遷移で離脱する経路(戻るボタン等)では必ず`cancelRecordingFlow()`を呼んで後始末すること
 - **エクスポートと画面表示の項目構成は揃える設計**: `MeetingExportContentBuilder.kt`(PDF/Word/メール共通)と`ui/common/MeetingSummarySections.kt`(画面表示)は意図的に同じ項目順序(サマリー→決定事項→懸念点・注意点→ToDo→次回打ち合わせ)を保つ。片方の順序を変えたらもう片方も確認する
 
@@ -92,14 +92,12 @@ MVP相当の機能は一通り実装済み。Google Play Console でのクロー
 1. **APIキー保護のバックエンドプロキシ**(公開前に必須、ホスティング先未決定): 現状 `ANTHROPIC_API_KEY` は BuildConfig 埋め込みでリバースエンジニアリング可能。クローズドテスト中はユーザー判断で保留中(専用キー + Anthropic コンソールの支出上限で緩和)。オープンテスト/本番公開の前に必須
 2. Google Play Billing Library(定期購入)の実装(Play Console 側のアプリ登録・商品設定が前提)
 3. 不正リセット対策フェーズ2(匿名照合サーバー、ホスティング先未決定)。プロキシ化と相乗り可能
-4. `fallbackToDestructiveMigration(true)` の見直し(正式公開前。アプリ更新でローカルデータが消える)
-5. 透かしのON/OFFをサブスク状態で自動判定(Billing 実装後)
-6. PDF への画像ロゴ埋め込み(レイアウトは改善済み。テキストワードマークを画像に差し替え。アイコンSVGを流用可能)
-7. `GEMINI_API_KEY` / `GeminiClient.kt`(未使用の検証コード)の削除
+4. 透かしのON/OFFをサブスク状態で自動判定(Billing 実装後)
+5. PDF への画像ロゴ埋め込み(レイアウトは改善済み。テキストワードマークを画像に差し替え。アイコンSVGを流用可能)
 
 ## 既知の問題
 
 - **【修正済み・実機再検証待ち】録音の音声認識エラー(`ERROR_CLIENT` / code=5)**: テスターの実機で発生(2026-08-31)。`TranscriptionManager` がセッション再開を `onEndOfSpeech` と `onResults`/`onError` で二重に行い、かつコールバック内から同期的に `startListening` していたのが原因。再開をメインHandler経由の遅延実行に一本化・多重起動ガード追加・code=5/8 は認識器を作り直して自動リトライ(連続5回超で打ち切り)に変更。エミュレータは日本語モデルが無く code=5 の再現不可のため、**テスターの実機での再テストが必要**
 - **【修正済み・実機再検証待ち】下部ボタンがナビゲーションバーと重なる**: targetSdk 35+ の edge-to-edge 強制が原因。`ClientDetailScreen`(録音開始)/`ClientListScreen`/`ResultScreen` の `bottomBar` に `navigationBarsPadding()` を追加。エミュレータで解消を確認、実機(3ボタン/ジェスチャー両方)の確認待ち
 - **【要再検証】実機での日本語音声認識の精度**: エミュレータは音声入力できないため未検証。テスターの実地確認が進行中
-- `fallbackToDestructiveMigration(true)` のため、DBスキーマ変更のアプリ更新でローカルデータが失われる(プレリリース段階の割り切り。正式公開前に要見直し)
+- (対応済み)DBマイグレーション: v5以降は正式Migrationを書く方式に変更済み(上記「アーキテクチャ・設計上の重要事項」参照)。v1〜v4からの更新のみ破壊的

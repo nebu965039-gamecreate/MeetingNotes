@@ -45,7 +45,7 @@ app/src/main/java/com/meetingnotes/
 │   ├── local/                   # Room: Entity/DAO/Database(ClientEntity, MeetingEntity, FolderEntity,
 │   │                             #        ClientGroupEntity, TodoEntity, UserCreditsEntity 等)
 │   ├── model/                   # ドメインモデル(MeetingSummary等、DTOと分離)
-│   └── remote/                  # AnthropicClient(本番で使用)、GeminiClient(一時検証用、現在未使用)
+│   └── remote/                  # AnthropicClient(Claude Messages API)
 ├── export/                      # PDF(PdfExporter)/Word(WordExporter)/メール文面のエクスポート
 ├── speech/                      # TranscriptionManager(SpeechRecognizerラッパー)、TranscriptPreprocessor
 ├── ui/

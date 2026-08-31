@@ -14,7 +14,7 @@ import androidx.room.TypeConverters
         ClientGroupEntity::class
     ],
     version = 5,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class MeetingNotesDatabase : RoomDatabase() {
