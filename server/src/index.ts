@@ -3,21 +3,39 @@
  *
  * アプリは APIキーを持たず、このWorkerに文字起こしテキストだけを送る:
  *   POST /summarize
- *   headers: { "x-app-token": "<APP_TOKEN>", "content-type": "application/json" }
- *   body:    { "transcript": "..." }
+ *   headers: {
+ *     "x-app-token": "<APP_TOKEN>",              // 必須(フェーズ1)
+ *     "x-integrity-token": "<Play Integrity token>", // フェーズ2(PLAY_INTEGRITY_ENABLED時)
+ *     "content-type": "application/json"
+ *   }
+ *   body: { "transcript": "..." }
  *
  * Worker が Anthropic Messages API を呼び、レスポンス(tool_use を含む JSON)を
- * そのままアプリへ返す。アプリ側のパース処理は変更不要。
+ * そのままアプリへ返す。
  *
- * 秘密情報(wrangler secret put で登録):
- *   ANTHROPIC_API_KEY  Anthropic のAPIキー
- *   APP_TOKEN          アプリと共有するトークン(ランダム文字列)
+ * シークレット(wrangler secret put):
+ *   ANTHROPIC_API_KEY                     Anthropic のAPIキー
+ *   APP_TOKEN                             アプリと共有するトークン
+ *   PLAY_INTEGRITY_SERVICE_ACCOUNT_JSON   (フェーズ2)GCPサービスアカウント鍵JSON
+ * 変数(wrangler.toml [vars]):
+ *   MAX_TRANSCRIPT_CHARS, ANDROID_PACKAGE_NAME, PLAY_INTEGRITY_ENABLED, DAILY_REQUEST_CAP
+ * バインディング(任意):
+ *   RL   KV Namespace。設定すると全体の1日あたり呼び出し回数に上限をかける
  */
 
-interface Env {
+import {
+  IntegrityEnv,
+  integrityMode,
+  requestHashOf,
+  verifyIntegrityToken,
+} from "./integrity";
+
+interface Env extends IntegrityEnv {
   ANTHROPIC_API_KEY: string;
   APP_TOKEN: string;
   MAX_TRANSCRIPT_CHARS?: string;
+  DAILY_REQUEST_CAP?: string;
+  RL?: KVNamespace;
 }
 
 const MODEL = "claude-haiku-4-5-20251001";
@@ -96,6 +114,18 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** KV による「全体で1日あたり N 回」の上限(RL バインディング設定時のみ)。 */
+async function underDailyCap(env: Env): Promise<boolean> {
+  if (!env.RL) return true;
+  const cap = Number(env.DAILY_REQUEST_CAP ?? "1000");
+  if (!Number.isFinite(cap) || cap <= 0) return true;
+  const key = `count:${new Date().toISOString().slice(0, 10)}`;
+  const current = Number((await env.RL.get(key)) ?? "0");
+  if (current >= cap) return false;
+  await env.RL.put(key, String(current + 1), { expirationTtl: 172800 });
+  return true;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -129,6 +159,27 @@ export default {
     const maxChars = Number(env.MAX_TRANSCRIPT_CHARS ?? "60000");
     if (transcript.length > maxChars) {
       return jsonResponse({ error: "transcript_too_long", maxChars }, 413);
+    }
+
+    // --- Play Integrity 検証(フェーズ2)---
+    const mode = integrityMode(env);
+    if (mode !== "off") {
+      const integrityToken = request.headers.get("x-integrity-token");
+      const expectedHash = await requestHashOf(transcript);
+      if (!integrityToken) {
+        if (mode === "enforce") return jsonResponse({ error: "integrity_token_required" }, 401);
+      } else {
+        const result = await verifyIntegrityToken(env, integrityToken, expectedHash);
+        if (!result.ok && mode === "enforce") {
+          return jsonResponse({ error: "integrity_check_failed", reason: result.reason }, 403);
+        }
+        if (!result.ok) console.warn("integrity audit failed:", result.reason);
+      }
+    }
+
+    // --- 全体の1日あたり上限(任意)---
+    if (!(await underDailyCap(env))) {
+      return jsonResponse({ error: "daily_cap_reached" }, 429);
     }
 
     // --- Anthropic Messages API を呼ぶ(このリクエストの形しか作れない)---
@@ -177,7 +228,6 @@ export default {
 
       const text = await upstream.text();
       if (upstream.ok) {
-        // Anthropic のレスポンスをそのまま返す(アプリのパースは変更不要)
         return new Response(text, {
           status: 200,
           headers: { "content-type": "application/json; charset=utf-8" },
@@ -191,7 +241,6 @@ export default {
       await sleep(INITIAL_BACKOFF_MS * 2 ** attempt);
     }
 
-    // 上流のステータス/本文を透過して返す
     return new Response(lastBody, {
       status: lastStatus,
       headers: { "content-type": "application/json; charset=utf-8" },

@@ -38,7 +38,9 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
 
     private val transcriptionManager = TranscriptionManager(application)
     private val transcriptPreprocessor = TranscriptPreprocessor()
-    private val anthropicClient = AnthropicClient()
+    private val anthropicClient = AnthropicClient(
+        integrityProvider = (application as MeetingNotesApp).integrityTokenProvider
+    )
     private val repository = (application as MeetingNotesApp).repository
 
     private val deviceIdHash = DeviceIdentifier.getHashedId(application)

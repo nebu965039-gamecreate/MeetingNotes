@@ -7,6 +7,7 @@ import com.google.android.gms.ads.RequestConfiguration
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.MeetingNotesDatabase
 import com.meetingnotes.data.local.databaseMigrations
+import com.meetingnotes.data.remote.IntegrityTokenProvider
 
 class MeetingNotesApp : Application() {
 
@@ -18,6 +19,10 @@ class MeetingNotesApp : Application() {
             .addMigrations(*databaseMigrations)
             .fallbackToDestructiveMigrationFrom(dropAllTables = true, 1, 2, 3, 4)
             .build()
+    }
+
+    val integrityTokenProvider: IntegrityTokenProvider by lazy {
+        IntegrityTokenProvider(this)
     }
 
     val repository: MeetingRepository by lazy {

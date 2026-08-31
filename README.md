@@ -26,6 +26,7 @@
 | 要約AI | Anthropic Claude API(Messages API、tool_use、モデル: `claude-haiku-4-5-20251001`)。APIキーをアプリに埋め込まないため自前の中継 Cloudflare Worker(`server/`)経由で呼ぶ |
 | 音声認識 | Android標準`SpeechRecognizer`のオンデバイス版(`createOnDeviceSpeechRecognizer`)。ML Kitではない |
 | 広告 | AdMob(`play-services-ads` 25.4.0) |
+| 不正対策 | Play Integrity API(Standard、要約プロキシ呼び出しの検証。`server/` 側で decode) |
 | ビルド | AGP 9.1.0 / Gradle 9.3.1 / KSP 2.3.11 |
 | DI | 無し(手動DI、`MeetingNotesApp`でRepository等をlazy生成) |
 

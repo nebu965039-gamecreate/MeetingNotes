@@ -15,6 +15,20 @@ name = "meetingnotes-summary-proxy"
 main = "src/index.ts"
 compatibility_date = "2025-09-01"
 
-# 1リクエストあたりの上限(文字起こしテキストの最大文字数)。超えると 413 を返す。
 [vars]
+# 文字起こしテキストの最大文字数。超えると 413。
 MAX_TRANSCRIPT_CHARS = "60000"
+# アプリのパッケージ名(Play Integrity 検証に使用)。
+ANDROID_PACKAGE_NAME = "com.manaapps.meetingnotes"
+# Play Integrity: "off"(既定) / "audit"(検証してログのみ、通す) / "true"(不正なら拒否)。
+# フェーズ2のGCP設定(PLAY_INTEGRITY_SERVICE_ACCOUNT_JSON)完了後に "audit"→"true" と上げる。
+PLAY_INTEGRITY_ENABLED = "off"
+# RL(KV)バインディング設定時の、全体の1日あたり呼び出し上限。
+DAILY_REQUEST_CAP = "1000"
+
+# --- 任意: 全体の1日あたり上限を有効化する場合 ---
+# npx wrangler kv namespace create RL
+# で作成した id を貼って、下のコメントを外す:
+# [[kv_namespaces]]
+# binding = "RL"
+# id = "ここにKV namespace の id"

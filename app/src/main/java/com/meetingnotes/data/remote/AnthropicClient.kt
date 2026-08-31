@@ -23,7 +23,8 @@ class AnthropicApiException(message: String, val statusCode: Int? = null) : IOEx
  */
 class AnthropicClient(
     private val proxyUrl: String = BuildConfig.SUMMARY_PROXY_URL,
-    private val appToken: String = BuildConfig.SUMMARY_PROXY_APP_TOKEN
+    private val appToken: String = BuildConfig.SUMMARY_PROXY_APP_TOKEN,
+    private val integrityProvider: IntegrityTokenProvider? = null
 ) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val jsonMediaType = "application/json".toMediaType()
@@ -46,6 +47,11 @@ class AnthropicClient(
             SummarizeRequest(transcript = transcript)
         )
 
+        // Play Integrity(フェーズ2)。プロバイダ未設定・非対応端末では null(=ヘッダを付けない)。
+        val integrityToken = integrityProvider?.let { provider ->
+            provider.tokenFor(provider.requestHashOf(transcript))
+        }
+
         var lastError: Exception? = null
         for (attempt in 0 until MAX_ATTEMPTS) {
             try {
@@ -53,6 +59,7 @@ class AnthropicClient(
                     .url(proxyUrl)
                     .addHeader("x-app-token", appToken)
                     .addHeader("content-type", "application/json")
+                    .apply { if (integrityToken != null) addHeader("x-integrity-token", integrityToken) }
                     .post(bodyJson.toRequestBody(jsonMediaType))
                     .build()
 

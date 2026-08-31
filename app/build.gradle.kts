@@ -42,8 +42,8 @@ android {
         applicationId = "com.manaapps.meetingnotes"
         minSdk = 33
         targetSdk = 37
-        versionCode = 5
-        versionName = "0.1.4"
+        versionCode = 6
+        versionName = "0.1.5"
 
         // 要約は自前の中継Worker(server/)経由で呼ぶ。アプリにAPIキーは持たない。
         // URL・トークンは秘匿情報ではないが、環境ごとに変わるので local.properties から読む。
@@ -51,6 +51,11 @@ android {
         buildConfigField("String", "SUMMARY_PROXY_URL", "\"$summaryProxyUrl\"")
         val summaryProxyAppToken = localProperties.getProperty("SUMMARY_PROXY_APP_TOKEN") ?: ""
         buildConfigField("String", "SUMMARY_PROXY_APP_TOKEN", "\"$summaryProxyAppToken\"")
+
+        // Play Integrity(フェーズ2)。GCPプロジェクト番号を設定するとプロキシ呼び出しに
+        // Integrity トークンを付ける。未設定なら何もしない(Worker側も PLAY_INTEGRITY_ENABLED=off なら不要)。
+        val playIntegrityProjectNumber = localProperties.getProperty("PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER") ?: ""
+        buildConfigField("String", "PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER", "\"$playIntegrityProjectNumber\"")
 
         // --- AdMob ---
         // 既定は Google 公式テスト広告(クローズドテスト・ローカル開発はすべてこれ)。
@@ -150,6 +155,8 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.play.services.ads)
+    implementation(libs.play.integrity)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     debugImplementation(libs.androidx.ui.tooling)
 

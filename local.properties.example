@@ -2,6 +2,9 @@ sdk.dir=C\:\\Users\\zhong\\AppData\\Local\\Android\\Sdk
 # 要約は自前の中継Worker経由(server/README.md 参照)。アプリにAPIキーは持たない。
 SUMMARY_PROXY_URL=https://meetingnotes-summary-proxy.xxxx.workers.dev/summarize
 SUMMARY_PROXY_APP_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxx
+# Play Integrity(フェーズ2)。GCPプロジェクト番号。空ならIntegrity検証は無効。
+# server/README.md「フェーズ2」の手順で取得する。
+PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER=
 # AdMob の広告ユニット。既定(未設定/false)は Google 公式テスト広告。
 # クローズドテストもローカル開発もテスト広告のままでよい。
 # 本番/オープンテスト用の AAB をビルドするときだけ true にする。
