@@ -3,6 +3,7 @@
 # 秘密情報はこのファイルに書かず、wrangler secret で登録する:
 #   npx wrangler secret put ANTHROPIC_API_KEY   # Anthropic のAPIキー
 #   npx wrangler secret put APP_TOKEN           # アプリ⇔Worker の共有トークン(ランダム文字列)
+#   npx wrangler secret put PLAY_INTEGRITY_SERVICE_ACCOUNT_JSON  # (フェーズ2)GCPサービスアカウント鍵JSON
 #
 # デプロイ:
 #   npm install
@@ -26,9 +27,7 @@ PLAY_INTEGRITY_ENABLED = "off"
 # RL(KV)バインディング設定時の、全体の1日あたり呼び出し上限。
 DAILY_REQUEST_CAP = "1000"
 
-# --- 任意: 全体の1日あたり上限を有効化する場合 ---
-# npx wrangler kv namespace create RL
-# で作成した id を貼って、下のコメントを外す:
-# [[kv_namespaces]]
-# binding = "RL"
-# id = "ここにKV namespace の id"
+# 全体の1日あたり上限に使う KV Namespace。
+[[kv_namespaces]]
+binding = "RL"
+id = "de61a873c6624c6aad891172e9ed4b45"
