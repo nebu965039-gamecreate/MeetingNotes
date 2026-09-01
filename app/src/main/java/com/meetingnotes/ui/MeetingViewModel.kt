@@ -186,14 +186,16 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
                 return@launch
             }
 
+            // 要約の待ち時間にインタースティシャル広告を挟む(ロード済みかつ頻度キャップ内のときのみ)。
+            // 広告表示中に裏で要約が進み、閉じたときには結果が出ている、という流れを狙う。
+            interstitialAdController.tryShow(activity)
+
             runCatching { anthropicClient.summarizeMeeting(transcript) }
                 .onSuccess { _summaryState.value = SummaryUiState.Success(it) }
                 .onFailure {
                     repository.grantCredit(deviceIdHash)
                     _summaryState.value = SummaryUiState.Error(it.message ?: "要約に失敗しました。")
                 }
-
-            interstitialAdController.tryShow(activity)
         }
     }
 

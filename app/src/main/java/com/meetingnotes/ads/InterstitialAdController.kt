@@ -16,13 +16,15 @@ private const val PREFS_NAME = "ads_prefs"
 private const val KEY_LAST_SHOWN_AT = "last_interstitial_shown_at"
 
 /**
- * 要約完了時に表示するインタースティシャル広告(仕様書7.3)。
- * 頻度キャップ(既定1時間)を超えて連続表示しない。未ロードの場合は無音でスキップする。
+ * 要約の待ち時間に表示するインタースティシャル広告(仕様書7.3)。
+ * `submitForSummary` で要約リクエスト直後に `tryShow` を呼び、広告表示中に裏で要約が進む。
+ * 頻度キャップ(既定90秒。再試行時の二重表示防止用)内・未ロードのときは無音でスキップ。
  * 広告ユニットIDは BuildConfig 経由(release=本番 / debug=Google公式テストID)。
  */
 class InterstitialAdController(
     private val appContext: Context,
-    private val frequencyCapMillis: Long = 60 * 60 * 1000L
+    // 要約のたびに1回表示したいので短め。再試行時の二重表示だけを防ぐ。
+    private val frequencyCapMillis: Long = 90 * 1000L
 ) {
     private var interstitialAd: InterstitialAd? = null
     private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

@@ -35,11 +35,12 @@ interface Env extends IntegrityEnv {
   APP_TOKEN: string;
   MAX_TRANSCRIPT_CHARS?: string;
   DAILY_REQUEST_CAP?: string;
+  STRICT_TOOL?: string;
   RL?: KVNamespace;
 }
 
 const MODEL = "claude-haiku-4-5-20251001";
-const MAX_TOKENS = 1500;
+const MAX_TOKENS = 2000;
 const TEMPERATURE = 0.2;
 const TOOL_NAME = "extract_meeting_summary";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -74,34 +75,50 @@ const SYSTEM_PROMPT = `あなたはフリーランス・個人事業主向けの
    ISO 8601(YYYY-MM-DD、時刻が明言されていれば YYYY-MM-DDTHH:MM)で解決する。
    年をまたぐ相対表現は現在の日付から最も近い将来の日付を採る。`;
 
+// strict: true 対応のため、入れ子オブジェクトにも additionalProperties:false と required を付ける。
 const SUMMARY_TOOL_SCHEMA = {
   type: "object",
+  additionalProperties: false,
   properties: {
     decisions: {
       type: "array",
-      items: { type: "object", properties: { content: { type: "string" } } },
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: { content: { type: "string" } },
+        required: ["content"],
+      },
     },
     todos: {
       type: "array",
       items: {
         type: "object",
+        additionalProperties: false,
         properties: {
           task: { type: "string" },
           assignee: { type: "string" },
           deadline: { type: "string" },
         },
+        required: ["task", "assignee", "deadline"],
       },
     },
     nextMeeting: {
       type: "object",
+      additionalProperties: false,
       properties: {
         date: { type: ["string", "null"] },
         originalText: { type: ["string", "null"] },
       },
+      required: ["date", "originalText"],
     },
     concerns: {
       type: "array",
-      items: { type: "object", properties: { content: { type: "string" } } },
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: { content: { type: "string" } },
+        required: ["content"],
+      },
     },
     summary: { type: "string" },
   },
@@ -188,29 +205,33 @@ export default {
     // --- Anthropic Messages API を呼ぶ(このリクエストの形しか作れない)---
     // 現在の日付(JST)。相対的な日付表現の解決に使う。
     const todayJst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
-    const anthropicBody = JSON.stringify({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      temperature: TEMPERATURE,
-      // system と tools は毎回同一なのでプロンプトキャッシュ対象にする
-      // (最小トークン数に満たない場合は自動的にキャッシュされないだけで無害)。
-      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-      messages: [
-        {
-          role: "user",
-          content: `現在の日付: ${todayJst}\n\n以下は商談の文字起こしテキストです。上記のルールに従って抽出してください。\n\n# 文字起こしテキスト\n${transcript}`,
-        },
-      ],
-      tools: [
-        {
-          name: TOOL_NAME,
-          description: "商談の文字起こしから構造化データを抽出する",
-          input_schema: SUMMARY_TOOL_SCHEMA,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      tool_choice: { type: "tool", name: TOOL_NAME },
-    });
+    const userContent = `現在の日付: ${todayJst}\n\n以下は商談の文字起こしテキストです。上記のルールに従って抽出してください。\n\n# 文字起こしテキスト\n${transcript}`;
+
+    const buildBody = (strict: boolean): string =>
+      JSON.stringify({
+        model: MODEL,
+        max_tokens: MAX_TOKENS,
+        temperature: TEMPERATURE,
+        // system と tools は毎回同一なのでプロンプトキャッシュ対象にする
+        // (最小トークン数に満たない場合は自動的にキャッシュされないだけで無害)。
+        system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+        messages: [{ role: "user", content: userContent }],
+        tools: [
+          {
+            name: TOOL_NAME,
+            description: "商談の文字起こしから構造化データを抽出する",
+            input_schema: SUMMARY_TOOL_SCHEMA,
+            ...(strict ? { strict: true } : {}),
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+        tool_choice: { type: "tool", name: TOOL_NAME },
+      });
+
+    // strict:true で tool_use.input が必ずスキーマ通りになる(パース失敗の回避)。
+    // 万一 Anthropic が strict を拒否(400)したら、自動で strict なしにフォールバックする。
+    let strictEnabled = (env.STRICT_TOOL ?? "true").toLowerCase() !== "false";
+    let anthropicBody = buildBody(strictEnabled);
 
     let lastStatus = 502;
     let lastBody = '{"error":"upstream_unavailable"}';
@@ -240,6 +261,14 @@ export default {
           status: 200,
           headers: { "content-type": "application/json; charset=utf-8" },
         });
+      }
+
+      // strict が原因の 400 とみられる場合、strict なしで即やり直す(この attempt は使う)。
+      if (upstream.status === 400 && strictEnabled) {
+        strictEnabled = false;
+        anthropicBody = buildBody(false);
+        console.warn("strict tool rejected (400), retrying without strict");
+        continue;
       }
 
       lastStatus = upstream.status;

@@ -23,14 +23,18 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.model.MeetingSummary
 import com.meetingnotes.ui.MeetingViewModel
@@ -74,14 +78,7 @@ fun ResultScreen(
             when (val current = state) {
                 is SummaryUiState.Idle -> Text("要約はまだ実行されていません。")
 
-                is SummaryUiState.Loading -> Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CircularProgressIndicator()
-                    Text("要約中...")
-                }
+                is SummaryUiState.Loading -> SummarizingContent()
 
                 is SummaryUiState.Error -> Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -99,6 +96,38 @@ fun ResultScreen(
                 )
             }
         }
+    }
+}
+
+private val summarizingSteps = listOf(
+    "文字起こしを読み込み中...",
+    "決定事項を抽出中...",
+    "ToDo を整理中...",
+    "懸念点・次回予定をまとめ中...",
+    "仕上げています..."
+)
+
+@Composable
+private fun SummarizingContent() {
+    var step by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(2800)
+            if (step < summarizingSteps.lastIndex) step++
+        }
+    }
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        CircularProgressIndicator()
+        Text(
+            text = summarizingSteps[step],
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 16.dp)
+        )
     }
 }
 

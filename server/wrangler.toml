@@ -28,6 +28,8 @@ ANDROID_PACKAGE_NAME = "com.manaapps.meetingnotes"
 PLAY_INTEGRITY_ENABLED = "off"
 # RL(KV)バインディング設定時の、全体の1日あたり呼び出し上限。
 DAILY_REQUEST_CAP = "150"
+# strict tool use。万一 Anthropic が 400 を返すようになったら "false" にして deploy。
+STRICT_TOOL = "true"
 
 # 全体の1日あたり上限に使う KV Namespace。
 [[kv_namespaces]]
