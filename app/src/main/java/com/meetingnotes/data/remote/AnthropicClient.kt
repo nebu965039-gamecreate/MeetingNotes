@@ -41,6 +41,9 @@ class AnthropicClient(
                 "要約サーバーのURLが未設定です。local.propertiesにSUMMARY_PROXY_URLを設定してください。"
             )
         }
+        if (transcript.length > MAX_TRANSCRIPT_CHARS) {
+            throw AnthropicApiException(TRANSCRIPT_TOO_LONG_MESSAGE, 413)
+        }
 
         val bodyJson = json.encodeToString(
             SummarizeRequest.serializer(),
@@ -70,6 +73,9 @@ class AnthropicClient(
                         return@withContext parseSummary(responseBody)
                     }
 
+                    if (response.code == 413) {
+                        throw AnthropicApiException(TRANSCRIPT_TOO_LONG_MESSAGE, 413)
+                    }
                     val retryable = response.code == 429 || response.code >= 500
                     if (!retryable || attempt == MAX_ATTEMPTS - 1) {
                         throw AnthropicApiException(
@@ -107,5 +113,11 @@ class AnthropicClient(
         private const val TOOL_NAME = "extract_meeting_summary"
         private const val MAX_ATTEMPTS = 3
         private const val INITIAL_BACKOFF_MS = 1000L
+
+        /** 1回の要約で送れる文字起こしの上限(≈60〜80分)。Worker 側の MAX_TRANSCRIPT_CHARS と揃える。 */
+        const val MAX_TRANSCRIPT_CHARS = 20000
+
+        const val TRANSCRIPT_TOO_LONG_MESSAGE =
+            "この商談は長すぎるため要約できません(目安: 約60〜80分ぶんまで)。録音を分けて保存してからお試しください。"
     }
 }

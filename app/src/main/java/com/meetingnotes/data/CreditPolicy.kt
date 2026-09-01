@@ -8,7 +8,7 @@ import java.time.format.DateTimeFormatter
  * 月初リセット判定を単体テストしやすくする。
  */
 object CreditPolicy {
-    const val MONTHLY_FREE_CREDITS = 3
+    const val MONTHLY_FREE_CREDITS = 5
 
     private val yearMonthFormatter = DateTimeFormatter.ofPattern("yyyy-MM")
 

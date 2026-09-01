@@ -18,7 +18,9 @@ compatibility_date = "2025-09-01"
 
 [vars]
 # 文字起こしテキストの最大文字数。超えると 413。
-MAX_TRANSCRIPT_CHARS = "60000"
+# 約20,000字 ≈ 60〜80分の商談。1回あたりのAPIコストを ~5円 に抑えるための上限。
+# Billing 実装後は契約者向けに緩和する。
+MAX_TRANSCRIPT_CHARS = "20000"
 # アプリのパッケージ名(Play Integrity 検証に使用)。
 ANDROID_PACKAGE_NAME = "com.manaapps.meetingnotes"
 # Play Integrity: "off"(既定) / "audit"(検証してログのみ、通す) / "true"(不正なら拒否)。

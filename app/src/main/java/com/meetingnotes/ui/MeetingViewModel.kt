@@ -174,6 +174,10 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
             _summaryState.value = SummaryUiState.Error("文字起こしテキストが空です。")
             return
         }
+        if (transcript.length > AnthropicClient.MAX_TRANSCRIPT_CHARS) {
+            _summaryState.value = SummaryUiState.Error(AnthropicClient.TRANSCRIPT_TOO_LONG_MESSAGE)
+            return
+        }
 
         _summaryState.value = SummaryUiState.Loading
         viewModelScope.launch {

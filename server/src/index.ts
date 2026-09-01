@@ -69,7 +69,10 @@ const SYSTEM_PROMPT = `あなたはフリーランス・個人事業主向けの
    体言止め中心の簡潔な記録調で統一すること。
    (例:「月額プランで契約に合意」「導入コストへの懸念」のように
    名詞で言い切り、「です・ます」「だ・である」などの
-   語尾は付けない。)`;
+   語尾は付けない。)
+8. 「次回打ち合わせ」の date は、メッセージ冒頭で与えられる「現在の日付」を基準に
+   ISO 8601(YYYY-MM-DD、時刻が明言されていれば YYYY-MM-DDTHH:MM)で解決する。
+   年をまたぐ相対表現は現在の日付から最も近い将来の日付を採る。`;
 
 const SUMMARY_TOOL_SCHEMA = {
   type: "object",
@@ -156,7 +159,7 @@ export default {
     if (typeof transcript !== "string" || transcript.trim().length === 0) {
       return jsonResponse({ error: "transcript_required" }, 400);
     }
-    const maxChars = Number(env.MAX_TRANSCRIPT_CHARS ?? "60000");
+    const maxChars = Number(env.MAX_TRANSCRIPT_CHARS ?? "20000");
     if (transcript.length > maxChars) {
       return jsonResponse({ error: "transcript_too_long", maxChars }, 413);
     }
@@ -183,15 +186,19 @@ export default {
     }
 
     // --- Anthropic Messages API を呼ぶ(このリクエストの形しか作れない)---
+    // 現在の日付(JST)。相対的な日付表現の解決に使う。
+    const todayJst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
     const anthropicBody = JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
       temperature: TEMPERATURE,
-      system: SYSTEM_PROMPT,
+      // system と tools は毎回同一なのでプロンプトキャッシュ対象にする
+      // (最小トークン数に満たない場合は自動的にキャッシュされないだけで無害)。
+      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       messages: [
         {
           role: "user",
-          content: `以下は商談の文字起こしテキストです。上記のルールに従って抽出してください。\n\n# 文字起こしテキスト\n${transcript}`,
+          content: `現在の日付: ${todayJst}\n\n以下は商談の文字起こしテキストです。上記のルールに従って抽出してください。\n\n# 文字起こしテキスト\n${transcript}`,
         },
       ],
       tools: [
@@ -199,6 +206,7 @@ export default {
           name: TOOL_NAME,
           description: "商談の文字起こしから構造化データを抽出する",
           input_schema: SUMMARY_TOOL_SCHEMA,
+          cache_control: { type: "ephemeral" },
         },
       ],
       tool_choice: { type: "tool", name: TOOL_NAME },

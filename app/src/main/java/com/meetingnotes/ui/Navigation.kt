@@ -11,6 +11,7 @@ import androidx.navigation.navArgument
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.client.ClientDetailScreen
 import com.meetingnotes.ui.client.ClientListScreen
+import com.meetingnotes.ui.help.HelpScreen
 import com.meetingnotes.ui.meeting.MeetingDetailScreen
 import com.meetingnotes.ui.recording.RecordingScreen
 import com.meetingnotes.ui.result.ResultScreen
@@ -21,6 +22,7 @@ object Routes {
     const val RECORDING = "recording/{clientId}"
     const val RESULT = "result"
     const val MEETING_DETAIL = "meetingDetail/{meetingId}"
+    const val HELP = "help"
 
     fun clientDetail(clientId: Long) = "clientDetail/$clientId"
     fun recording(clientId: Long) = "recording/$clientId"
@@ -40,8 +42,12 @@ fun MeetingNotesNavHost(
                 repository = repository,
                 onClientSelected = { clientId ->
                     navController.navigate(Routes.clientDetail(clientId))
-                }
+                },
+                onHelp = { navController.navigate(Routes.HELP) }
             )
+        }
+        composable(Routes.HELP) {
+            HelpScreen(onBack = { navController.popBackStack() })
         }
         composable(
             Routes.CLIENT_DETAIL,

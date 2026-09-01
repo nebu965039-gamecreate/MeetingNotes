@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Folder
@@ -55,7 +56,8 @@ import com.meetingnotes.ui.common.TextInputDialog
 @Composable
 fun ClientListScreen(
     repository: MeetingRepository,
-    onClientSelected: (Long) -> Unit
+    onClientSelected: (Long) -> Unit,
+    onHelp: () -> Unit
 ) {
     val viewModel: ClientListViewModel = viewModel(factory = ClientListViewModel.factory(repository))
     val clients by viewModel.clients.collectAsState()
@@ -83,6 +85,9 @@ fun ClientListScreen(
                 actions = {
                     IconButton(onClick = { showAddGroupDialog = true }) {
                         Icon(Icons.Filled.CreateNewFolder, contentDescription = "グループを作成")
+                    }
+                    IconButton(onClick = onHelp) {
+                        Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "使い方・ヘルプ")
                     }
                 }
             )
