@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.ads.InterstitialAdController
 import com.meetingnotes.ads.RewardedAdController
+import com.meetingnotes.data.RecordingDraftStore
 import com.meetingnotes.data.model.MeetingSummary
 import com.meetingnotes.data.remote.AnthropicClient
 import com.meetingnotes.speech.TranscriptPreprocessor
@@ -42,6 +43,7 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         integrityProvider = (application as MeetingNotesApp).integrityTokenProvider
     )
     private val repository = (application as MeetingNotesApp).repository
+    private val draftStore = (application as MeetingNotesApp).recordingDraftStore
 
     private val deviceIdHash = DeviceIdentifier.getHashedId(application)
     private val rewardedAdController = RewardedAdController(application)
@@ -116,9 +118,12 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
 
         elapsedTickerJob?.cancel()
         elapsedTickerJob = viewModelScope.launch {
+            var tick = 0
             while (true) {
                 delay(1000)
                 _recordingElapsedMs.value = System.currentTimeMillis() - recordingStartedAt
+                // 数秒おきに文字起こしを下書き保存(プロセス終了時の保険)。
+                if (++tick % 5 == 0) persistDraft(endedAt = 0L)
             }
         }
 
@@ -138,6 +143,8 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
 
     /** カウントダウン中・録音中を問わず、画面を離脱する際に呼ぶ。進行中の処理を安全に後始末する。 */
     fun cancelRecordingFlow() {
+        // 中断前に最新の文字起こしを下書き保存(一覧から再開できるようにする)。
+        persistDraft(endedAt = if (_recordingPhase.value == RecordingPhase.Editing) recordingEndedAt else 0L)
         countdownJob?.cancel()
         countdownJob = null
         transcriptionEventsJob?.cancel()
@@ -169,10 +176,52 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         originalTranscript = preprocessed
         _editableTranscript.value = preprocessed
         _recordingPhase.value = RecordingPhase.Editing
+        persistDraft(endedAt = recordingEndedAt)
     }
 
     fun updateEditableTranscript(text: String) {
         _editableTranscript.value = text
+        persistDraft(endedAt = recordingEndedAt)
+    }
+
+    /** 現在の文字起こしを下書きとして端末に保存する(要約前の作業を失わないための保険)。 */
+    private fun persistDraft(endedAt: Long) {
+        val text = if (_recordingPhase.value == RecordingPhase.Editing) {
+            _editableTranscript.value
+        } else {
+            liveTranscript.value
+        }
+        if (text.isBlank() || clientId < 0) return
+        draftStore.save(
+            RecordingDraftStore.Draft(
+                clientId = clientId,
+                transcript = text,
+                startedAt = recordingStartedAt,
+                endedAt = endedAt,
+                updatedAt = System.currentTimeMillis(),
+            )
+        )
+    }
+
+    fun pendingDraftForClient(clientId: Long): Boolean =
+        draftStore.draft.value?.clientId == clientId
+
+    /** クライアント一覧などから「途中の下書きを開く」で呼ぶ。編集画面の状態に復元する。 */
+    fun restoreDraft(): Boolean {
+        val draft = draftStore.draft.value ?: return false
+        clientId = draft.clientId
+        recordingStartedAt = draft.startedAt
+        recordingEndedAt = if (draft.endedAt > 0) draft.endedAt else System.currentTimeMillis()
+        originalTranscript = draft.transcript
+        _editableTranscript.value = draft.transcript
+        _summaryState.value = SummaryUiState.Idle
+        _errorMessage.value = null
+        _recordingPhase.value = RecordingPhase.Editing
+        return true
+    }
+
+    fun discardDraft() {
+        draftStore.clear()
     }
 
     /** 手編集を、文字起こし直後(前処理済み)のテキストに戻す。 */
@@ -235,6 +284,7 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
                 recordedAt = recordingStartedAt,
                 endedAt = recordingEndedAt
             )
+            draftStore.clear()
             onSaved()
         }
     }

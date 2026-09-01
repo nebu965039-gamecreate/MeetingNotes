@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.data.RecordingDraftStore
 import com.meetingnotes.data.local.MeetingNotesDatabase
 import com.meetingnotes.data.local.databaseMigrations
 import com.meetingnotes.data.remote.IntegrityTokenProvider
@@ -23,6 +24,10 @@ class MeetingNotesApp : Application() {
 
     val integrityTokenProvider: IntegrityTokenProvider by lazy {
         IntegrityTokenProvider(this)
+    }
+
+    val recordingDraftStore: RecordingDraftStore by lazy {
+        RecordingDraftStore(this)
     }
 
     val repository: MeetingRepository by lazy {

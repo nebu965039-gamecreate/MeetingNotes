@@ -3,25 +3,34 @@ package com.meetingnotes.ui.recording
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,21 +48,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.meetingnotes.data.remote.AnthropicClient
 import com.meetingnotes.ui.MeetingViewModel
 import com.meetingnotes.ui.RecordingPhase
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,6 +90,10 @@ fun RecordingScreen(
     val activity = LocalActivity.current as Activity
 
     var permissionDenied by remember { mutableStateOf(false) }
+    var flowStarted by remember { mutableStateOf(false) }
+    var showDraftDialog by remember { mutableStateOf(false) }
+    var showStopConfirm by remember { mutableStateOf(false) }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -86,7 +105,7 @@ fun RecordingScreen(
         }
     }
 
-    LaunchedEffect(clientId) {
+    val startFreshRecording: () -> Unit = {
         val hasPermission = ContextCompat.checkSelfPermission(
             activity, Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
@@ -97,17 +116,35 @@ fun RecordingScreen(
         }
     }
 
+    LaunchedEffect(clientId) {
+        if (flowStarted) return@LaunchedEffect
+        if (viewModel.pendingDraftForClient(clientId)) {
+            showDraftDialog = true
+        } else {
+            flowStarted = true
+            startFreshRecording()
+        }
+    }
+
     val handleCancel: () -> Unit = {
         viewModel.cancelRecordingFlow()
         onCancel()
     }
+
+    val isActivelyRecording = phase == RecordingPhase.Countdown ||
+        phase == RecordingPhase.Recording ||
+        phase == RecordingPhase.Stopping
+
+    BackHandler(enabled = isActivelyRecording && !showDraftDialog) { showStopConfirm = true }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("録音") },
                 navigationIcon = {
-                    IconButton(onClick = handleCancel) {
+                    IconButton(onClick = {
+                        if (isActivelyRecording) showStopConfirm = true else handleCancel()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                     }
                 }
@@ -168,6 +205,46 @@ fun RecordingScreen(
                     .padding(16.dp)
             )
         }
+    }
+
+    if (showDraftDialog) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("前回の録音が途中です") },
+            text = { Text("停止済みの文字起こしが保存されています。続きを編集しますか?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDraftDialog = false
+                    flowStarted = true
+                    viewModel.restoreDraft()
+                }) { Text("続きを編集する") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDraftDialog = false
+                    flowStarted = true
+                    viewModel.discardDraft()
+                    startFreshRecording()
+                }) { Text("破棄して新しく録音") }
+            }
+        )
+    }
+
+    if (showStopConfirm) {
+        AlertDialog(
+            onDismissRequest = { showStopConfirm = false },
+            title = { Text("録音を中止しますか?") },
+            text = { Text("ここまでの文字起こしは下書きとして保存され、あとで一覧から再開できます。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showStopConfirm = false
+                    handleCancel()
+                }) { Text("中止する") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStopConfirm = false }) { Text("録音を続ける") }
+            }
+        )
     }
 }
 
@@ -271,19 +348,69 @@ private fun RecordingContent(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Button(
-            onClick = onStop,
+        SlideToStop(onStop = onStop)
+    }
+}
+
+/**
+ * 誤タップで録音が止まらないよう、つまみを右端までスライドして初めて停止する操作。
+ */
+@Composable
+private fun SlideToStop(onStop: () -> Unit, modifier: Modifier = Modifier) {
+    val density = LocalDensity.current
+    val trackHeight = 64.dp
+    val thumbSize = 56.dp
+    val innerPadding = 4.dp
+
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(trackHeight)
+            .clip(RoundedCornerShape(trackHeight / 2))
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        val maxOffset = with(density) {
+            (maxWidth - thumbSize - innerPadding * 2).toPx().coerceAtLeast(1f)
+        }
+        var offsetX by remember { mutableFloatStateOf(0f) }
+        val progress = (offsetX / maxOffset).coerceIn(0f, 1f)
+
+        Text(
+            text = "スライドして停止  →",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.graphicsLayer { alpha = 1f - progress }
+        )
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
+                .align(Alignment.CenterStart)
+                .offset { IntOffset(offsetX.roundToInt(), 0) }
+                .padding(innerPadding)
+                .size(thumbSize)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+                .draggable(
+                    orientation = Orientation.Horizontal,
+                    state = rememberDraggableState { delta ->
+                        offsetX = (offsetX + delta).coerceIn(0f, maxOffset)
+                    },
+                    onDragStopped = {
+                        if (offsetX >= maxOffset * 0.8f) {
+                            offsetX = maxOffset
+                            onStop()
+                        } else {
+                            Animatable(offsetX).animateTo(0f) { offsetX = value }
+                        }
+                    }
+                ),
+            contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
                     .size(16.dp)
-                    .background(LocalContentColor.current, shape = RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(2.dp))
             )
-            Spacer(Modifier.width(10.dp))
-            Text("停止", style = MaterialTheme.typography.titleLarge)
         }
     }
 }

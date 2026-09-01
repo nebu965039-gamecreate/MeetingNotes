@@ -43,6 +43,10 @@ fun MeetingNotesNavHost(
                 onClientSelected = { clientId ->
                     navController.navigate(Routes.clientDetail(clientId))
                 },
+                onRecoverDraft = { clientId ->
+                    meetingViewModel.resetForNewMeeting()
+                    navController.navigate(Routes.recording(clientId))
+                },
                 onHelp = { navController.navigate(Routes.HELP) }
             )
         }

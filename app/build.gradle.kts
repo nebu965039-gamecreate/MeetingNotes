@@ -42,8 +42,8 @@ android {
         applicationId = "com.manaapps.meetingnotes"
         minSdk = 33
         targetSdk = 37
-        versionCode = 7
-        versionName = "0.1.6"
+        versionCode = 8
+        versionName = "0.1.7"
 
         // 要約は自前の中継Worker(server/)経由で呼ぶ。アプリにAPIキーは持たない。
         // URL・トークンは秘匿情報ではないが、環境ごとに変わるので local.properties から読む。
