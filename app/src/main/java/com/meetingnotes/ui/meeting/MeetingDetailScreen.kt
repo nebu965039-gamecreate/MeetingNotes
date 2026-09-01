@@ -26,6 +26,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -86,7 +88,7 @@ fun MeetingDetailScreen(
     )
     val meeting by viewModel.meeting.collectAsState()
     val todos by viewModel.todos.collectAsState()
-    var showPdfDialog by remember { mutableStateOf(false) }
+    var exportAction by remember { mutableStateOf<ExportAction?>(null) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
@@ -198,34 +200,21 @@ fun MeetingDetailScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(text = "議事録エクスポート", style = MaterialTheme.typography.titleMedium)
 
-                    Button(onClick = { showPdfDialog = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text("PDF出力")
-                    }
-
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.exportWord { file ->
-                                    ShareFileHelper.shareFile(context, file, WordExporter.MIME_TYPE, "商談メモをWordで共有")
-                                }
-                            },
+                        Button(
+                            onClick = { exportAction = ExportAction.SHARE },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Wordで共有")
+                            Text("共有する")
                         }
                         OutlinedButton(
-                            onClick = {
-                                viewModel.exportWord { file ->
-                                    pendingSaveFile = file
-                                    wordSaveLauncher.launch("meeting_${current.id}.docx")
-                                }
-                            },
+                            onClick = { exportAction = ExportAction.SAVE },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Wordを保存")
+                            Text("デバイスに保存")
                         }
                     }
 
@@ -244,20 +233,33 @@ fun MeetingDetailScreen(
         }
     }
 
-    if (showPdfDialog) {
-        PdfExportOptionsDialog(
-            onDismiss = { showPdfDialog = false },
-            onShare = { watermark ->
-                showPdfDialog = false
-                viewModel.exportPdf(watermark) { file ->
-                    ShareFileHelper.shareFile(context, file, PdfExporter.MIME_TYPE, "商談メモをPDFで共有")
-                }
-            },
-            onSave = { watermark ->
-                showPdfDialog = false
-                viewModel.exportPdf(watermark) { file ->
-                    pendingSaveFile = file
-                    pdfSaveLauncher.launch(file.name)
+    exportAction?.let { action ->
+        ExportOptionsDialog(
+            action = action,
+            onDismiss = { exportAction = null },
+            onExport = { format, watermark ->
+                exportAction = null
+                when (format) {
+                    ExportFormat.PDF -> viewModel.exportPdf(watermark) { file ->
+                        when (action) {
+                            ExportAction.SHARE ->
+                                ShareFileHelper.shareFile(context, file, PdfExporter.MIME_TYPE, "商談メモをPDFで共有")
+                            ExportAction.SAVE -> {
+                                pendingSaveFile = file
+                                pdfSaveLauncher.launch(file.name)
+                            }
+                        }
+                    }
+                    ExportFormat.WORD -> viewModel.exportWord { file ->
+                        when (action) {
+                            ExportAction.SHARE ->
+                                ShareFileHelper.shareFile(context, file, WordExporter.MIME_TYPE, "商談メモをWordで共有")
+                            ExportAction.SAVE -> {
+                                pendingSaveFile = file
+                                wordSaveLauncher.launch(file.name)
+                            }
+                        }
+                    }
                 }
             }
         )
@@ -290,13 +292,17 @@ fun MeetingDetailScreen(
     }
 }
 
+private enum class ExportAction { SHARE, SAVE }
+private enum class ExportFormat { PDF, WORD }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PdfExportOptionsDialog(
+private fun ExportOptionsDialog(
+    action: ExportAction,
     onDismiss: () -> Unit,
-    onShare: (Watermark?) -> Unit,
-    onSave: (Watermark?) -> Unit
+    onExport: (ExportFormat, Watermark?) -> Unit
 ) {
+    var format by remember { mutableStateOf(ExportFormat.PDF) }
     var watermarkEnabled by remember { mutableStateOf(true) }
     var watermarkText by remember { mutableStateOf("SAMPLE") }
     var position by remember { mutableStateOf(WatermarkPosition.CENTER) }
@@ -311,23 +317,42 @@ private fun PdfExportOptionsDialog(
     )
 
     fun currentWatermark(): Watermark? =
-        if (watermarkEnabled) Watermark(text = watermarkText.ifBlank { "SAMPLE" }, position = position) else null
+        if (format == ExportFormat.PDF && watermarkEnabled)
+            Watermark(text = watermarkText.ifBlank { "SAMPLE" }, position = position)
+        else null
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("PDF出力オプション") },
+        title = { Text(if (action == ExportAction.SHARE) "共有する" else "デバイスに保存") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("透かしを入れる(無料プラン相当)")
-                    Switch(checked = watermarkEnabled, onCheckedChange = { watermarkEnabled = it })
+                Text("形式", style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = format == ExportFormat.PDF,
+                        onClick = { format = ExportFormat.PDF },
+                        label = { Text("PDF") }
+                    )
+                    FilterChip(
+                        selected = format == ExportFormat.WORD,
+                        onClick = { format = ExportFormat.WORD },
+                        label = { Text("Word") }
+                    )
                 }
 
-                if (watermarkEnabled) {
+                if (format == ExportFormat.PDF) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("透かしを入れる(無料プラン相当)")
+                        Switch(checked = watermarkEnabled, onCheckedChange = { watermarkEnabled = it })
+                    }
+                }
+
+                if (format == ExportFormat.PDF && watermarkEnabled) {
                     OutlinedTextField(
                         value = watermarkText,
                         onValueChange = { watermarkText = it },
@@ -373,13 +398,8 @@ private fun PdfExportOptionsDialog(
             }
         },
         confirmButton = {
-            Row {
-                TextButton(onClick = { onShare(currentWatermark()) }) {
-                    Text("共有")
-                }
-                TextButton(onClick = { onSave(currentWatermark()) }) {
-                    Text("保存して終了")
-                }
+            TextButton(onClick = { onExport(format, currentWatermark()) }) {
+                Text(if (action == ExportAction.SHARE) "共有する" else "保存する")
             }
         },
         dismissButton = {
