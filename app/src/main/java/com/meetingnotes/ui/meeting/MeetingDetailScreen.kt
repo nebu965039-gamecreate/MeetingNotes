@@ -32,7 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -210,23 +209,12 @@ fun MeetingDetailScreen(
                         ) {
                             Text("共有する")
                         }
-                        OutlinedButton(
+                        Button(
                             onClick = { exportAction = ExportAction.SAVE },
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("デバイスに保存")
                         }
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.buildPlainTextSummary()?.let { text ->
-                                ShareFileHelper.sharePlainText(context, text, "商談メモをメールで共有")
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("メール文面で共有")
                     }
                 }
             }
