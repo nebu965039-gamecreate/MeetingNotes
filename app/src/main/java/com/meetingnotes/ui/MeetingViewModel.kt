@@ -53,6 +53,7 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
     private var recordingEndedAt: Long = 0L
     private var countdownJob: Job? = null
     private var transcriptionEventsJob: Job? = null
+    private var elapsedTickerJob: Job? = null
 
     val liveTranscript: StateFlow<String> = transcriptionManager.transcript
     val audioLevel: StateFlow<Float> = transcriptionManager.audioLevel
@@ -65,6 +66,10 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
 
     private val _editableTranscript = MutableStateFlow("")
     val editableTranscript: StateFlow<String> = _editableTranscript.asStateFlow()
+
+    /** 録音経過時間(ミリ秒)。長時間録音時に画面側で目安の警告を出すために公開している。 */
+    private val _recordingElapsedMs = MutableStateFlow(0L)
+    val recordingElapsedMs: StateFlow<Long> = _recordingElapsedMs.asStateFlow()
 
     private val _summaryState = MutableStateFlow<SummaryUiState>(SummaryUiState.Idle)
     val summaryState: StateFlow<SummaryUiState> = _summaryState.asStateFlow()
@@ -106,7 +111,17 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         _recordingPhase.value = RecordingPhase.Recording
         recordingStartedAt = System.currentTimeMillis()
         _errorMessage.value = null
+        _recordingElapsedMs.value = 0L
         transcriptionManager.start()
+
+        elapsedTickerJob?.cancel()
+        elapsedTickerJob = viewModelScope.launch {
+            while (true) {
+                delay(1000)
+                _recordingElapsedMs.value = System.currentTimeMillis() - recordingStartedAt
+            }
+        }
+
         transcriptionEventsJob?.cancel()
         transcriptionEventsJob = viewModelScope.launch {
             transcriptionManager.events.collect { event ->
@@ -127,6 +142,8 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         countdownJob = null
         transcriptionEventsJob?.cancel()
         transcriptionEventsJob = null
+        elapsedTickerJob?.cancel()
+        elapsedTickerJob = null
         transcriptionManager.stop()
         _recordingPhase.value = RecordingPhase.Countdown
     }
@@ -145,6 +162,8 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         recordingEndedAt = System.currentTimeMillis()
         transcriptionEventsJob?.cancel()
         transcriptionEventsJob = null
+        elapsedTickerJob?.cancel()
+        elapsedTickerJob = null
         transcriptionManager.stop()
         val preprocessed = transcriptPreprocessor.preprocess(liveTranscript.value)
         originalTranscript = preprocessed

@@ -48,6 +48,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
+import com.meetingnotes.ads.BannerAdFormat
+import com.meetingnotes.ads.BannerAdView
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
@@ -185,6 +187,12 @@ fun MeetingDetailScreen(
             }
 
             nextMeetingSection(current.nextMeetingDate ?: current.nextMeetingOriginalText ?: "(未定)")
+
+            item {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    BannerAdView(format = BannerAdFormat.MediumRectangle)
+                }
+            }
 
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -51,6 +51,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.meetingnotes.data.remote.AnthropicClient
 import com.meetingnotes.ui.MeetingViewModel
 import com.meetingnotes.ui.RecordingPhase
 
@@ -70,6 +71,7 @@ fun RecordingScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val creditBalance by viewModel.creditBalance.collectAsState()
     val isRewardedAdLoaded by viewModel.isRewardedAdLoaded.collectAsState()
+    val recordingElapsedMs by viewModel.recordingElapsedMs.collectAsState()
     val activity = LocalActivity.current as Activity
 
     var permissionDenied by remember { mutableStateOf(false) }
@@ -134,6 +136,7 @@ fun RecordingScreen(
                 liveTranscript = liveTranscript,
                 audioLevel = audioLevel,
                 errorMessage = errorMessage,
+                elapsedMs = recordingElapsedMs,
                 onStop = { viewModel.requestStopRecording() },
                 modifier = Modifier
                     .fillMaxSize()
@@ -166,6 +169,16 @@ fun RecordingScreen(
             )
         }
     }
+}
+
+/** 1回の要約の上限(約60〜80分)に近づいてきたら、録音中の画面で区切りを促す目安。 */
+private const val RECORDING_LENGTH_WARNING_MS = 50 * 60 * 1000L
+
+private fun formatElapsed(elapsedMs: Long): String {
+    val totalSeconds = elapsedMs / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%02d:%02d".format(minutes, seconds)
 }
 
 @Composable
@@ -215,6 +228,7 @@ private fun RecordingContent(
     liveTranscript: String,
     audioLevel: Float,
     errorMessage: String?,
+    elapsedMs: Long,
     onStop: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -224,11 +238,21 @@ private fun RecordingContent(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Text(
-            text = "録音中...",
+            text = "録音中... ${formatElapsed(elapsedMs)}",
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
+
+        if (elapsedMs >= RECORDING_LENGTH_WARNING_MS) {
+            Text(
+                text = "長時間の録音になっています。1回の要約には上限があるため、" +
+                    "区切りのよいところで一度停止することをおすすめします。",
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         AudioLevelVisualizer(level = audioLevel, modifier = Modifier.fillMaxWidth())
 
@@ -343,6 +367,20 @@ private fun EditingContent(
             label = { Text("文字起こしテキスト(誤字修正可)") }
         )
 
+        val isOverLimit = editableTranscript.length > AnthropicClient.MAX_TRANSCRIPT_CHARS
+        Text(
+            text = "文字数: ${editableTranscript.length} / ${AnthropicClient.MAX_TRANSCRIPT_CHARS}",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isOverLimit) MaterialTheme.colorScheme.error else LocalContentColor.current
+        )
+        if (isOverLimit) {
+            Text(
+                text = AnthropicClient.TRANSCRIPT_TOO_LONG_MESSAGE,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
@@ -355,7 +393,7 @@ private fun EditingContent(
         Text(text = "残りクレジット: ${creditBalance}回")
 
         if (creditBalance > 0) {
-            Button(onClick = onSubmit, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = onSubmit, enabled = !isOverLimit, modifier = Modifier.fillMaxWidth()) {
                 Text("この内容で要約する")
             }
         } else {

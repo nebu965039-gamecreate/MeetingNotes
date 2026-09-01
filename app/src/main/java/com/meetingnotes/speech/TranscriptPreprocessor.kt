@@ -25,11 +25,18 @@ class TranscriptPreprocessor {
     private val repeatedPunctRegex = Regex("([。、！？])\\1+")
     private val hiraganaElongationRegex = Regex("(?<=[ぁ-ん])ー{2,}")
     private val longRunRegex = Regex("([ぁ-ん])\\1{3,}")
+    private val leadingFillerConjRegex = Regex("(^|(?<=[。！？\\n]))(で、|でね、|えー、|あの、|まあ、)")
     private val multiSpaceRegex = Regex("[ \\t\\u3000]{2,}")
     private val multiNewlineRegex = Regex("\\n{2,}")
     private val orphanLeadingPunctRegex = Regex("(^|\\n)[、。！？\\s]+")
     private val sentenceSplitRegex = Regex("(?<=[。．！？\\n])")
     private val ignorableForCompareRegex = Regex("[\\s、。．!！?？]")
+
+    // 文全体がこれだけ、という相槌・つなぎ言葉は要約に不要なので落とす。
+    private val pureBackchannels = setOf(
+        "はい", "ええ", "うん", "そうですね", "そうですか", "なるほど", "確かに",
+        "わかりました", "承知しました", "了解です", "ありがとうございます",
+    )
 
     fun preprocess(rawText: String): String {
         var text = rawText
@@ -38,23 +45,33 @@ class TranscriptPreprocessor {
         text = repeatedPunctRegex.replace(text) { it.groupValues[1] }
         text = hiraganaElongationRegex.replace(text, "")
         text = longRunRegex.replace(text) { it.groupValues[1] }
-        text = dropAdjacentDuplicateSentences(text)
+        text = leadingFillerConjRegex.replace(text) { it.groupValues[1] }
+        text = filterSentences(text)
         text = multiSpaceRegex.replace(text, " ")
         text = multiNewlineRegex.replace(text, "\n")
         text = orphanLeadingPunctRegex.replace(text) { it.groupValues[1] }
         return text.trim()
     }
 
-    /** 隣接する同一文を1つに畳む。音声認識のセッション切り替えで直前の発話が二重に確定することがある。 */
-    private fun dropAdjacentDuplicateSentences(text: String): String {
+    /**
+     * 文単位のフィルタ:
+     *  - 隣接する同一文を畳む(音声認識のセッション切り替えで直前の発話が二重確定しやすい)
+     *  - 相槌・つなぎ言葉だけの文を落とす(要約には不要)
+     */
+    private fun filterSentences(text: String): String {
         val parts = sentenceSplitRegex.split(text)
         val out = StringBuilder()
         var prevKey: String? = null
         for (part in parts) {
             val key = ignorableForCompareRegex.replace(part, "")
-            if (key.isNotEmpty() && key == prevKey) continue
+            if (key.isEmpty()) {
+                out.append(part)
+                continue
+            }
+            if (key == prevKey) continue
+            if (key in pureBackchannels) continue
             out.append(part)
-            if (key.isNotEmpty()) prevKey = key
+            prevKey = key
         }
         return out.toString()
     }

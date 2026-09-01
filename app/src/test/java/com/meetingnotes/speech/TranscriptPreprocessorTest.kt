@@ -17,9 +17,9 @@ class TranscriptPreprocessorTest {
     }
 
     @Test
-    fun `repeated acknowledgements collapse into a single one`() {
+    fun `repeated acknowledgements are dropped`() {
         val result = preprocessor.preprocess("はい、はい、はい。それで進めましょう")
-        assertEquals("はい。それで進めましょう", result)
+        assertEquals("それで進めましょう", result)
     }
 
     @Test
@@ -29,9 +29,13 @@ class TranscriptPreprocessorTest {
     }
 
     @Test
-    fun `single acknowledgement is not altered`() {
+    fun `acknowledgement that leads into content is kept`() {
         val input = "はい、承知しました。"
         assertEquals(input, preprocessor.preprocess(input))
+        assertEquals(
+            "そうですね、その方向で進めます。",
+            preprocessor.preprocess("そうですね、その方向で進めます。")
+        )
     }
 
     @Test
@@ -47,8 +51,20 @@ class TranscriptPreprocessorTest {
     }
 
     @Test
+    fun `backchannel-only sentences are removed`() {
+        val result = preprocessor.preprocess("はい。なるほど。わかりました。来週契約します。")
+        assertEquals("来週契約します。", result)
+    }
+
+    @Test
     fun `repeated punctuation and long runs are normalized`() {
-        val result = preprocessor.preprocess("そうですね。。。まあ、いいでしょうーーーー")
-        assertEquals("そうですね。まあ、いいでしょう", result)
+        val result = preprocessor.preprocess("契約します。。。すぐにーーー対応します")
+        assertEquals("契約します。すぐに対応します", result)
+    }
+
+    @Test
+    fun `leading filler conjunction is trimmed`() {
+        val result = preprocessor.preprocess("見積もりを送ります。で、来週打ち合わせます。")
+        assertEquals("見積もりを送ります。来週打ち合わせます。", result)
     }
 }

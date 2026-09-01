@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.FolderEntity
 import com.meetingnotes.data.local.MeetingEntity
@@ -117,17 +118,19 @@ fun ClientDetailScreen(
             )
         },
         bottomBar = {
-            Surface(shadowElevation = 4.dp) {
-                Button(
-                    onClick = { onStartRecording(clientId) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(16.dp)
-                ) {
-                    Icon(Icons.Filled.Mic, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(text = "録音開始")
+            Column(modifier = Modifier.navigationBarsPadding()) {
+                BannerAdView()
+                Surface(shadowElevation = 4.dp) {
+                    Button(
+                        onClick = { onStartRecording(clientId) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Icon(Icons.Filled.Mic, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(text = "録音開始")
+                    }
                 }
             }
         }
