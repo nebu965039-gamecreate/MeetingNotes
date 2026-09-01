@@ -25,7 +25,7 @@ ANDROID_PACKAGE_NAME = "com.manaapps.meetingnotes"
 # フェーズ2のGCP設定(PLAY_INTEGRITY_SERVICE_ACCOUNT_JSON)完了後に "audit"→"true" と上げる。
 PLAY_INTEGRITY_ENABLED = "off"
 # RL(KV)バインディング設定時の、全体の1日あたり呼び出し上限。
-DAILY_REQUEST_CAP = "1000"
+DAILY_REQUEST_CAP = "150"
 
 # 全体の1日あたり上限に使う KV Namespace。
 [[kv_namespaces]]
