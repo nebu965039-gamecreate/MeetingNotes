@@ -56,6 +56,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
 import android.widget.Toast
 import com.meetingnotes.data.local.TodoEntity
+import com.meetingnotes.export.CsvExporter
 import com.meetingnotes.export.ExcelExporter
 import com.meetingnotes.export.IcsExporter
 import com.meetingnotes.export.MarkdownExporter
@@ -244,6 +245,9 @@ fun MeetingDetailScreen(
                     ExportFormat.EXCEL -> viewModel.exportExcel {
                         deliver(it, ExcelExporter.MIME_TYPE, "商談メモをExcelで共有")
                     }
+                    ExportFormat.CSV -> viewModel.exportCsv {
+                        deliver(it, CsvExporter.MIME_TYPE, "ToDo を CSV で共有")
+                    }
                     ExportFormat.ICS -> viewModel.exportIcs(
                         onReady = { deliver(it, IcsExporter.MIME_TYPE, "次回打ち合わせをカレンダーに追加") },
                         onNoDate = {
@@ -287,13 +291,14 @@ fun MeetingDetailScreen(
 }
 
 private enum class ExportAction { SHARE, SAVE }
-private enum class ExportFormat { PDF, WORD, MARKDOWN, EXCEL, ICS }
+private enum class ExportFormat { PDF, WORD, MARKDOWN, EXCEL, CSV, ICS }
 
 private val formatOptions = listOf(
     ExportFormat.PDF to "PDF",
     ExportFormat.WORD to "Word",
     ExportFormat.MARKDOWN to "Markdown",
     ExportFormat.EXCEL to "Excel",
+    ExportFormat.CSV to "CSV",
     ExportFormat.ICS to "カレンダー(.ics)"
 )
 
@@ -346,6 +351,10 @@ private fun ExportOptionsDialog(
                 when (format) {
                     ExportFormat.EXCEL -> Text(
                         "決定事項・ToDo・懸念点を表形式で書き出します。",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    ExportFormat.CSV -> Text(
+                        "ToDo 一覧(タスク / 担当 / 期限 / 完了)を表計算・タスク管理ツール向けに書き出します。",
                         style = MaterialTheme.typography.bodySmall
                     )
                     ExportFormat.ICS -> Text(

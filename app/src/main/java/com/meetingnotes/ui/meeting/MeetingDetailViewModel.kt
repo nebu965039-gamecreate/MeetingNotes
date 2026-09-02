@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
+import com.meetingnotes.export.CsvExporter
 import com.meetingnotes.export.ExcelExporter
 import com.meetingnotes.export.IcsExporter
 import com.meetingnotes.export.MarkdownExporter
@@ -96,6 +97,16 @@ class MeetingDetailViewModel(
             val blocks = MeetingExportContentBuilder.build(clientName.value, current, todos.value)
             val file = withContext(Dispatchers.IO) {
                 MarkdownExporter.exportToFile(getApplication(), "meeting_${current.id}.md", blocks)
+            }
+            onReady(file)
+        }
+    }
+
+    fun exportCsv(onReady: (File) -> Unit) {
+        val current = meeting.value ?: return
+        viewModelScope.launch {
+            val file = withContext(Dispatchers.IO) {
+                CsvExporter.exportToFile(getApplication(), "meeting_${current.id}_todo.csv", todos.value)
             }
             onReady(file)
         }
