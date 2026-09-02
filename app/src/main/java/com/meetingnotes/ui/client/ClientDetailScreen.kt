@@ -15,12 +15,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -29,7 +28,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -98,6 +96,13 @@ fun ClientDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showAddFolderDialog = true }) {
+                        Icon(
+                            Icons.Filled.CreateNewFolder,
+                            contentDescription = "フォルダを作成",
+                            tint = CreateActionBlue
+                        )
+                    }
                     IconButton(onClick = { menuExpanded = true }) {
                         Icon(Icons.Filled.MoreVert, contentDescription = "メニュー")
                     }
@@ -146,20 +151,7 @@ fun ClientDetailScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "アーカイブ", style = MaterialTheme.typography.titleMedium)
-                    OutlinedButton(
-                        onClick = { showAddFolderDialog = true },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = CreateActionBlue),
-                        border = BorderStroke(1.dp, CreateActionBlue)
-                    ) {
-                        Text("+ フォルダ作成")
-                    }
-                }
+                Text(text = "アーカイブ", style = MaterialTheme.typography.titleMedium)
             }
 
             if (meetings.isEmpty() && folders.isEmpty()) {
