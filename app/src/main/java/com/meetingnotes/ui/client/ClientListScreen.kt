@@ -54,6 +54,8 @@ import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.ClientGroupEntity
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.TextInputDialog
+import com.meetingnotes.ui.theme.CreateActionBlue
+import com.meetingnotes.ui.theme.OnCreateActionBlue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,7 +93,11 @@ fun ClientListScreen(
                 },
                 actions = {
                     IconButton(onClick = { showAddGroupDialog = true }) {
-                        Icon(Icons.Filled.CreateNewFolder, contentDescription = "グループを作成")
+                        Icon(
+                            Icons.Filled.CreateNewFolder,
+                            contentDescription = "グループを作成",
+                            tint = CreateActionBlue
+                        )
                     }
                     IconButton(onClick = onHelp) {
                         Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "使い方・ヘルプ")
@@ -101,7 +107,11 @@ fun ClientListScreen(
         },
         bottomBar = { BannerAdView(Modifier.navigationBarsPadding()) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                containerColor = CreateActionBlue,
+                contentColor = OnCreateActionBlue
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = "クライアント追加")
             }
         }

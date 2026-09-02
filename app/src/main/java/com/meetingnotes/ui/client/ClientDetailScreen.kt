@@ -18,7 +18,9 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -50,6 +52,7 @@ import com.meetingnotes.data.local.FolderEntity
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.TextInputDialog
+import com.meetingnotes.ui.theme.CreateActionBlue
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -149,7 +152,11 @@ fun ClientDetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(text = "アーカイブ", style = MaterialTheme.typography.titleMedium)
-                    OutlinedButton(onClick = { showAddFolderDialog = true }) {
+                    OutlinedButton(
+                        onClick = { showAddFolderDialog = true },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = CreateActionBlue),
+                        border = BorderStroke(1.dp, CreateActionBlue)
+                    ) {
                         Text("+ フォルダ作成")
                     }
                 }
