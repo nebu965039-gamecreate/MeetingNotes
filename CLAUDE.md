@@ -24,7 +24,7 @@ Kotlin 2.4.0 / Jetpack Compose(Material3、BOM 2026.08.00) / Navigation Compose 
 - **フォルダ/グループのパターンが2箇所ある**: 商談を整理する「フォルダ」(`FolderEntity`、クライアントに紐付く)と、クライアントを整理する「グループ」(`ClientGroupEntity`、独立エンティティ)。どちらも「手動作成→対象に1つだけ割り当て→デフォルト未展開の折りたたみUI→未分類/未展開は常時表示→削除時は対象を消さずSET_NULLで未分類に戻す」という同じ設計パターンを踏襲している。片方に機能を足すときはもう片方への横展開が必要か確認する(実際に「フォルダに名前変更・削除UIが無い」という抜けが過去に発生した)
 - **DBスキーマ変更時は正式なMigrationを書く**(2026-09-01〜。以前の`fallbackToDestructiveMigration(true)`全面適用から変更した): `MeetingNotesApp.kt`は`fallbackToDestructiveMigrationFrom(dropAllTables = true, 1, 2, 3, 4)`のみ。**version 5(クローズドテスト初回配信)以降は破壊的フォールバックしない**ため、v5→v6以降の変更で`data/local/Migrations.kt`に`Migration`を書かないとアプリ更新時にクラッシュする(=書き忘れ防止)。手順: (1) Entity変更+`MeetingNotesDatabase`の`version`を+1 (2) ビルドで`app/schemas/<db>/<新version>.json`が生成される→**コミット** (3) `Migrations.kt`に`MIGRATION_x_y`を追加し`databaseMigrations`に含める (4) `app/src/androidTest`に`MigrationTestHelper`でテスト追加。`exportSchema = true`。v1〜v4は開発中・旧テストビルドのみなので破壊的マイグレーション許容
 - **共有ViewModelのライフサイクル**: `MeetingViewModel`はNavHost外側で生成され画面をまたいで生存する。録音中の状態(カウントダウンJob等)を持つため、画面遷移で離脱する経路(戻るボタン等)では必ず`cancelRecordingFlow()`を呼んで後始末すること
-- **エクスポートと画面表示の項目構成は揃える設計**: `MeetingExportContentBuilder.kt`(PDF/Word/メール共通)と`ui/common/MeetingSummarySections.kt`(画面表示)は意図的に同じ項目順序(サマリー→決定事項→懸念点・注意点→ToDo→次回打ち合わせ)を保つ。片方の順序を変えたらもう片方も確認する
+- **エクスポートと画面表示の項目構成は揃える設計**: `MeetingExportContentBuilder.kt`(`ExportBlock` の共通モデル。PDF/Word/Markdown が共有)と`ui/common/MeetingSummarySections.kt`(画面表示)は意図的に同じ項目順序(サマリー→決定事項→懸念点・注意点→ToDo→次回打ち合わせ)を保つ。片方の順序を変えたらもう片方も確認する。エクスポート形式は `export/` に per-format のオブジェクト(`PdfExporter`/`WordExporter`/`MarkdownExporter`/`ExcelExporter`/`IcsExporter`)。`ExcelExporter` は `ExportBlock` ではなく `MeetingEntity`+`todos` を直接受け ToDo を表化、`IcsExporter` は `nextMeetingDate` が ISO 日付/日時のときだけ VEVENT を生成(未定なら null)。いずれも Apache POI 不使用・標準ライブラリのみ(.docx/.xlsx は OOXML zip を手組み)
 
 ## コーディング上のルール
 
@@ -100,7 +100,7 @@ MVP相当の機能は一通り実装済み。Google Play Console でのクロー
 2. Google Play Billing Library(定期購入)の実装(Play Console 側のアプリ登録・商品設定が前提)
 3. 不正リセット対策フェーズ2(端末ごとのクレジット管理をサーバー側へ)。上記プロキシ フェーズ2に統合
 4. 透かしのON/OFFをサブスク状態で自動判定(Billing 実装後)
-4b. **エクスポート形式のサブスク制限**(Billing 実装後): 無料は PDF(透かし付き)のみ、有料で Word 出力・共有を解放。あわせてサブスク向けに形式のバリエーションを増やす(候補: Markdown / CSV(ToDo一覧) / .ics(次回打ち合わせをカレンダー登録)/ HTML / 画像カード(PNG)/ Excel)。テキスト系(md/csv/ics/html)は `MeetingExportContentBuilder`(`ExportBlock`)流用で小工数、Excel は `WordExporter` と同じ OOXML 手組み、画像は Canvas 描画。`ExportOptionsDialog` の形式チップを entitlement で出し分け(無料ユーザーが有料形式を選ぶと paywall へ)
+4b. **エクスポート形式のサブスク制限**(Billing 実装後): 形式は実装済み(PDF/Word/Markdown/Excel/.ics。`export/` に `MarkdownExporter`/`ExcelExporter`/`IcsExporter`、`MeetingDetailScreen` の `ExportOptionsDialog` で選択)。**現状は全形式が無料で使える**。Billing 実装後に「無料=PDF(透かし付き)のみ / 有料=Word・Markdown・Excel・.ics」を entitlement で出し分け(無料ユーザーが有料形式を選ぶと paywall へ)、透かしも自動判定に。追加候補: CSV / HTML / 画像カード(PNG)
 5. PDF への画像ロゴ埋め込み(レイアウトは改善済み。テキストワードマークを画像に差し替え。アイコンSVGを流用可能)
 6. **要約項目のプリセット化**(サブスク実装後・Pro機能想定): 現状は5項目固定(サマリー/決定事項/懸念点・注意点/ToDo/次回打ち合わせ)がWorkerのスキーマからRoomのカラム、表示、エクスポートまで全レイヤーにハードコード。「商談」「社内MTG」「採用面談」等のプリセットを切替できるようにする案。プリセットごとに固定スキーマを持てば prompt cache は維持可。DBは項目を可変にするため固定カラム→JSON1カラム等へ寄せる v6 マイグレーションが必要。自由入力のカスタム項目(動的スキーマ生成)はさらに大きいので当面対象外
 

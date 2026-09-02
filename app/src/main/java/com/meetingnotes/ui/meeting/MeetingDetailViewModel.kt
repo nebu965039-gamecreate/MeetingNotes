@@ -8,6 +8,9 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
+import com.meetingnotes.export.ExcelExporter
+import com.meetingnotes.export.IcsExporter
+import com.meetingnotes.export.MarkdownExporter
 import com.meetingnotes.export.MeetingExportContentBuilder
 import com.meetingnotes.export.PdfExporter
 import com.meetingnotes.export.Watermark
@@ -84,6 +87,48 @@ class MeetingDetailViewModel(
                 WordExporter.exportToFile(getApplication(), "meeting_${current.id}.docx", blocks)
             }
             onReady(file)
+        }
+    }
+
+    fun exportMarkdown(onReady: (File) -> Unit) {
+        val current = meeting.value ?: return
+        viewModelScope.launch {
+            val blocks = MeetingExportContentBuilder.build(clientName.value, current, todos.value)
+            val file = withContext(Dispatchers.IO) {
+                MarkdownExporter.exportToFile(getApplication(), "meeting_${current.id}.md", blocks)
+            }
+            onReady(file)
+        }
+    }
+
+    fun exportExcel(onReady: (File) -> Unit) {
+        val current = meeting.value ?: return
+        viewModelScope.launch {
+            val file = withContext(Dispatchers.IO) {
+                ExcelExporter.exportToFile(
+                    getApplication(), "meeting_${current.id}.xlsx", clientName.value, current, todos.value
+                )
+            }
+            onReady(file)
+        }
+    }
+
+    /** 「次回打ち合わせ」の日時が確定していれば .ics を生成する。未定なら onNoDate。 */
+    fun exportIcs(onReady: (File) -> Unit, onNoDate: () -> Unit) {
+        val current = meeting.value ?: return
+        viewModelScope.launch {
+            val file = withContext(Dispatchers.IO) {
+                IcsExporter.exportToFile(
+                    getApplication(),
+                    "meeting_${current.id}.ics",
+                    current.id,
+                    current.title,
+                    clientName.value,
+                    current.nextMeetingDate,
+                    current.nextMeetingOriginalText,
+                )
+            }
+            if (file != null) onReady(file) else onNoDate()
         }
     }
 

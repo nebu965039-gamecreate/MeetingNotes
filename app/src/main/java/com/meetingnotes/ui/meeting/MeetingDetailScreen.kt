@@ -54,7 +54,11 @@ import com.meetingnotes.ads.BannerAdView
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
+import android.widget.Toast
 import com.meetingnotes.data.local.TodoEntity
+import com.meetingnotes.export.ExcelExporter
+import com.meetingnotes.export.IcsExporter
+import com.meetingnotes.export.MarkdownExporter
 import com.meetingnotes.export.PdfExporter
 import com.meetingnotes.export.SaveFileHelper
 import com.meetingnotes.export.ShareFileHelper
@@ -93,18 +97,9 @@ fun MeetingDetailScreen(
     var menuExpanded by remember { mutableStateOf(false) }
     var pendingSaveFile by remember { mutableStateOf<File?>(null) }
 
-    val pdfSaveLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument(PdfExporter.MIME_TYPE)
-    ) { uri ->
-        val file = pendingSaveFile
-        if (uri != null && file != null) {
-            SaveFileHelper.copyToUri(context, file, uri)
-        }
-        pendingSaveFile = null
-    }
-
-    val wordSaveLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument(WordExporter.MIME_TYPE)
+    // 形式ごとに MIME が異なるため CreateDocument は汎用指定。拡張子はファイル名で伝わる。
+    val saveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*")
     ) { uri ->
         val file = pendingSaveFile
         if (uri != null && file != null) {
@@ -222,32 +217,43 @@ fun MeetingDetailScreen(
     }
 
     exportAction?.let { action ->
+        fun deliver(file: File, mimeType: String, shareTitle: String) {
+            when (action) {
+                ExportAction.SHARE -> ShareFileHelper.shareFile(context, file, mimeType, shareTitle)
+                ExportAction.SAVE -> {
+                    pendingSaveFile = file
+                    saveLauncher.launch(file.name)
+                }
+            }
+        }
         ExportOptionsDialog(
             action = action,
             onDismiss = { exportAction = null },
             onExport = { format, watermark ->
                 exportAction = null
                 when (format) {
-                    ExportFormat.PDF -> viewModel.exportPdf(watermark) { file ->
-                        when (action) {
-                            ExportAction.SHARE ->
-                                ShareFileHelper.shareFile(context, file, PdfExporter.MIME_TYPE, "商談メモをPDFで共有")
-                            ExportAction.SAVE -> {
-                                pendingSaveFile = file
-                                pdfSaveLauncher.launch(file.name)
-                            }
-                        }
+                    ExportFormat.PDF -> viewModel.exportPdf(watermark) {
+                        deliver(it, PdfExporter.MIME_TYPE, "商談メモをPDFで共有")
                     }
-                    ExportFormat.WORD -> viewModel.exportWord { file ->
-                        when (action) {
-                            ExportAction.SHARE ->
-                                ShareFileHelper.shareFile(context, file, WordExporter.MIME_TYPE, "商談メモをWordで共有")
-                            ExportAction.SAVE -> {
-                                pendingSaveFile = file
-                                wordSaveLauncher.launch(file.name)
-                            }
-                        }
+                    ExportFormat.WORD -> viewModel.exportWord {
+                        deliver(it, WordExporter.MIME_TYPE, "商談メモをWordで共有")
                     }
+                    ExportFormat.MARKDOWN -> viewModel.exportMarkdown {
+                        deliver(it, MarkdownExporter.MIME_TYPE, "商談メモをMarkdownで共有")
+                    }
+                    ExportFormat.EXCEL -> viewModel.exportExcel {
+                        deliver(it, ExcelExporter.MIME_TYPE, "商談メモをExcelで共有")
+                    }
+                    ExportFormat.ICS -> viewModel.exportIcs(
+                        onReady = { deliver(it, IcsExporter.MIME_TYPE, "次回打ち合わせをカレンダーに追加") },
+                        onNoDate = {
+                            Toast.makeText(
+                                context,
+                                "次回打ち合わせの日時が未定のため、カレンダー用ファイルを作成できません。",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    )
                 }
             }
         )
@@ -281,7 +287,15 @@ fun MeetingDetailScreen(
 }
 
 private enum class ExportAction { SHARE, SAVE }
-private enum class ExportFormat { PDF, WORD }
+private enum class ExportFormat { PDF, WORD, MARKDOWN, EXCEL, ICS }
+
+private val formatOptions = listOf(
+    ExportFormat.PDF to "PDF",
+    ExportFormat.WORD to "Word",
+    ExportFormat.MARKDOWN to "Markdown",
+    ExportFormat.EXCEL to "Excel",
+    ExportFormat.ICS to "カレンダー(.ics)"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -315,17 +329,30 @@ private fun ExportOptionsDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("形式", style = MaterialTheme.typography.bodyMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = format == ExportFormat.PDF,
-                        onClick = { format = ExportFormat.PDF },
-                        label = { Text("PDF") }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    formatOptions.chunked(2).forEach { rowItems ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            rowItems.forEach { (fmt, label) ->
+                                FilterChip(
+                                    selected = format == fmt,
+                                    onClick = { format = fmt },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                when (format) {
+                    ExportFormat.EXCEL -> Text(
+                        "決定事項・ToDo・懸念点を表形式で書き出します。",
+                        style = MaterialTheme.typography.bodySmall
                     )
-                    FilterChip(
-                        selected = format == ExportFormat.WORD,
-                        onClick = { format = ExportFormat.WORD },
-                        label = { Text("Word") }
+                    ExportFormat.ICS -> Text(
+                        "「次回打ち合わせ」の日時をカレンダーアプリに登録できます(日時が未定の場合は作成できません)。",
+                        style = MaterialTheme.typography.bodySmall
                     )
+                    else -> {}
                 }
 
                 if (format == ExportFormat.PDF) {
