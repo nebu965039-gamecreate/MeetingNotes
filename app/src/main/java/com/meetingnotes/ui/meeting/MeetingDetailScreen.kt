@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -229,6 +231,7 @@ fun MeetingDetailScreen(
         }
         ExportOptionsDialog(
             action = action,
+            icsAvailable = IcsExporter.hasUsableDate(meeting?.nextMeetingDate),
             onDismiss = { exportAction = null },
             onExport = { format, watermark ->
                 exportAction = null
@@ -293,22 +296,39 @@ fun MeetingDetailScreen(
 private enum class ExportAction { SHARE, SAVE }
 private enum class ExportFormat { PDF, WORD, MARKDOWN, EXCEL, CSV, ICS }
 
-private val formatOptions = listOf(
-    ExportFormat.PDF to "PDF",
-    ExportFormat.WORD to "Word",
-    ExportFormat.MARKDOWN to "Markdown",
-    ExportFormat.EXCEL to "Excel",
-    ExportFormat.CSV to "CSV",
-    ExportFormat.ICS to "カレンダー(.ics)"
+private data class FormatGroup(val heading: String, val items: List<Pair<ExportFormat, String>>)
+
+private val formatGroups = listOf(
+    FormatGroup(
+        "議事録ぜんぶ",
+        listOf(
+            ExportFormat.PDF to "PDF",
+            ExportFormat.WORD to "Word",
+            ExportFormat.MARKDOWN to "Markdown"
+        )
+    ),
+    FormatGroup(
+        "ToDoリストだけ",
+        listOf(
+            ExportFormat.EXCEL to "Excel",
+            ExportFormat.CSV to "CSV"
+        )
+    ),
+    FormatGroup(
+        "次回打ち合わせ",
+        listOf(ExportFormat.ICS to "カレンダー(.ics)")
+    )
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ExportOptionsDialog(
     action: ExportAction,
+    icsAvailable: Boolean,
     onDismiss: () -> Unit,
     onExport: (ExportFormat, Watermark?) -> Unit
 ) {
+    val groups = if (icsAvailable) formatGroups else formatGroups.filter { it.items.none { i -> i.first == ExportFormat.ICS } }
     var format by remember { mutableStateOf(ExportFormat.PDF) }
     var watermarkEnabled by remember { mutableStateOf(true) }
     var watermarkText by remember { mutableStateOf("SAMPLE") }
@@ -332,10 +352,13 @@ private fun ExportOptionsDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (action == ExportAction.SHARE) "共有する" else "デバイスに保存") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("形式", style = MaterialTheme.typography.bodyMedium)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    formatOptions.chunked(2).forEach { rowItems ->
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                groups.forEach { group ->
+                    Text(group.heading, style = MaterialTheme.typography.labelMedium)
+                    group.items.chunked(2).forEach { rowItems ->
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             rowItems.forEach { (fmt, label) ->
                                 FilterChip(
@@ -349,16 +372,13 @@ private fun ExportOptionsDialog(
                 }
 
                 when (format) {
-                    ExportFormat.EXCEL -> Text(
-                        "決定事項・ToDo・懸念点を表形式で書き出します。",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    ExportFormat.CSV -> Text(
-                        "ToDo 一覧(タスク / 担当 / 期限 / 完了)を表計算・タスク管理ツール向けに書き出します。",
+                    ExportFormat.EXCEL, ExportFormat.CSV -> Text(
+                        "ToDo 一覧(タスク / 担当 / 期限 / 完了)だけを書き出します。" +
+                            if (format == ExportFormat.CSV) "タスク管理ツールへの取り込み向けです。" else "",
                         style = MaterialTheme.typography.bodySmall
                     )
                     ExportFormat.ICS -> Text(
-                        "「次回打ち合わせ」の日時をカレンダーアプリに登録できます(日時が未定の場合は作成できません)。",
+                        "「次回打ち合わせ」の日時をカレンダーアプリに登録できます。",
                         style = MaterialTheme.typography.bodySmall
                     )
                     else -> {}

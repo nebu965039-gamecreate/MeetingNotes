@@ -53,6 +53,15 @@ class IcsExporterTest {
     }
 
     @Test
+    fun `hasUsableDate matches buildIcs nullability`() {
+        assertTrue(IcsExporter.hasUsableDate("2026-09-10"))
+        assertTrue(IcsExporter.hasUsableDate("2026-09-10T14:00"))
+        assertTrue(!IcsExporter.hasUsableDate(null))
+        assertTrue(!IcsExporter.hasUsableDate(""))
+        assertTrue(!IcsExporter.hasUsableDate("来週あたり"))
+    }
+
+    @Test
     fun `special characters in text values are escaped`() {
         val ics = IcsExporter.buildIcs(
             meetingId = 4,

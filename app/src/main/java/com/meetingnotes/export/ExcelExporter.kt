@@ -1,69 +1,34 @@
 package com.meetingnotes.export
 
 import android.content.Context
-import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /**
  * Apache POI は使わず、インライン文字列のみの最小限 .xlsx(SpreadsheetML)を
  * 標準ライブラリだけで直接生成する(`WordExporter` と同じ方針)。
- * ToDo は「タスク / 担当 / 期限 / 完了」の表として書き出す(Excel での二次利用向け)。
+ * 内容は ToDo 一覧(タスク / 担当 / 期限 / 完了)のみ。CSV と同じ内容の Excel 版。
  */
 object ExcelExporter {
 
-    private val dateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
+    private val HEADER = listOf("タスク", "担当", "期限", "完了")
 
     /** シートの行データ(各行 = A列からのセル文字列)を組み立てる。テスト用に公開。 */
-    fun buildRows(clientName: String?, meeting: MeetingEntity, todos: List<TodoEntity>): List<List<String>> = buildList {
-        add(listOf("商談メモ", meeting.title.ifBlank { "商談メモ" }))
-        clientName?.let { add(listOf("クライアント", it)) }
-        val recordedAt = Instant.ofEpochMilli(meeting.recordedAt).atZone(ZoneId.systemDefault())
-        val endedAtText = meeting.endedAt?.let {
-            Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
-        }
-        add(listOf("日時", recordedAt.format(dateFormatter) + (endedAtText?.let { " 〜 $it" } ?: "")))
-        add(emptyList())
-
-        add(listOf("サマリー"))
-        add(listOf(meeting.summary))
-        add(emptyList())
-
-        add(listOf("決定事項"))
-        if (meeting.decisions.isEmpty()) add(listOf("(なし)")) else meeting.decisions.forEach { add(listOf(it)) }
-        add(emptyList())
-
-        add(listOf("ToDo"))
-        add(listOf("タスク", "担当", "期限", "完了"))
-        if (todos.isEmpty()) {
-            add(listOf("(なし)"))
-        } else {
-            todos.forEach { add(listOf(it.task, it.assignee, it.deadline, if (it.isDone) "済" else "")) }
-        }
-        add(emptyList())
-
-        add(listOf("懸念点・注意点"))
-        if (meeting.concerns.isEmpty()) add(listOf("(なし)")) else meeting.concerns.forEach { add(listOf(it)) }
-        add(emptyList())
-
-        add(listOf("次回打ち合わせ"))
-        add(listOf(meeting.nextMeetingDate ?: meeting.nextMeetingOriginalText ?: "(未定)"))
+    fun buildRows(todos: List<TodoEntity>): List<List<String>> = buildList {
+        add(HEADER)
+        todos.forEach { add(listOf(it.task, it.assignee, it.deadline, if (it.isDone) "済" else "")) }
     }
 
     /** .xlsx(zip)のバイト列を生成する。 */
-    fun buildXlsx(clientName: String?, meeting: MeetingEntity, todos: List<TodoEntity>): ByteArray {
-        val rows = buildRows(clientName, meeting, todos)
+    fun buildXlsx(todos: List<TodoEntity>): ByteArray {
+        val rows = buildRows(todos)
         val sheetData = buildString {
             rows.forEachIndexed { index, cells ->
                 val r = index + 1
-                if (cells.isEmpty()) return@forEachIndexed
                 append("<row r=\"$r\">")
                 cells.forEachIndexed { col, value ->
                     if (value.isEmpty()) return@forEachIndexed
@@ -92,16 +57,10 @@ object ExcelExporter {
         return output.toByteArray()
     }
 
-    fun exportToFile(
-        context: Context,
-        fileName: String,
-        clientName: String?,
-        meeting: MeetingEntity,
-        todos: List<TodoEntity>,
-    ): File {
+    fun exportToFile(context: Context, fileName: String, todos: List<TodoEntity>): File {
         val dir = File(context.cacheDir, "exports").apply { mkdirs() }
         val file = File(dir, fileName)
-        FileOutputStream(file).use { it.write(buildXlsx(clientName, meeting, todos)) }
+        FileOutputStream(file).use { it.write(buildXlsx(todos)) }
         return file
     }
 
@@ -133,7 +92,7 @@ object ExcelExporter {
 
     private const val WORKBOOK_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<sheets><sheet name="商談メモ" sheetId="1" r:id="rId1"/></sheets>
+<sheets><sheet name="ToDo" sheetId="1" r:id="rId1"/></sheets>
 </workbook>"""
 
     private const val WORKBOOK_RELS_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

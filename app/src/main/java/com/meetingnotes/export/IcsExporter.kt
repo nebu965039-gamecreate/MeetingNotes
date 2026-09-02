@@ -18,6 +18,12 @@ object IcsExporter {
     private val DATE_ONLY = Regex("""^\d{4}-\d{2}-\d{2}$""")
     private val DATE_TIME = Regex("""^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})""")
 
+    /** カレンダー登録が可能か(`nextMeetingDate` が ISO 日付/日時として解釈できるか)。 */
+    fun hasUsableDate(nextMeetingDate: String?): Boolean {
+        val raw = nextMeetingDate?.trim().orEmpty()
+        return DATE_ONLY.matches(raw) || DATE_TIME.containsMatchIn(raw)
+    }
+
     /**
      * VCALENDAR テキストを生成する。`nextMeetingDate` が ISO 8601 の日付
      * (YYYY-MM-DD)または日時(YYYY-MM-DDTHH:MM)でない場合は null。

@@ -116,9 +116,7 @@ class MeetingDetailViewModel(
         val current = meeting.value ?: return
         viewModelScope.launch {
             val file = withContext(Dispatchers.IO) {
-                ExcelExporter.exportToFile(
-                    getApplication(), "meeting_${current.id}.xlsx", clientName.value, current, todos.value
-                )
+                ExcelExporter.exportToFile(getApplication(), "meeting_${current.id}_todo.xlsx", todos.value)
             }
             onReady(file)
         }
