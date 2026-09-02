@@ -100,6 +100,7 @@ MVP相当の機能は一通り実装済み。Google Play Console でのクロー
 2. Google Play Billing Library(定期購入)の実装(Play Console 側のアプリ登録・商品設定が前提)
 3. 不正リセット対策フェーズ2(端末ごとのクレジット管理をサーバー側へ)。上記プロキシ フェーズ2に統合
 4. 透かしのON/OFFをサブスク状態で自動判定(Billing 実装後)
+4b. **エクスポート形式のサブスク制限**(Billing 実装後): 無料は PDF(透かし付き)のみ、有料で Word 出力・共有を解放。あわせてサブスク向けに形式のバリエーションを増やす(候補: Markdown / CSV(ToDo一覧) / .ics(次回打ち合わせをカレンダー登録)/ HTML / 画像カード(PNG)/ Excel)。テキスト系(md/csv/ics/html)は `MeetingExportContentBuilder`(`ExportBlock`)流用で小工数、Excel は `WordExporter` と同じ OOXML 手組み、画像は Canvas 描画。`ExportOptionsDialog` の形式チップを entitlement で出し分け(無料ユーザーが有料形式を選ぶと paywall へ)
 5. PDF への画像ロゴ埋め込み(レイアウトは改善済み。テキストワードマークを画像に差し替え。アイコンSVGを流用可能)
 6. **要約項目のプリセット化**(サブスク実装後・Pro機能想定): 現状は5項目固定(サマリー/決定事項/懸念点・注意点/ToDo/次回打ち合わせ)がWorkerのスキーマからRoomのカラム、表示、エクスポートまで全レイヤーにハードコード。「商談」「社内MTG」「採用面談」等のプリセットを切替できるようにする案。プリセットごとに固定スキーマを持てば prompt cache は維持可。DBは項目を可変にするため固定カラム→JSON1カラム等へ寄せる v6 マイグレーションが必要。自由入力のカスタム項目(動的スキーマ生成)はさらに大きいので当面対象外
 
