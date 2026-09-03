@@ -3,6 +3,7 @@ package com.meetingnotes.ui.meeting
 import android.app.Application
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
@@ -29,6 +30,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
@@ -73,6 +76,7 @@ import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.ProGate
 import com.meetingnotes.ui.common.ProPaywallDialog
 import com.meetingnotes.ui.common.TextInputDialog
+import com.meetingnotes.ui.theme.ProGold
 import com.meetingnotes.ui.common.meetingSummarySections
 import com.meetingnotes.ui.common.nextMeetingSection
 import java.io.File
@@ -372,8 +376,17 @@ private fun ExportOptionsDialog(
                                 ) {
                                     FilterChip(
                                         selected = format == fmt,
+                                        enabled = !proLocked,
                                         onClick = { format = fmt },
-                                        label = { Text(label) }
+                                        label = { Text(label) },
+                                        border = if (proLocked) {
+                                            BorderStroke(2.dp, ProGold)
+                                        } else {
+                                            FilterChipDefaults.filterChipBorder(
+                                                enabled = true,
+                                                selected = format == fmt
+                                            )
+                                        }
                                     )
                                 }
                             }
@@ -395,9 +408,10 @@ private fun ExportOptionsDialog(
                 }
 
                 if (format == ExportFormat.PDF) {
+                    val watermarkLocked = ProAccess.shouldLock
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     ProGate(
-                        locked = ProAccess.shouldLock,
+                        locked = watermarkLocked,
                         onLockedTap = { paywallFeature = "透かしなしでの書き出し" },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -406,8 +420,19 @@ private fun ExportOptionsDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("透かしを入れる")
-                            Switch(checked = watermarkEnabled, onCheckedChange = { watermarkEnabled = it })
+                            Text(
+                                "透かしを入れる",
+                                color = if (watermarkLocked) {
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                } else {
+                                    Color.Unspecified
+                                }
+                            )
+                            Switch(
+                                checked = watermarkEnabled,
+                                onCheckedChange = { watermarkEnabled = it },
+                                enabled = !watermarkLocked
+                            )
                         }
                     }
                 }

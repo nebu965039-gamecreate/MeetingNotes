@@ -1,7 +1,6 @@
 package com.meetingnotes.ui.common
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -20,7 +19,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,8 +27,8 @@ import com.meetingnotes.ui.theme.ProGold
 
 /**
  * サブスク(Pro)限定機能のラッパー。
- * [locked] のとき中身をグレーアウト・操作不可にし、金色の枠と左上の「Pro」バッジを付ける。
- * ロック中にタップすると [onLockedTap]([ProPaywallDialog] の表示などに使う)。
+ * [locked] のとき中身へのタップを遮って [onLockedTap] を呼び、左上隅に「Pro」バッジを付ける。
+ * 中身のグレーアウトや金色の枠線は呼び出し側で(例: `enabled = false` + 金色の [BorderStroke])。
  */
 @Composable
 fun ProGate(
@@ -43,14 +41,13 @@ fun ProGate(
         Box(modifier) { content() }
         return
     }
-    // 上部に少し余白を確保し、そこにバッジを重ねて「枠の左上隅」に見せる。
+    // 上部に少し余白を確保し、そこにバッジを重ねて中身の左上隅に見せる。
     Box(modifier) {
         Box(Modifier.padding(top = 9.dp)) {
-            Box(Modifier.alpha(0.45f)) { content() }
+            content()
             Box(
                 Modifier
                     .matchParentSize()
-                    .border(1.dp, ProGold, RoundedCornerShape(10.dp))
                     .clickable(onClick = onLockedTap)
             )
         }
