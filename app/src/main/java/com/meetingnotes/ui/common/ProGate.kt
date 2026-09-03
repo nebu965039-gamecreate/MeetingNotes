@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,7 +29,9 @@ import com.meetingnotes.ui.theme.ProGold
 /**
  * サブスク(Pro)限定機能のラッパー。
  * [locked] のとき中身へのタップを遮って [onLockedTap] を呼び、左上隅に「Pro」バッジを付ける。
- * 中身のグレーアウトや金色の枠線は呼び出し側で(例: `enabled = false` + 金色の [BorderStroke])。
+ * バッジは中身の上端より上にはみ出す(中身の位置はずらさない)ので、
+ * 呼び出し側で上に 12dp 程度の余白を確保しておくこと。
+ * 中身のグレーアウトや金色の枠・塗りは呼び出し側で指定する。
  */
 @Composable
 fun ProGate(
@@ -41,20 +44,17 @@ fun ProGate(
         Box(modifier) { content() }
         return
     }
-    // 上部に少し余白を確保し、そこにバッジを重ねて中身の左上隅に見せる。
     Box(modifier) {
-        Box(Modifier.padding(top = 9.dp)) {
-            content()
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .clickable(onClick = onLockedTap)
-            )
-        }
+        content()
+        Box(
+            Modifier
+                .matchParentSize()
+                .clickable(onClick = onLockedTap)
+        )
         ProBadge(
             Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 6.dp)
+                .offset(x = 4.dp, y = (-11).dp)
         )
     }
 }

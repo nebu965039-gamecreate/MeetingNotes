@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,7 +52,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
@@ -76,6 +77,7 @@ import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.ProGate
 import com.meetingnotes.ui.common.ProPaywallDialog
 import com.meetingnotes.ui.common.TextInputDialog
+import com.meetingnotes.ui.theme.OnProGold
 import com.meetingnotes.ui.theme.ProGold
 import com.meetingnotes.ui.common.meetingSummarySections
 import com.meetingnotes.ui.common.nextMeetingSection
@@ -367,7 +369,13 @@ private fun ExportOptionsDialog(
                 groups.forEach { group ->
                     Text(group.heading, style = MaterialTheme.typography.labelMedium)
                     group.items.chunked(2).forEach { rowItems ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val rowHasLocked =
+                            ProAccess.shouldLock && rowItems.any { it.first != ExportFormat.PDF }
+                        Row(
+                            // ロック中はバッジが上にはみ出すぶんの余白を確保(PDFと高さを揃える)
+                            modifier = if (rowHasLocked) Modifier.padding(top = 12.dp) else Modifier,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             rowItems.forEach { (fmt, label) ->
                                 val proLocked = fmt != ExportFormat.PDF && ProAccess.shouldLock
                                 ProGate(
@@ -386,6 +394,14 @@ private fun ExportOptionsDialog(
                                                 enabled = true,
                                                 selected = format == fmt
                                             )
+                                        },
+                                        colors = if (proLocked) {
+                                            FilterChipDefaults.filterChipColors(
+                                                disabledContainerColor = ProGold.copy(alpha = 0.18f),
+                                                disabledLabelColor = OnProGold.copy(alpha = 0.75f)
+                                            )
+                                        } else {
+                                            FilterChipDefaults.filterChipColors()
                                         }
                                     )
                                 }
@@ -410,28 +426,42 @@ private fun ExportOptionsDialog(
                 if (format == ExportFormat.PDF) {
                     val watermarkLocked = ProAccess.shouldLock
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    ProGate(
-                        locked = watermarkLocked,
-                        onLockedTap = { paywallFeature = "透かしなしでの書き出し" },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    if (watermarkLocked) {
+                        ProGate(
+                            locked = true,
+                            onLockedTap = { paywallFeature = "透かしなしでの書き出し" },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp)
+                        ) {
+                            Surface(
+                                color = ProGold.copy(alpha = 0.14f),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(2.dp, ProGold),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("透かしを入れる", color = OnProGold.copy(alpha = 0.8f))
+                                    Switch(checked = true, onCheckedChange = {}, enabled = false)
+                                }
+                            }
+                        }
+                    } else {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                "透かしを入れる",
-                                color = if (watermarkLocked) {
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                } else {
-                                    Color.Unspecified
-                                }
-                            )
+                            Text("透かしを入れる")
                             Switch(
                                 checked = watermarkEnabled,
-                                onCheckedChange = { watermarkEnabled = it },
-                                enabled = !watermarkLocked
+                                onCheckedChange = { watermarkEnabled = it }
                             )
                         }
                     }
