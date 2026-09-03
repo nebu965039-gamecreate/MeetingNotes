@@ -74,9 +74,12 @@ import com.meetingnotes.export.WatermarkPosition
 import com.meetingnotes.export.WordExporter
 import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.ui.common.ConfirmDialog
+import com.meetingnotes.ui.common.DealPhaseChip
+import com.meetingnotes.ui.common.DealPhasePickerDialog
 import com.meetingnotes.ui.common.ProGate
 import com.meetingnotes.ui.common.ProPaywallDialog
 import com.meetingnotes.ui.common.TextInputDialog
+import com.meetingnotes.ui.common.effectivePhase
 import com.meetingnotes.ui.theme.OnProGold
 import com.meetingnotes.ui.theme.ProGold
 import com.meetingnotes.ui.common.meetingSummarySections
@@ -106,6 +109,7 @@ fun MeetingDetailScreen(
     var exportAction by remember { mutableStateOf<ExportAction?>(null) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showPhasePicker by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     var pendingSaveFile by remember { mutableStateOf<File?>(null) }
 
@@ -172,11 +176,21 @@ fun MeetingDetailScreen(
                     Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())
                         .format(DateTimeFormatter.ofPattern("HH:mm"))
                 }
-                Text(
-                    text = "録音: ${startedAt.format(meetingDateTimeFormatter)}" +
-                        (endedAtText?.let { " 〜 $it" } ?: ""),
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "録音: ${startedAt.format(meetingDateTimeFormatter)}" +
+                            (endedAtText?.let { " 〜 $it" } ?: ""),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    DealPhaseChip(
+                        phase = current.effectivePhase(),
+                        onClick = { showPhasePicker = true }
+                    )
+                }
             }
 
             meetingSummarySections(
@@ -285,6 +299,17 @@ fun MeetingDetailScreen(
             onConfirm = { title ->
                 viewModel.renameTitle(title)
                 showRenameDialog = false
+            }
+        )
+    }
+
+    if (showPhasePicker) {
+        DealPhasePickerDialog(
+            current = meeting?.effectivePhase(),
+            onDismiss = { showPhasePicker = false },
+            onSelect = { phase ->
+                viewModel.setPhase(phase)
+                showPhasePicker = false
             }
         )
     }

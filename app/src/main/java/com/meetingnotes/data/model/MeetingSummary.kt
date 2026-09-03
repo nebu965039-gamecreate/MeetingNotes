@@ -24,5 +24,6 @@ data class MeetingSummary(
     val todos: List<TodoItem>,
     val nextMeeting: NextMeeting,
     val concerns: List<Concern>,
-    val summary: String
+    val summary: String,
+    val dealPhase: DealPhase? = null
 )

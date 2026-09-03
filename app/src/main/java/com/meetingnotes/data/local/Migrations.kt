@@ -1,6 +1,7 @@
 package com.meetingnotes.data.local
 
 import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
  * Room スキーマの正式なマイグレーション。
@@ -23,4 +24,12 @@ import androidx.room.migration.Migration
  *   }
  *   val databaseMigrations: Array<Migration> = arrayOf(MIGRATION_5_6)
  */
-val databaseMigrations: Array<Migration> = emptyArray()
+/** v5 → v6: 商談フェーズ(F3)。`meetings` に AI 推定値とユーザー上書き値の2列を追加。 */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE meetings ADD COLUMN dealPhase TEXT")
+        db.execSQL("ALTER TABLE meetings ADD COLUMN phaseOverride TEXT")
+    }
+}
+
+val databaseMigrations: Array<Migration> = arrayOf(MIGRATION_5_6)

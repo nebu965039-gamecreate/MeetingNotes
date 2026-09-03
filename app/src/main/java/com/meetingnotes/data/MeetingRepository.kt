@@ -60,6 +60,9 @@ class MeetingRepository(
 
     suspend fun renameMeeting(meetingId: Long, title: String) = meetingDao.updateTitle(meetingId, title)
 
+    suspend fun setMeetingPhaseOverride(meetingId: Long, phase: com.meetingnotes.data.model.DealPhase?) =
+        meetingDao.updatePhaseOverride(meetingId, phase?.wireValue)
+
     fun observeTodos(meetingId: Long): Flow<List<TodoEntity>> = todoDao.observeByMeeting(meetingId)
 
     fun observeTodosByClient(clientId: Long): Flow<List<TodoEntity>> = todoDao.observeByClient(clientId)
@@ -94,7 +97,8 @@ class MeetingRepository(
                 decisions = summary.decisions.map { it.content },
                 concerns = summary.concerns.map { it.content },
                 nextMeetingDate = summary.nextMeeting.date,
-                nextMeetingOriginalText = summary.nextMeeting.originalText
+                nextMeetingOriginalText = summary.nextMeeting.originalText,
+                dealPhase = summary.dealPhase?.wireValue
             )
         )
         if (summary.todos.isNotEmpty()) {

@@ -17,7 +17,7 @@ Kotlin 2.4.0 / Jetpack Compose(Material3、BOM 2026.08.00) / Navigation Compose 
 - `app/src/main/java/com/meetingnotes/data/remote/AnthropicClient.kt` — 要約クライアント。APIキーはアプリに持たず、`server/` の中継Worker(`SUMMARY_PROXY_URL`)へ `{transcript}` をPOSTする。Workerが Anthropic のレスポンスをそのまま返すためパース処理(`MessagesResponse`/`SummaryDto`)は不変。プロンプト・toolスキーマ・モデルは **Worker側(`server/src/index.ts`)** にある
 - `server/` — 要約プロキシ(Cloudflare Worker、TypeScript)。デプロイ手順は `server/README.md`。秘密情報(`ANTHROPIC_API_KEY`, `APP_TOKEN`)は `wrangler secret` 管理でリポジトリに入らない
 - `app/src/main/java/com/meetingnotes/data/MeetingRepository.kt` — 全DAOを束ねる単一リポジトリ。新機能を足す時はまずここにメソッドを足す
-- `app/src/main/java/com/meetingnotes/data/local/MeetingNotesDatabase.kt` — Room DB定義。現在 version = 5
+- `app/src/main/java/com/meetingnotes/data/local/MeetingNotesDatabase.kt` — Room DB定義。現在 version = 6(`MIGRATION_5_6` = 商談フェーズ列。`feature/solo-crm` ブランチ)
 
 ## アーキテクチャ・設計上の重要事項
 
@@ -106,6 +106,8 @@ MVP相当の機能は一通り実装済み。Google Play Console でのクロー
 - 音声保存は**しない**(プライバシー訴求維持)。フェーズは8段階(初回接触/ヒアリング/提案/見積提示/検討中/成約/保留/失注)
 - 実装順: **P1 F1 → P2 F3(+v6 マイグレーション)→ P3 F2+F5 → P4 Billing+F4+F6**
 - 無料機能(F1・F2・F3・F5)をまとめて次回クローズドテスト(v0.1.9 想定)へ
+- **P1 完了**(`6a45e97`): `MeetingDao.observeLatestMeetingPerClient`(射影 `ClientLatestMeeting`)、`FollowupRules`(純粋関数)、`FollowupBoard` composable、`ClientListViewModel.followups`。閾値 14日
+- **P2 完了**: `DealPhase`(enum、`data/model`)、`MeetingEntity` に `dealPhase`/`phaseOverride` 列、**DB version 6 + `MIGRATION_5_6`**(`app/schemas/.../6.json` コミット、`MigrationTest` androidTest 追加・通過)。Worker の tool スキーマに `dealPhase` enum + SYSTEM_PROMPT ルール9。`SummaryDto`/`toDomain`/`MeetingSummary`/`saveMeeting` 対応。`ui/common/DealPhaseChip.kt`(`DealPhaseChip` + `DealPhasePickerDialog` + `MeetingEntity.effectivePhase()`)。アーカイブの `MeetingRow` と `MeetingDetailScreen` にチップ(タップで変更)。F1 のフォロー理由にフェーズ表示、WON/LOST は除外。**Worker は要 `wrangler deploy`**(dealPhase をスキーマに反映)
 
 ### 未完了のタスク(優先度順)
 

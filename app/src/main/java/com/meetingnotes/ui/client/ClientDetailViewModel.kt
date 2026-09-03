@@ -9,6 +9,7 @@ import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.FolderEntity
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
+import com.meetingnotes.data.model.DealPhase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -94,6 +95,10 @@ class ClientDetailViewModel(
 
     fun moveMeetingToFolder(meetingId: Long, folderId: Long?) {
         viewModelScope.launch { repository.moveMeetingToFolder(meetingId, folderId) }
+    }
+
+    fun setMeetingPhase(meetingId: Long, phase: DealPhase) {
+        viewModelScope.launch { repository.setMeetingPhaseOverride(meetingId, phase) }
     }
 
     fun deleteMeeting(meetingId: Long) {

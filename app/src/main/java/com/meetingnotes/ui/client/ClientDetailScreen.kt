@@ -64,7 +64,10 @@ import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.FolderEntity
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.ui.common.ConfirmDialog
+import com.meetingnotes.ui.common.DealPhaseChip
+import com.meetingnotes.ui.common.DealPhasePickerDialog
 import com.meetingnotes.ui.common.TextInputDialog
+import com.meetingnotes.ui.common.effectivePhase
 import com.meetingnotes.ui.theme.CreateActionBlue
 import java.time.Instant
 import java.time.ZoneId
@@ -104,6 +107,7 @@ fun ClientDetailScreen(
     var meetingToRename by remember { mutableStateOf<MeetingEntity?>(null) }
     var meetingToMove by remember { mutableStateOf<MeetingEntity?>(null) }
     var meetingToDelete by remember { mutableStateOf<MeetingEntity?>(null) }
+    var meetingToPhase by remember { mutableStateOf<MeetingEntity?>(null) }
     var folderToRename by remember { mutableStateOf<FolderEntity?>(null) }
     var folderToDelete by remember { mutableStateOf<FolderEntity?>(null) }
 
@@ -230,7 +234,8 @@ fun ClientDetailScreen(
                             onClick = { onMeetingSelected(result.meeting.id) },
                             onRename = { meetingToRename = result.meeting },
                             onMove = { meetingToMove = result.meeting },
-                            onDelete = { meetingToDelete = result.meeting }
+                            onDelete = { meetingToDelete = result.meeting },
+                            onChangePhase = { meetingToPhase = result.meeting }
                         )
                     }
                 }
@@ -283,7 +288,8 @@ fun ClientDetailScreen(
                         onClick = { onMeetingSelected(meeting.id) },
                         onRename = { meetingToRename = meeting },
                         onMove = { meetingToMove = meeting },
-                        onDelete = { meetingToDelete = meeting }
+                        onDelete = { meetingToDelete = meeting },
+                        onChangePhase = { meetingToPhase = meeting }
                     )
                 }
             } else {
@@ -309,7 +315,8 @@ fun ClientDetailScreen(
                                     onClick = { onMeetingSelected(meeting.id) },
                                     onRename = { meetingToRename = meeting },
                                     onMove = { meetingToMove = meeting },
-                                    onDelete = { meetingToDelete = meeting }
+                                    onDelete = { meetingToDelete = meeting },
+                                    onChangePhase = { meetingToPhase = meeting }
                                 )
                             }
                         }
@@ -331,7 +338,8 @@ fun ClientDetailScreen(
                             onClick = { onMeetingSelected(meeting.id) },
                             onRename = { meetingToRename = meeting },
                             onMove = { meetingToMove = meeting },
-                            onDelete = { meetingToDelete = meeting }
+                            onDelete = { meetingToDelete = meeting },
+                            onChangePhase = { meetingToPhase = meeting }
                         )
                     }
                 }
@@ -392,6 +400,17 @@ fun ClientDetailScreen(
             onConfirm = { title ->
                 viewModel.renameMeeting(meeting.id, title)
                 meetingToRename = null
+            }
+        )
+    }
+
+    meetingToPhase?.let { meeting ->
+        DealPhasePickerDialog(
+            current = meeting.effectivePhase(),
+            onDismiss = { meetingToPhase = null },
+            onSelect = { phase ->
+                viewModel.setMeetingPhase(meeting.id, phase)
+                meetingToPhase = null
             }
         )
     }
@@ -568,6 +587,7 @@ private fun MeetingRow(
     onRename: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
+    onChangePhase: () -> Unit,
     matchPreview: String? = null
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -601,6 +621,11 @@ private fun MeetingRow(
                 } else {
                     Text(text = meeting.summary, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                 }
+                DealPhaseChip(
+                    phase = meeting.effectivePhase(),
+                    onClick = onChangePhase,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
 
             Column {

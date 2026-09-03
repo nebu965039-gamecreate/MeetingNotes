@@ -35,5 +35,9 @@ data class MeetingEntity(
     val decisions: List<String>,
     val concerns: List<String>,
     val nextMeetingDate: String?,
-    val nextMeetingOriginalText: String?
+    val nextMeetingOriginalText: String?,
+    /** AI が推定した商談フェーズ(`DealPhase.wireValue`)。 */
+    val dealPhase: String? = null,
+    /** ユーザーが上書きしたフェーズ。表示は phaseOverride ?: dealPhase。 */
+    val phaseOverride: String? = null
 )

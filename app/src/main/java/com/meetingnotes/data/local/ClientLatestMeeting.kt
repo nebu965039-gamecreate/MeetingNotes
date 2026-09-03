@@ -4,5 +4,7 @@ package com.meetingnotes.data.local
 data class ClientLatestMeeting(
     val clientId: Long,
     val lastRecordedAt: Long,
-    val nextMeetingDate: String?
+    val nextMeetingDate: String?,
+    val dealPhase: String? = null,
+    val phaseOverride: String? = null
 )

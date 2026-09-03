@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
+import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.export.CsvExporter
 import com.meetingnotes.export.ExcelExporter
 import com.meetingnotes.export.IcsExporter
@@ -60,6 +61,10 @@ class MeetingDetailViewModel(
         val trimmed = title.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch { repository.renameMeeting(meetingId, trimmed) }
+    }
+
+    fun setPhase(phase: DealPhase) {
+        viewModelScope.launch { repository.setMeetingPhaseOverride(meetingId, phase) }
     }
 
     fun deleteMeeting(onDeleted: () -> Unit) {

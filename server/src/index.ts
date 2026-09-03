@@ -73,7 +73,18 @@ const SYSTEM_PROMPT = `あなたはフリーランス・個人事業主向けの
    語尾は付けない。)
 8. 「次回打ち合わせ」の date は、メッセージ冒頭で与えられる「現在の日付」を基準に
    ISO 8601(YYYY-MM-DD、時刻が明言されていれば YYYY-MM-DDTHH:MM)で解決する。
-   年をまたぐ相対表現は現在の日付から最も近い将来の日付を採る。`;
+   年をまたぐ相対表現は現在の日付から最も近い将来の日付を採る。
+9. 「dealPhase」: この商談が営業プロセスのどの段階かを、話の内容から1つ推定する。
+   - first_contact: 初回の顔合わせ・挨拶が中心
+   - hearing: 相手の課題・要望・状況をヒアリングしている段階
+   - proposal: こちらから提案・提示を行っている段階
+   - quoted: 金額・見積もりを提示済みで、その反応や条件を話している段階
+   - considering: 提案後、相手が社内検討・比較検討している段階
+   - won: 発注・契約・成約が確定した
+   - on_hold: 案件が保留・先送りになった
+   - lost: 失注・見送りが確定した
+   判断材料が乏しい場合は最も近いものを選ぶ(初期接触なら first_contact、
+   金額の話が出ていれば quoted など)。必ず1つ返す。`;
 
 // strict: true 対応のため、入れ子オブジェクトにも additionalProperties:false と required を付ける。
 const SUMMARY_TOOL_SCHEMA = {
@@ -121,8 +132,21 @@ const SUMMARY_TOOL_SCHEMA = {
       },
     },
     summary: { type: "string" },
+    dealPhase: {
+      type: "string",
+      enum: [
+        "first_contact",
+        "hearing",
+        "proposal",
+        "quoted",
+        "considering",
+        "won",
+        "on_hold",
+        "lost",
+      ],
+    },
   },
-  required: ["decisions", "todos", "nextMeeting", "concerns", "summary"],
+  required: ["decisions", "todos", "nextMeeting", "concerns", "summary", "dealPhase"],
 } as const;
 
 function jsonResponse(body: unknown, status = 200): Response {

@@ -1,6 +1,7 @@
 package com.meetingnotes.data.remote
 
 import com.meetingnotes.data.model.Concern
+import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.Decision
 import com.meetingnotes.data.model.MeetingSummary
 import com.meetingnotes.data.model.NextMeeting
@@ -32,7 +33,8 @@ data class SummaryDto(
     val todos: List<TodoDto> = emptyList(),
     val nextMeeting: NextMeetingDto? = null,
     val concerns: List<ConcernDto> = emptyList(),
-    val summary: String = ""
+    val summary: String = "",
+    val dealPhase: String? = null
 )
 
 @Serializable
@@ -59,5 +61,6 @@ fun SummaryDto.toDomain(): MeetingSummary = MeetingSummary(
     todos = todos.map { TodoItem(it.task, it.assignee, it.deadline) },
     nextMeeting = NextMeeting(nextMeeting?.date, nextMeeting?.originalText),
     concerns = concerns.map { Concern(it.content) },
-    summary = summary
+    summary = summary,
+    dealPhase = DealPhase.fromWire(dealPhase)
 )
