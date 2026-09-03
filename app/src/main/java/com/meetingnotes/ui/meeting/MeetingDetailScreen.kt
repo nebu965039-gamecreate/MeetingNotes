@@ -68,7 +68,10 @@ import com.meetingnotes.export.ShareFileHelper
 import com.meetingnotes.export.Watermark
 import com.meetingnotes.export.WatermarkPosition
 import com.meetingnotes.export.WordExporter
+import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.ui.common.ConfirmDialog
+import com.meetingnotes.ui.common.ProGate
+import com.meetingnotes.ui.common.ProPaywallDialog
 import com.meetingnotes.ui.common.TextInputDialog
 import com.meetingnotes.ui.common.meetingSummarySections
 import com.meetingnotes.ui.common.nextMeetingSection
@@ -330,6 +333,7 @@ private fun ExportOptionsDialog(
 ) {
     val groups = if (icsAvailable) formatGroups else formatGroups.filter { it.items.none { i -> i.first == ExportFormat.ICS } }
     var format by remember { mutableStateOf(ExportFormat.PDF) }
+    var paywallFeature by remember { mutableStateOf<String?>(null) }
     var watermarkEnabled by remember { mutableStateOf(true) }
     var watermarkText by remember { mutableStateOf("SAMPLE") }
     var position by remember { mutableStateOf(WatermarkPosition.CENTER) }
@@ -361,11 +365,17 @@ private fun ExportOptionsDialog(
                     group.items.chunked(2).forEach { rowItems ->
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             rowItems.forEach { (fmt, label) ->
-                                FilterChip(
-                                    selected = format == fmt,
-                                    onClick = { format = fmt },
-                                    label = { Text(label) }
-                                )
+                                val proLocked = fmt != ExportFormat.PDF && ProAccess.shouldLock
+                                ProGate(
+                                    locked = proLocked,
+                                    onLockedTap = { paywallFeature = "$label 形式での書き出し" }
+                                ) {
+                                    FilterChip(
+                                        selected = format == fmt,
+                                        onClick = { format = fmt },
+                                        label = { Text(label) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -386,13 +396,19 @@ private fun ExportOptionsDialog(
 
                 if (format == ExportFormat.PDF) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    ProGate(
+                        locked = ProAccess.shouldLock,
+                        onLockedTap = { paywallFeature = "透かしなしでの書き出し" },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("透かしを入れる(無料プラン相当)")
-                        Switch(checked = watermarkEnabled, onCheckedChange = { watermarkEnabled = it })
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("透かしを入れる")
+                            Switch(checked = watermarkEnabled, onCheckedChange = { watermarkEnabled = it })
+                        }
                     }
                 }
 
@@ -452,6 +468,10 @@ private fun ExportOptionsDialog(
             }
         }
     )
+
+    paywallFeature?.let { feature ->
+        ProPaywallDialog(featureName = feature, onDismiss = { paywallFeature = null })
+    }
 }
 
 /** 透かしの配置イメージをページの縮小プレビューで示す。 */

@@ -103,7 +103,7 @@ MVP相当の機能は一通り実装済み。Google Play Console でのクロー
 2. Google Play Billing Library(定期購入)の実装(Play Console 側のアプリ登録・商品設定が前提)
 3. 不正リセット対策フェーズ2(端末ごとのクレジット管理をサーバー側へ)。上記プロキシ フェーズ2に統合
 4. 透かしのON/OFFをサブスク状態で自動判定(Billing 実装後)
-4b. **エクスポート形式のサブスク制限**(Billing 実装後): 形式は実装済み(PDF/Word/Markdown=議事録全体、Excel/CSV=ToDoのみ、.ics=次回打ち合わせ)。**現状は全形式が無料で使える**。Billing 実装後に「無料=PDF(透かし付き)のみ / 有料=Word・Markdown・Excel・CSV・.ics」を entitlement で出し分け(無料ユーザーが有料形式を選ぶと paywall へ)、透かしも自動判定に。追加候補: HTML / 画像カード(PNG)
+4b. **エクスポート形式のサブスク制限**(Billing 実装後): 形式は実装済み(PDF/Word/Markdown=議事録全体、Excel/CSV=ToDoのみ、.ics=次回打ち合わせ)。**ロック表示の仕組みも実装済み**: `billing/ProAccess`(`gatingEnabled`/`isPro`、現状どちらも false 固定)、`ui/common/ProGate.kt`(`ProGate` = グレーアウト+金枠+左上「Pro」バッジ〈王冠アイコン、`ui/theme/ProColors.kt` の `ProGold`〉、`ProPaywallDialog`)。`ExportOptionsDialog` の非PDFチップと透かしON/OFFを `ProGate` で包み済み。**Billing + paywall が揃うまで `ProAccess.gatingEnabled` は false**(= ロックは一切表示されない)。有効化するには (1) `gatingEnabled` を購入状態に連動させる (2) `isPro` を実購入判定へ (3) `ProPaywallDialog` に登録導線を追加。追加候補の形式: HTML / 画像カード(PNG)
 5. PDF への画像ロゴ埋め込み(レイアウトは改善済み。テキストワードマークを画像に差し替え。アイコンSVGを流用可能)
 6. **要約項目のプリセット化**(サブスク実装後・Pro機能想定): 現状は5項目固定(サマリー/決定事項/懸念点・注意点/ToDo/次回打ち合わせ)がWorkerのスキーマからRoomのカラム、表示、エクスポートまで全レイヤーにハードコード。「商談」「社内MTG」「採用面談」等のプリセットを切替できるようにする案。プリセットごとに固定スキーマを持てば prompt cache は維持可。DBは項目を可変にするため固定カラム→JSON1カラム等へ寄せる v6 マイグレーションが必要。自由入力のカスタム項目(動的スキーマ生成)はさらに大きいので当面対象外
 
