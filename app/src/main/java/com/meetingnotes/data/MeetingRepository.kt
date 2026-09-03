@@ -59,6 +59,8 @@ class MeetingRepository(
 
     fun observeTodos(meetingId: Long): Flow<List<TodoEntity>> = todoDao.observeByMeeting(meetingId)
 
+    fun observeTodosByClient(clientId: Long): Flow<List<TodoEntity>> = todoDao.observeByClient(clientId)
+
     suspend fun setTodoDone(todoId: Long, isDone: Boolean) = todoDao.setDone(todoId, isDone)
 
     fun observeFolders(clientId: Long): Flow<List<FolderEntity>> = folderDao.observeByClient(clientId)

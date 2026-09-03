@@ -2,6 +2,7 @@ package com.meetingnotes.ui.client
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,16 +10,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,13 +33,16 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -43,6 +51,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -74,10 +84,16 @@ fun ClientDetailScreen(
         factory = ClientDetailViewModel.factory(repository, clientId)
     )
     val client by viewModel.client.collectAsState()
-    val meetings by viewModel.meetings.collectAsState()
+    val meetings by viewModel.sortedMeetings.collectAsState()
     val folders by viewModel.folders.collectAsState()
+    val sortOrder by viewModel.sortOrder.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
 
     var menuExpanded by remember { mutableStateOf(false) }
+    var sortMenuExpanded by remember { mutableStateOf(false) }
+    var searchActive by remember { mutableStateOf(false) }
+    val searchFocusRequester = remember { FocusRequester() }
     var showRenameClientDialog by remember { mutableStateOf(false) }
     var showDeleteClientDialog by remember { mutableStateOf(false) }
     var showAddFolderDialog by remember { mutableStateOf(false) }
@@ -120,6 +136,15 @@ fun ClientDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = {
+                        searchActive = !searchActive
+                        if (!searchActive) viewModel.setSearchQuery("")
+                    }) {
+                        Icon(
+                            if (searchActive) Icons.Filled.Close else Icons.Filled.Search,
+                            contentDescription = if (searchActive) "検索を閉じる" else "検索"
+                        )
+                    }
                     IconButton(onClick = { showAddFolderDialog = true }) {
                         Icon(
                             Icons.Filled.CreateNewFolder,
@@ -174,8 +199,89 @@ fun ClientDetailScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            if (searchActive) {
+                item {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { viewModel.setSearchQuery(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(searchFocusRequester),
+                        placeholder = { Text("タイトル・要約・文字起こしを検索") },
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                                    Icon(Icons.Filled.Close, contentDescription = "クリア")
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
+            val searching = searchActive && searchQuery.isNotBlank()
+
+            if (searching) {
+                item {
+                    Text(
+                        text = "「${searchQuery.trim()}」の検索結果 ${searchResults.size}件",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                if (searchResults.isEmpty()) {
+                    item { Text("一致する商談がありません。", style = MaterialTheme.typography.bodyMedium) }
+                } else {
+                    items(searchResults, key = { it.meeting.id }) { result ->
+                        MeetingRow(
+                            meeting = result.meeting,
+                            matchPreview = result.snippet,
+                            onClick = { onMeetingSelected(result.meeting.id) },
+                            onRename = { meetingToRename = result.meeting },
+                            onMove = { meetingToMove = result.meeting },
+                            onDelete = { meetingToDelete = result.meeting }
+                        )
+                    }
+                }
+                return@LazyColumn
+            }
+
             item {
-                Text(text = "アーカイブ", style = MaterialTheme.typography.titleMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "アーカイブ", style = MaterialTheme.typography.titleMedium)
+                    if (meetings.size > 1) {
+                        Box {
+                            TextButton(onClick = { sortMenuExpanded = true }) {
+                                Icon(
+                                    Icons.Filled.SwapVert,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(sortOrder.label)
+                            }
+                            DropdownMenu(
+                                expanded = sortMenuExpanded,
+                                onDismissRequest = { sortMenuExpanded = false }
+                            ) {
+                                MeetingSortOrder.entries.forEach { order ->
+                                    DropdownMenuItem(
+                                        text = { Text(order.label) },
+                                        onClick = {
+                                            viewModel.setSortOrder(order)
+                                            sortMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             if (meetings.isEmpty() && folders.isEmpty()) {
@@ -241,6 +347,10 @@ fun ClientDetailScreen(
                 }
             }
         }
+    }
+
+    LaunchedEffect(searchActive) {
+        if (searchActive) searchFocusRequester.requestFocus()
     }
 
     if (showRenameClientDialog) {
@@ -400,7 +510,8 @@ private fun MeetingRow(
     onClick: () -> Unit,
     onRename: () -> Unit,
     onMove: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    matchPreview: String? = null
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -423,7 +534,16 @@ private fun MeetingRow(
                 Text(text = meeting.title, style = MaterialTheme.typography.titleMedium)
                 val recordedAt = Instant.ofEpochMilli(meeting.recordedAt).atZone(ZoneId.systemDefault())
                 Text(text = recordedAt.format(dateFormatter), style = MaterialTheme.typography.bodySmall)
-                Text(text = meeting.summary, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                if (!matchPreview.isNullOrEmpty()) {
+                    Text(
+                        text = matchPreview,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2
+                    )
+                } else {
+                    Text(text = meeting.summary, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                }
             }
 
             Column {

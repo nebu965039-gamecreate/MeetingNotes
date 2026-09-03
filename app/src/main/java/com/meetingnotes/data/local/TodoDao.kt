@@ -13,6 +13,12 @@ interface TodoDao {
     @Query("SELECT * FROM todos WHERE meetingId = :meetingId ORDER BY id ASC")
     fun observeByMeeting(meetingId: Long): Flow<List<TodoEntity>>
 
+    @Query(
+        "SELECT t.* FROM todos t INNER JOIN meetings m ON t.meetingId = m.id " +
+            "WHERE m.clientId = :clientId ORDER BY t.id ASC"
+    )
+    fun observeByClient(clientId: Long): Flow<List<TodoEntity>>
+
     @Query("UPDATE todos SET isDone = :isDone WHERE id = :todoId")
     suspend fun setDone(todoId: Long, isDone: Boolean)
 }
