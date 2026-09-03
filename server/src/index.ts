@@ -170,12 +170,148 @@ async function underDailyCap(env: Env): Promise<boolean> {
   return true;
 }
 
+/** briefing / followup 用の短いテキスト生成(tool_use なしのプレーン補完)。 */
+const BRIEFING_SYSTEM = `あなたはフリーランス・個人事業主の商談準備を手伝うアシスタントです。
+渡された「過去の商談要約」(古い順)を読み、そのクライアントとの
+「ここまでの流れ」を2〜4文でまとめてください。
+- 体言止め中心の簡潔な記録調(「〜で合意」「〜への懸念」など)
+- 提案→検討→保留 のような流れの推移がわかるように
+- 過去要約に無い情報を推測で足さない
+- 前置きや見出しを付けず、本文だけを返す`;
+
+const FOLLOWUP_SYSTEM_POLITE = `あなたはフリーランス・個人事業主のフォローアップ文面を作成するアシスタントです。
+渡された商談要約をもとに、商談直後に相手へ送るメッセージの下書きを作ってください。
+- 構成: お礼 → 決定事項・確認事項の要点 → 次のアクションのお願い
+- 3〜5文。丁寧だが冗長でない文体(です・ます)
+- 宛名・署名・件名は入れない。本文のみ
+- 要約に無い予定や約束を作らない`;
+
+const FOLLOWUP_SYSTEM_CASUAL = `あなたはフリーランス・個人事業主のフォローアップ文面を作成するアシスタントです。
+渡された商談要約をもとに、商談直後に相手へ送るメッセージの下書きを作ってください。
+- 構成: お礼 → 決定事項・確認事項の要点 → 次のアクションのお願い
+- 3〜5文。ややカジュアルで簡潔な文体
+- 宛名・署名・件名は入れない。本文のみ
+- 要約に無い予定や約束を作らない`;
+
+/** 認証と日次上限。OKなら null、NGなら返すべき Response。 */
+async function guard(request: Request, env: Env): Promise<Response | null> {
+  if (!env.APP_TOKEN || request.headers.get("x-app-token") !== env.APP_TOKEN) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.ANTHROPIC_API_KEY) {
+    return jsonResponse({ error: "server_misconfigured" }, 500);
+  }
+  if (!(await underDailyCap(env))) {
+    return jsonResponse({ error: "daily_cap_reached" }, 429);
+  }
+  return null;
+}
+
+/** tool を使わない短文生成を Anthropic に投げ、{ text } で返す。 */
+async function generateText(
+  env: Env,
+  system: string,
+  userContent: string,
+  maxTokens: number
+): Promise<Response> {
+  const body = JSON.stringify({
+    model: MODEL,
+    max_tokens: maxTokens,
+    temperature: 0.3,
+    system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+    messages: [{ role: "user", content: userContent }],
+  });
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    let upstream: Response;
+    try {
+      upstream = await fetch(ANTHROPIC_URL, {
+        method: "POST",
+        headers: {
+          "x-api-key": env.ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body,
+      });
+    } catch {
+      if (attempt === MAX_ATTEMPTS - 1) return jsonResponse({ error: "upstream_fetch_failed" }, 502);
+      await sleep(INITIAL_BACKOFF_MS * 2 ** attempt);
+      continue;
+    }
+
+    const raw = await upstream.text();
+    if (upstream.ok) {
+      try {
+        const parsed = JSON.parse(raw) as { content?: Array<{ type: string; text?: string }> };
+        const text = (parsed.content ?? [])
+          .filter((b) => b.type === "text" && typeof b.text === "string")
+          .map((b) => b.text)
+          .join("")
+          .trim();
+        return jsonResponse({ text });
+      } catch {
+        return jsonResponse({ error: "parse_failed" }, 502);
+      }
+    }
+    const retryable = upstream.status === 429 || upstream.status >= 500;
+    if (!retryable || attempt === MAX_ATTEMPTS - 1) {
+      return jsonResponse({ error: "upstream_error", status: upstream.status }, upstream.status);
+    }
+    await sleep(INITIAL_BACKOFF_MS * 2 ** attempt);
+  }
+  return jsonResponse({ error: "upstream_unavailable" }, 502);
+}
+
+async function handleBriefing(request: Request, env: Env): Promise<Response> {
+  const g = await guard(request, env);
+  if (g) return g;
+  let summaries: unknown;
+  try {
+    summaries = ((await request.json()) as { summaries?: unknown }).summaries;
+  } catch {
+    return jsonResponse({ error: "invalid_json" }, 400);
+  }
+  if (!Array.isArray(summaries) || summaries.length === 0) {
+    return jsonResponse({ error: "summaries_required" }, 400);
+  }
+  const list = summaries
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .slice(-8)
+    .map((s, i) => `【商談${i + 1}】\n${s.trim()}`)
+    .join("\n\n");
+  if (list.length === 0) return jsonResponse({ error: "summaries_required" }, 400);
+  return generateText(env, BRIEFING_SYSTEM, `過去の商談要約(古い順):\n\n${list}`, 400);
+}
+
+async function handleFollowup(request: Request, env: Env): Promise<Response> {
+  const g = await guard(request, env);
+  if (g) return g;
+  let parsed: { summary?: unknown; tone?: unknown };
+  try {
+    parsed = (await request.json()) as { summary?: unknown; tone?: unknown };
+  } catch {
+    return jsonResponse({ error: "invalid_json" }, 400);
+  }
+  if (typeof parsed.summary !== "string" || parsed.summary.trim().length === 0) {
+    return jsonResponse({ error: "summary_required" }, 400);
+  }
+  const system = parsed.tone === "casual" ? FOLLOWUP_SYSTEM_CASUAL : FOLLOWUP_SYSTEM_POLITE;
+  return generateText(env, system, `商談要約:\n\n${parsed.summary.trim()}`, 500);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     if (request.method === "GET" && url.pathname === "/") {
       return jsonResponse({ ok: true, service: "meetingnotes-summary-proxy" });
+    }
+    if (request.method === "POST" && url.pathname === "/briefing") {
+      return handleBriefing(request, env);
+    }
+    if (request.method === "POST" && url.pathname === "/followup") {
+      return handleFollowup(request, env);
     }
     if (request.method !== "POST" || url.pathname !== "/summarize") {
       return jsonResponse({ error: "not_found" }, 404);

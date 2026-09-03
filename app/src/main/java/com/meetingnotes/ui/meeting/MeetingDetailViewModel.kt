@@ -9,6 +9,7 @@ import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
 import com.meetingnotes.data.model.DealPhase
+import com.meetingnotes.data.remote.AnthropicClient
 import com.meetingnotes.export.CsvExporter
 import com.meetingnotes.export.ExcelExporter
 import com.meetingnotes.export.IcsExporter
@@ -29,11 +30,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+sealed interface FollowupState {
+    data object Idle : FollowupState
+    data object Loading : FollowupState
+    data class Ready(val text: String, val casual: Boolean) : FollowupState
+    data class Error(val message: String) : FollowupState
+}
+
 class MeetingDetailViewModel(
     application: Application,
     private val repository: MeetingRepository,
     meetingId: Long
 ) : AndroidViewModel(application) {
+
+    private val anthropicClient = AnthropicClient()
 
     val meeting: StateFlow<MeetingEntity?> = repository.observeMeeting(meetingId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -65,6 +75,26 @@ class MeetingDetailViewModel(
 
     fun setPhase(phase: DealPhase) {
         viewModelScope.launch { repository.setMeetingPhaseOverride(meetingId, phase) }
+    }
+
+    private val _followupState = MutableStateFlow<FollowupState>(FollowupState.Idle)
+    val followupState: StateFlow<FollowupState> = _followupState.asStateFlow()
+
+    /** F5: 商談要約からフォローアップ文面の下書きを生成する。 */
+    fun generateFollowup(casual: Boolean) {
+        val source = buildPlainTextSummary() ?: return
+        _followupState.value = FollowupState.Loading
+        viewModelScope.launch {
+            runCatching { anthropicClient.generateFollowup(source, casual) }
+                .onSuccess { _followupState.value = FollowupState.Ready(it, casual) }
+                .onFailure {
+                    _followupState.value = FollowupState.Error(it.message ?: "下書きの生成に失敗しました。")
+                }
+        }
+    }
+
+    fun clearFollowup() {
+        _followupState.value = FollowupState.Idle
     }
 
     fun deleteMeeting(onDeleted: () -> Unit) {

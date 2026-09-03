@@ -17,14 +17,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Drafts
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +42,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -52,6 +58,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
@@ -106,6 +115,8 @@ fun MeetingDetailScreen(
     )
     val meeting by viewModel.meeting.collectAsState()
     val todos by viewModel.todos.collectAsState()
+    val followupState by viewModel.followupState.collectAsState()
+    var showFollowup by remember { mutableStateOf(false) }
     var exportAction by remember { mutableStateOf<ExportAction?>(null) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -209,6 +220,20 @@ fun MeetingDetailScreen(
             }
 
             nextMeetingSection(current.nextMeetingDate ?: current.nextMeetingOriginalText ?: "(未定)")
+
+            item {
+                OutlinedButton(
+                    onClick = {
+                        showFollowup = true
+                        if (followupState is FollowupState.Idle) viewModel.generateFollowup(casual = false)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Filled.Drafts, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("フォローアップの下書きを作る")
+                }
+            }
 
             item {
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -325,6 +350,81 @@ fun MeetingDetailScreen(
             }
         )
     }
+
+    if (showFollowup) {
+        FollowupDialog(
+            state = followupState,
+            onRegenerate = { casual -> viewModel.generateFollowup(casual) },
+            onShare = { text ->
+                ShareFileHelper.sharePlainText(context, text, "フォローアップを共有")
+            },
+            onDismiss = {
+                showFollowup = false
+                viewModel.clearFollowup()
+            }
+        )
+    }
+}
+
+@Composable
+private fun FollowupDialog(
+    state: FollowupState,
+    onRegenerate: (casual: Boolean) -> Unit,
+    onShare: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    fun copy(text: String) {
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText("フォローアップ", text))
+        Toast.makeText(context, "コピーしました", Toast.LENGTH_SHORT).show()
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("フォローアップの下書き") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                when (state) {
+                    is FollowupState.Loading, FollowupState.Idle -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Text("下書きを作成しています…", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    is FollowupState.Error -> {
+                        Text(state.message, color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = { onRegenerate(false) }) { Text("再試行") }
+                    }
+                    is FollowupState.Ready -> {
+                        SelectionContainer {
+                            Text(state.text, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = !state.casual,
+                                onClick = { if (state.casual) onRegenerate(false) },
+                                label = { Text("丁寧") }
+                            )
+                            FilterChip(
+                                selected = state.casual,
+                                onClick = { if (!state.casual) onRegenerate(true) },
+                                label = { Text("カジュアル") }
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { copy(state.text) }) { Text("コピー") }
+                            TextButton(onClick = { onShare(state.text) }) { Text("共有") }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("閉じる") } }
+    )
 }
 
 private enum class ExportAction { SHARE, SAVE }
