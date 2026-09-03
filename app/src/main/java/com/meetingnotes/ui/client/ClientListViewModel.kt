@@ -9,6 +9,7 @@ import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.ClientGroupEntity
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -19,6 +20,12 @@ class ClientListViewModel(private val repository: MeetingRepository) : ViewModel
 
     val groups: StateFlow<List<ClientGroupEntity>> = repository.observeClientGroups()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** F1: 次アクション未定で放置されている案件(フォローボード)。 */
+    val followups: StateFlow<List<FollowupItem>> =
+        combine(clients, repository.observeLatestMeetingPerClient()) { clientList, latest ->
+            FollowupRules.compute(clientList, latest)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun addClient(name: String) {
         val trimmed = name.trim()

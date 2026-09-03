@@ -97,6 +97,16 @@ MVP相当の機能は一通り実装済み。Google Play Console でのクロー
 - **APIキープロキシ フェーズ2 コード実装済み**(2026-09-01、未有効化): Worker `src/integrity.ts`(Play Integrity トークンを GCP サービスアカウント経由で `decodeIntegrityToken` 検証、`PLAY_INTEGRITY_ENABLED` = off/audit/enforce)、KV による日次上限(`DAILY_REQUEST_CAP`、`RL` バインディング任意)。アプリ `data/remote/IntegrityTokenProvider.kt`(Standard Integrity API、`PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER` 未設定なら null 返却で無害)、`AnthropicClient` が `x-integrity-token` ヘッダを付与、`requestHash` = SHA-256(transcript) hex を app/Worker で一致させる。deps: `com.google.android.play:integrity:1.4.0` + `kotlinx-coroutines-play-services:1.9.0`。有効化手順は `server/README.md`「フェーズ2」
 - **AdMob 本番ユニットID登録済み・切替はフラグ制御**(2026-08-31〜09-01): 本番アカウント `ca-app-pub-7474417689976149`。`build.gradle.kts` は `local.properties` の `ADMOB_USE_PRODUCTION_ADS`(既定 false)で本番/テストを切替。**クローズドテスト・ローカル開発はすべてテスト広告のまま**(Google公式テストID)= 無効トラフィックのリスクなし。本番/オープンテスト用の AAB をビルドするときだけ `ADMOB_USE_PRODUCTION_ADS=true` にする。App ID は `manifestPlaceholders["admobAppId"]`、ユニットIDは `BuildConfig.ADMOB_*_UNIT_ID`。本番切替後に実機テスターへテスト広告を出す用の `ADMOB_TEST_DEVICE_IDS`(カンマ区切り)→ `MeetingNotesApp` で `RequestConfiguration.setTestDeviceIds`
 
+### 「1人CRM」機能拡張(2026-09-04〜、方向性 承認済み・`feature/solo-crm` ブランチで開発)
+
+競合分析の結果、汎用議事録アプリとの差別化のため **「記録」から「一人商談のやりきり支援」へ** 軸を移す。基本設計・コスト試算・競合分析は Artifact「1人CRM 基本設計」(`https://claude.ai/code/artifact/be51e1cf-e7c3-4962-a2aa-e416f87a2605`)。決定事項:
+
+- **無料**: F1 フォローボード / F2 前回のおさらい(ブリーフィング) / F3 商談フェーズ / F5 フォローアップ下書き生成
+- **Pro**: F4 要約→文字起こしの根拠リンク / F6 ヒアリング分析。Pro 価格 **月¥980 / 年¥7,800**(Billing 実装時に確定)
+- 音声保存は**しない**(プライバシー訴求維持)。フェーズは8段階(初回接触/ヒアリング/提案/見積提示/検討中/成約/保留/失注)
+- 実装順: **P1 F1 → P2 F3(+v6 マイグレーション)→ P3 F2+F5 → P4 Billing+F4+F6**
+- 無料機能(F1・F2・F3・F5)をまとめて次回クローズドテスト(v0.1.9 想定)へ
+
 ### 未完了のタスク(優先度順)
 
 1. **APIキープロキシ フェーズ2 の有効化**(製品版公開前): コードは実装済み(`server/` + アプリ)。ユーザーが GCP/Play Console 設定を行って有効化する段階。(a) KV による全体日次上限 (b) Cloudflare ダッシュボードの IP レート制限 (c) **Play Integrity**(app: `IntegrityTokenProvider`、Worker: `src/integrity.ts`、`PLAY_INTEGRITY_ENABLED` で off/audit/enforce)。手順は `server/README.md` の「フェーズ2」。(d) 端末ごとのクレジット管理をサーバー側へ、は AdMob SSV・プライバシーポリシー更新を伴うため Billing と合わせて別タスク

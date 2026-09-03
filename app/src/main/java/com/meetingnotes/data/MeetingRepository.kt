@@ -2,6 +2,7 @@ package com.meetingnotes.data
 
 import com.meetingnotes.data.local.ClientDao
 import com.meetingnotes.data.local.ClientEntity
+import com.meetingnotes.data.local.ClientLatestMeeting
 import com.meetingnotes.data.local.ClientGroupDao
 import com.meetingnotes.data.local.ClientGroupEntity
 import com.meetingnotes.data.local.FolderDao
@@ -48,6 +49,8 @@ class MeetingRepository(
     suspend fun moveClientToGroup(clientId: Long, groupId: Long?) = clientDao.updateGroup(clientId, groupId)
 
     fun observeMeetings(clientId: Long): Flow<List<MeetingEntity>> = meetingDao.observeByClient(clientId)
+
+    fun observeLatestMeetingPerClient(): Flow<List<ClientLatestMeeting>> = meetingDao.observeLatestMeetingPerClient()
 
     fun observeMeeting(meetingId: Long): Flow<MeetingEntity?> = meetingDao.observeById(meetingId)
 

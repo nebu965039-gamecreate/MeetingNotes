@@ -13,6 +13,17 @@ interface MeetingDao {
     @Query("SELECT * FROM meetings WHERE clientId = :clientId ORDER BY recordedAt DESC")
     fun observeByClient(clientId: Long): Flow<List<MeetingEntity>>
 
+    /** クライアントごとの最新商談(録音日時・次回打ち合わせのみ)。フォローボード用の軽量射影。 */
+    @Query(
+        """
+        SELECT m.clientId AS clientId, m.recordedAt AS lastRecordedAt, m.nextMeetingDate AS nextMeetingDate
+        FROM meetings m
+        INNER JOIN (SELECT clientId, MAX(recordedAt) AS maxAt FROM meetings GROUP BY clientId) latest
+          ON m.clientId = latest.clientId AND m.recordedAt = latest.maxAt
+        """
+    )
+    fun observeLatestMeetingPerClient(): Flow<List<ClientLatestMeeting>>
+
     @Query("SELECT * FROM meetings WHERE id = :meetingId")
     fun observeById(meetingId: Long): Flow<MeetingEntity?>
 

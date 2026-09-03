@@ -68,6 +68,7 @@ fun ClientListScreen(
     val viewModel: ClientListViewModel = viewModel(factory = ClientListViewModel.factory(repository))
     val clients by viewModel.clients.collectAsState()
     val groups by viewModel.groups.collectAsState()
+    val followups by viewModel.followups.collectAsState()
 
     val app = LocalContext.current.applicationContext as MeetingNotesApp
     val draft by app.recordingDraftStore.draft.collectAsState()
@@ -145,6 +146,12 @@ fun ClientListScreen(
                 contentPadding = PaddingValues(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                if (followups.isNotEmpty()) {
+                    item(key = "followup_board") {
+                        FollowupBoard(items = followups, onOpen = onClientSelected)
+                    }
+                }
+
                 if (groups.isEmpty()) {
                     items(clients, key = { it.id }) { client ->
                         ClientRow(
