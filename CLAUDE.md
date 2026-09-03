@@ -74,11 +74,11 @@ adb shell am start -n com.manaapps.meetingnotes/com.meetingnotes.MainActivity
 - DBスキーマを変更する場合はEntityにデフォルト値を持つフィールドとして追加すると、既存のテストコードの修正が不要になることが多い(実例: `endedAt: Long? = null`, `groupId: Long? = null`)
 - テスト(ユニット+インストルメンテーション)は改修のたびに実行し、可能であればエミュレータでの実機確認も行う
 
-## 現在の開発状況(2026-08-31時点)
+## 現在の開発状況(2026-09-03時点)
 
-MVP相当の機能は一通り実装済み。Google Play Console でのクローズドテストを開始し、テスター報告の不具合対応を回している段階。すべての変更はコミット・push 済み(`origin/main`、`github.com/nebu965039-gamecreate/MeetingNotes`、**Public**)。
+MVP相当の機能は一通り実装済み。Google Play Console でのクローズドテストを回している段階。すべての変更はコミット・push 済み(`origin/main`、`github.com/nebu965039-gamecreate/MeetingNotes`、**Public**)。
 
-現在 `versionCode = 3` / `versionName = "0.1.2"`。Play Console 提出の詳細な進捗・手順は `docs/` を参照(`play-console-checklist.md` の「あなたの作業手順 STEP 0-7」、`play-data-safety.md`、`play-store-listing.md`、`release-notes.md`)。
+現在 `versionCode = 9` / `versionName = "0.1.8"`(= クローズドテスト5回目。前回配信 vc4/0.1.3 以降の変更をまとめて配信)。Play Console 提出の詳細な進捗・手順は `docs/` を参照(`play-console-checklist.md`、`play-data-safety.md`、`play-store-listing.md`、`release-notes.md` の「5回目」)。
 
 ### 対応済み(Play Console クローズドテスト準備)
 
