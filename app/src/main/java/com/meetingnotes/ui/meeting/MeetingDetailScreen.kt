@@ -340,10 +340,14 @@ private fun ExportOptionsDialog(
     val groups = if (icsAvailable) formatGroups else formatGroups.filter { it.items.none { i -> i.first == ExportFormat.ICS } }
     var format by remember { mutableStateOf(ExportFormat.PDF) }
     var paywallFeature by remember { mutableStateOf<String?>(null) }
-    var watermarkEnabled by remember { mutableStateOf(true) }
+    var watermarkEnabled by remember { mutableStateOf(false) }
     var watermarkText by remember { mutableStateOf("SAMPLE") }
     var position by remember { mutableStateOf(WatermarkPosition.CENTER) }
     var positionMenuExpanded by remember { mutableStateOf(false) }
+
+    // Pro 未加入で透かしを外せない場合は常に透かしあり。それ以外はトグルに従う。
+    val watermarkForced = format == ExportFormat.PDF && ProAccess.shouldLock
+    val watermarkActive = format == ExportFormat.PDF && (watermarkForced || watermarkEnabled)
 
     val positionOptions = listOf(
         WatermarkPosition.CENTER to "中央(斜め)",
@@ -354,7 +358,7 @@ private fun ExportOptionsDialog(
     )
 
     fun currentWatermark(): Watermark? =
-        if (format == ExportFormat.PDF && watermarkEnabled)
+        if (watermarkActive)
             Watermark(text = watermarkText.ifBlank { "SAMPLE" }, position = position)
         else null
 
@@ -424,9 +428,8 @@ private fun ExportOptionsDialog(
                 }
 
                 if (format == ExportFormat.PDF) {
-                    val watermarkLocked = ProAccess.shouldLock
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    if (watermarkLocked) {
+                    if (watermarkForced) {
                         ProGate(
                             locked = true,
                             onLockedTap = { paywallFeature = "透かしなしでの書き出し" },
@@ -467,7 +470,7 @@ private fun ExportOptionsDialog(
                     }
                 }
 
-                if (format == ExportFormat.PDF && watermarkEnabled) {
+                if (watermarkActive) {
                     OutlinedTextField(
                         value = watermarkText,
                         onValueChange = { watermarkText = it },
