@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,6 +55,7 @@ import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.ClientGroupEntity
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.TextInputDialog
+import com.meetingnotes.util.CalendarIntent
 import com.meetingnotes.ui.theme.CreateActionBlue
 import com.meetingnotes.ui.theme.OnCreateActionBlue
 
@@ -62,15 +64,19 @@ import com.meetingnotes.ui.theme.OnCreateActionBlue
 fun ClientListScreen(
     repository: MeetingRepository,
     onClientSelected: (Long) -> Unit,
+    onMeetingSelected: (Long) -> Unit,
     onRecoverDraft: (Long) -> Unit,
+    onShowNotifications: () -> Unit,
     onHelp: () -> Unit
 ) {
     val viewModel: ClientListViewModel = viewModel(factory = ClientListViewModel.factory(repository))
     val clients by viewModel.clients.collectAsState()
     val groups by viewModel.groups.collectAsState()
     val followups by viewModel.followups.collectAsState()
+    val upcoming by viewModel.upcoming.collectAsState()
 
-    val app = LocalContext.current.applicationContext as MeetingNotesApp
+    val context = LocalContext.current
+    val app = context.applicationContext as MeetingNotesApp
     val draft by app.recordingDraftStore.draft.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var showAddGroupDialog by remember { mutableStateOf(false) }
@@ -93,6 +99,9 @@ fun ClientListScreen(
                     )
                 },
                 actions = {
+                    IconButton(onClick = onShowNotifications) {
+                        Icon(Icons.Filled.Notifications, contentDescription = "通知一覧")
+                    }
                     IconButton(onClick = { showAddGroupDialog = true }) {
                         Icon(
                             Icons.Filled.CreateNewFolder,
@@ -146,6 +155,23 @@ fun ClientListScreen(
                 contentPadding = PaddingValues(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                if (upcoming.isNotEmpty()) {
+                    item(key = "upcoming_board") {
+                        UpcomingBoard(
+                            items = upcoming,
+                            onOpenMeeting = onMeetingSelected,
+                            onAddToCalendar = { item ->
+                                CalendarIntent.add(
+                                    context = context,
+                                    title = "${item.client.name}との打ち合わせ",
+                                    start = item.start,
+                                    allDay = item.allDay
+                                )
+                            }
+                        )
+                    }
+                }
+
                 if (followups.isNotEmpty()) {
                     item(key = "followup_board") {
                         FollowupBoard(items = followups, onOpen = onClientSelected)

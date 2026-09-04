@@ -77,6 +77,11 @@ class MeetingDetailViewModel(
         viewModelScope.launch { repository.setMeetingPhaseOverride(meetingId, phase) }
     }
 
+    /** F7: 次回打ち合わせの日付を手動設定する(dateIso = "yyyy-MM-dd")。 */
+    fun setNextMeetingDate(dateIso: String) {
+        viewModelScope.launch { repository.setNextMeeting(meetingId, dateIso, originalText = null) }
+    }
+
     private val _followupState = MutableStateFlow<FollowupState>(FollowupState.Idle)
     val followupState: StateFlow<FollowupState> = _followupState.asStateFlow()
 

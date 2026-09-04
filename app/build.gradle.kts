@@ -157,6 +157,7 @@ dependencies {
     implementation(libs.play.services.ads)
     implementation(libs.play.integrity)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.androidx.work.runtime.ktx)
 
     debugImplementation(libs.androidx.ui.tooling)
 

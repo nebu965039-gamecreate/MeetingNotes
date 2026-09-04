@@ -11,6 +11,9 @@ import com.meetingnotes.data.local.FolderDao
 import com.meetingnotes.data.local.FolderEntity
 import com.meetingnotes.data.local.MeetingDao
 import com.meetingnotes.data.local.MeetingEntity
+import com.meetingnotes.data.local.NextMeetingCandidate
+import com.meetingnotes.data.local.NotificationLogDao
+import com.meetingnotes.data.local.NotificationLogEntity
 import com.meetingnotes.data.local.TodoDao
 import com.meetingnotes.data.local.TodoEntity
 import com.meetingnotes.data.local.UserCreditsDao
@@ -25,7 +28,8 @@ class MeetingRepository(
     private val userCreditsDao: UserCreditsDao,
     private val folderDao: FolderDao,
     private val clientGroupDao: ClientGroupDao,
-    private val clientBriefingDao: ClientBriefingDao
+    private val clientBriefingDao: ClientBriefingDao,
+    private val notificationLogDao: NotificationLogDao
 ) {
     fun observeClients(): Flow<List<ClientEntity>> = clientDao.observeAll()
 
@@ -65,6 +69,22 @@ class MeetingRepository(
 
     suspend fun setMeetingPhaseOverride(meetingId: Long, phase: com.meetingnotes.data.model.DealPhase?) =
         meetingDao.updatePhaseOverride(meetingId, phase?.wireValue)
+
+    suspend fun setNextMeeting(meetingId: Long, dateIso: String?, originalText: String? = null) =
+        meetingDao.updateNextMeeting(meetingId, dateIso, originalText)
+
+    // --- F7: 予定・リマインド ---
+
+    suspend fun getNextMeetingCandidates(): List<NextMeetingCandidate> = meetingDao.getNextMeetingCandidates()
+
+    fun observeNotificationLog(): Flow<List<NotificationLogEntity>> = notificationLogDao.observeRecent()
+
+    suspend fun notificationAlreadyFired(meetingId: Long, scheduledFor: String): Boolean =
+        notificationLogDao.countFor(meetingId, scheduledFor) > 0
+
+    suspend fun logNotification(entity: NotificationLogEntity) = notificationLogDao.insert(entity)
+
+    suspend fun pruneNotificationLog(beforeMillis: Long) = notificationLogDao.deleteOlderThan(beforeMillis)
 
     fun observeTodos(meetingId: Long): Flow<List<TodoEntity>> = todoDao.observeByMeeting(meetingId)
 

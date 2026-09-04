@@ -64,4 +64,22 @@ class MigrationTest {
             assertTrue(c.getInt(1) == 2)
         }
     }
+
+    @Test
+    fun migrate7To8_addsNotificationLogTable() {
+        helper.createDatabase(dbName, 7).apply { close() }
+
+        val db = helper.runMigrationsAndValidate(dbName, 8, true, MIGRATION_7_8)
+
+        db.execSQL(
+            "INSERT INTO notification_log " +
+                "(meetingId, clientId, title, body, scheduledFor, firedAt) " +
+                "VALUES (1, 2, 'T', 'B', '2026-09-10', 500)"
+        )
+        db.query("SELECT title, scheduledFor FROM notification_log WHERE meetingId = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getString(0) == "T")
+            assertTrue(c.getString(1) == "2026-09-10")
+        }
+    }
 }

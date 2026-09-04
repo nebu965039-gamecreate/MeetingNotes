@@ -91,8 +91,10 @@ import com.meetingnotes.ui.common.TextInputDialog
 import com.meetingnotes.ui.common.effectivePhase
 import com.meetingnotes.ui.theme.OnProGold
 import com.meetingnotes.ui.theme.ProGold
+import com.meetingnotes.ui.common.NextMeetingDatePickerDialog
 import com.meetingnotes.ui.common.meetingSummarySections
-import com.meetingnotes.ui.common.nextMeetingSection
+import com.meetingnotes.data.model.NextMeetingTime
+import com.meetingnotes.util.CalendarIntent
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -116,7 +118,9 @@ fun MeetingDetailScreen(
     val meeting by viewModel.meeting.collectAsState()
     val todos by viewModel.todos.collectAsState()
     val followupState by viewModel.followupState.collectAsState()
+    val clientName by viewModel.clientName.collectAsState()
     var showFollowup by remember { mutableStateOf(false) }
+    var showNextMeetingPicker by remember { mutableStateOf(false) }
     var exportAction by remember { mutableStateOf<ExportAction?>(null) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -219,7 +223,33 @@ fun MeetingDetailScreen(
                 }
             }
 
-            nextMeetingSection(current.nextMeetingDate ?: current.nextMeetingOriginalText ?: "(未定)")
+            item {
+                val parsed = NextMeetingTime.parse(current.nextMeetingDate)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("次回打ち合わせ", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        current.nextMeetingDate
+                            ?: current.nextMeetingOriginalText
+                            ?: "(未定)"
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { showNextMeetingPicker = true }) {
+                            Text(if (parsed != null) "日程を変更" else "日程を設定")
+                        }
+                        if (parsed != null) {
+                            TextButton(onClick = {
+                                CalendarIntent.add(
+                                    context = context,
+                                    title = "${clientName ?: ""}との打ち合わせ".trim().ifEmpty { current.title },
+                                    start = parsed.start,
+                                    allDay = parsed.allDay,
+                                    description = "商談メモ「${current.title}」の次回打ち合わせ"
+                                )
+                            }) { Text("カレンダーに追加") }
+                        }
+                    }
+                }
+            }
 
             item {
                 OutlinedButton(
@@ -324,6 +354,17 @@ fun MeetingDetailScreen(
             onConfirm = { title ->
                 viewModel.renameTitle(title)
                 showRenameDialog = false
+            }
+        )
+    }
+
+    if (showNextMeetingPicker) {
+        NextMeetingDatePickerDialog(
+            initialDate = NextMeetingTime.parse(meeting?.nextMeetingDate)?.date,
+            onDismiss = { showNextMeetingPicker = false },
+            onConfirm = { date ->
+                viewModel.setNextMeetingDate(date.toString())
+                showNextMeetingPicker = false
             }
         )
     }

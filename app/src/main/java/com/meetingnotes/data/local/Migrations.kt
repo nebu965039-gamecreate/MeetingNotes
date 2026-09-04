@@ -50,4 +50,21 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
     }
 }
 
-val databaseMigrations: Array<Migration> = arrayOf(MIGRATION_5_6, MIGRATION_6_7)
+/** v7 → v8: F7 リマインド通知の履歴テーブル。 */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `notification_log` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`meetingId` INTEGER NOT NULL, `clientId` INTEGER NOT NULL, " +
+                "`title` TEXT NOT NULL, `body` TEXT NOT NULL, " +
+                "`scheduledFor` TEXT NOT NULL, `firedAt` INTEGER NOT NULL )"
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_notification_log_meetingId_scheduledFor` " +
+                "ON `notification_log` (`meetingId`, `scheduledFor`)"
+        )
+    }
+}
+
+val databaseMigrations: Array<Migration> = arrayOf(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)

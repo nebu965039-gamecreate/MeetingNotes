@@ -9,6 +9,8 @@ import com.meetingnotes.data.RecordingDraftStore
 import com.meetingnotes.data.local.MeetingNotesDatabase
 import com.meetingnotes.data.local.databaseMigrations
 import com.meetingnotes.data.remote.IntegrityTokenProvider
+import com.meetingnotes.notifications.NotificationHelper
+import com.meetingnotes.notifications.ReminderScheduler
 
 class MeetingNotesApp : Application() {
 
@@ -38,7 +40,8 @@ class MeetingNotesApp : Application() {
             database.userCreditsDao(),
             database.folderDao(),
             database.clientGroupDao(),
-            database.clientBriefingDao()
+            database.clientBriefingDao(),
+            database.notificationLogDao()
         )
     }
 
@@ -58,5 +61,9 @@ class MeetingNotesApp : Application() {
         }
 
         MobileAds.initialize(this) {}
+
+        // F7: 次回打ち合わせのリマインドチェック(周期ジョブ)。
+        NotificationHelper.ensureChannel(this)
+        ReminderScheduler.schedule(this)
     }
 }

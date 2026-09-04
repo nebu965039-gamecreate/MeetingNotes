@@ -16,7 +16,13 @@ class FollowupRulesTest {
         ClientEntity(id = id, name = name, createdAt = 0L)
 
     private fun latest(clientId: Long, daysAgo: Long, next: String? = null, phase: String? = null) =
-        ClientLatestMeeting(clientId, now - daysAgo * day, next, dealPhase = phase)
+        ClientLatestMeeting(
+            clientId = clientId,
+            meetingId = clientId,
+            lastRecordedAt = now - daysAgo * day,
+            nextMeetingDate = next,
+            dealPhase = phase
+        )
 
     @Test
     fun `stale client with no next meeting is a followup`() {

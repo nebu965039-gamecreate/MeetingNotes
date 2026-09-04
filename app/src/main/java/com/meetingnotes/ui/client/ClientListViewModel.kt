@@ -27,6 +27,12 @@ class ClientListViewModel(private val repository: MeetingRepository) : ViewModel
             FollowupRules.compute(clientList, latest)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** F7: 近日に予定されている次回打ち合わせ(予定カレンダー)。 */
+    val upcoming: StateFlow<List<UpcomingItem>> =
+        combine(clients, repository.observeLatestMeetingPerClient()) { clientList, latest ->
+            UpcomingRules.compute(clientList, latest)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun addClient(name: String) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
