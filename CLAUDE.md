@@ -17,7 +17,7 @@ Kotlin 2.4.0 / Jetpack Compose(Material3、BOM 2026.08.00) / Navigation Compose 
 - `app/src/main/java/com/meetingnotes/data/remote/AnthropicClient.kt` — 要約クライアント。APIキーはアプリに持たず、`server/` の中継Worker(`SUMMARY_PROXY_URL`)へ `{transcript}` をPOSTする。Workerが Anthropic のレスポンスをそのまま返すためパース処理(`MessagesResponse`/`SummaryDto`)は不変。プロンプト・toolスキーマ・モデルは **Worker側(`server/src/index.ts`)** にある
 - `server/` — 要約プロキシ(Cloudflare Worker、TypeScript)。デプロイ手順は `server/README.md`。秘密情報(`ANTHROPIC_API_KEY`, `APP_TOKEN`)は `wrangler secret` 管理でリポジトリに入らない
 - `app/src/main/java/com/meetingnotes/data/MeetingRepository.kt` — 全DAOを束ねる単一リポジトリ。新機能を足す時はまずここにメソッドを足す
-- `app/src/main/java/com/meetingnotes/data/local/MeetingNotesDatabase.kt` — Room DB定義。現在 version = 6(`MIGRATION_5_6` = 商談フェーズ列。`feature/solo-crm` ブランチ)
+- `app/src/main/java/com/meetingnotes/data/local/MeetingNotesDatabase.kt` — Room DB定義。現在 version = 7(v6 = 商談フェーズ列、v7 = `client_briefing` テーブル。`feature/solo-crm` ブランチ)
 
 ## アーキテクチャ・設計上の重要事項
 
@@ -107,7 +107,9 @@ MVP相当の機能は一通り実装済み。Google Play Console でのクロー
 - 実装順: **P1 F1 → P2 F3(+v6 マイグレーション)→ P3 F2+F5 → P4 Billing+F4+F6**
 - 無料機能(F1・F2・F3・F5)をまとめて次回クローズドテスト(v0.1.9 想定)へ
 - **P1 完了**(`6a45e97`): `MeetingDao.observeLatestMeetingPerClient`(射影 `ClientLatestMeeting`)、`FollowupRules`(純粋関数)、`FollowupBoard` composable、`ClientListViewModel.followups`。閾値 14日
-- **P2 完了**: `DealPhase`(enum、`data/model`)、`MeetingEntity` に `dealPhase`/`phaseOverride` 列、**DB version 6 + `MIGRATION_5_6`**(`app/schemas/.../6.json` コミット、`MigrationTest` androidTest 追加・通過)。Worker の tool スキーマに `dealPhase` enum + SYSTEM_PROMPT ルール9。`SummaryDto`/`toDomain`/`MeetingSummary`/`saveMeeting` 対応。`ui/common/DealPhaseChip.kt`(`DealPhaseChip` + `DealPhasePickerDialog` + `MeetingEntity.effectivePhase()`)。アーカイブの `MeetingRow` と `MeetingDetailScreen` にチップ(タップで変更)。F1 のフォロー理由にフェーズ表示、WON/LOST は除外。**Worker は要 `wrangler deploy`**(dealPhase をスキーマに反映)
+- **P2 完了**: `DealPhase`(enum、`data/model`)、`MeetingEntity` に `dealPhase`/`phaseOverride` 列、**DB version 6 + `MIGRATION_5_6`**(`app/schemas/.../6.json` コミット、`MigrationTest` androidTest 追加・通過)。Worker の tool スキーマに `dealPhase` enum + SYSTEM_PROMPT ルール9。`SummaryDto`/`toDomain`/`MeetingSummary`/`saveMeeting` 対応。`ui/common/DealPhaseChip.kt`(`DealPhaseChip` + `DealPhasePickerDialog` + `MeetingEntity.effectivePhase()`)。アーカイブの `MeetingRow` と `MeetingDetailScreen` にチップ(タップで変更)。F1 のフォロー理由にフェーズ表示、WON/LOST は除外
+- **P3 完了**: (F5)Worker `POST /followup`(tool なしのプレーン補完、共通ヘルパー `guard`/`generateText`)、`AnthropicClient.generateFollowup`、`MeetingDetailViewModel.FollowupState`、商談詳細に「フォローアップの下書きを作る」+ `FollowupDialog`(丁寧/カジュアル、コピー/共有)。(F2)Worker `POST /briefing`、`AnthropicClient.generateBriefing`、`client_briefing` テーブル + `ClientBriefingDao` + **DB version 7 + `MIGRATION_6_7`**(`7.json` コミット、`MigrationTest` に 5→7 チェーン追加・通過)。`ui/briefing/`(`BriefingScreen` + `BriefingViewModel`)、`Routes.BRIEFING`。2回目以降の録音は「録音開始」→ 前回のおさらい画面 →「録音を始める」。`ClientDetailScreen` の ⋮ に「前回のおさらい」。おさらいは商談が増えたら再生成(`sourceMeetingCount`)
+- **Worker は要 `wrangler deploy`**: dealPhase スキーマ(P2)+ `/briefing` `/followup` エンドポイント(P3)。デプロイ前は該当機能がエラーになる
 
 ### 未完了のタスク(優先度順)
 

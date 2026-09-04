@@ -44,4 +44,24 @@ class MigrationTest {
             assertNull(c.getString(2))
         }
     }
+
+    @Test
+    fun migrate5To7_fullChain_addsBriefingTable() {
+        helper.createDatabase(dbName, 5).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 7, true, MIGRATION_5_6, MIGRATION_6_7)
+
+        db.execSQL(
+            "INSERT INTO client_briefing (clientId, flowText, generatedAt, sourceMeetingCount) " +
+                "VALUES (1, '流れ', 100, 2)"
+        )
+        db.query("SELECT flowText, sourceMeetingCount FROM client_briefing WHERE clientId = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getString(0) == "流れ")
+            assertTrue(c.getInt(1) == 2)
+        }
+    }
 }

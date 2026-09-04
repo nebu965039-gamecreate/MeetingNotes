@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.ui.briefing.BriefingScreen
 import com.meetingnotes.ui.client.ClientDetailScreen
 import com.meetingnotes.ui.client.ClientListScreen
 import com.meetingnotes.ui.help.HelpScreen
@@ -19,12 +20,14 @@ import com.meetingnotes.ui.result.ResultScreen
 object Routes {
     const val CLIENT_LIST = "clientList"
     const val CLIENT_DETAIL = "clientDetail/{clientId}"
+    const val BRIEFING = "briefing/{clientId}"
     const val RECORDING = "recording/{clientId}"
     const val RESULT = "result"
     const val MEETING_DETAIL = "meetingDetail/{meetingId}"
     const val HELP = "help"
 
     fun clientDetail(clientId: Long) = "clientDetail/$clientId"
+    fun briefing(clientId: Long) = "briefing/$clientId"
     fun recording(clientId: Long) = "recording/$clientId"
     fun meetingDetail(meetingId: Long) = "meetingDetail/$meetingId"
 }
@@ -65,11 +68,27 @@ fun MeetingNotesNavHost(
                     meetingViewModel.resetForNewMeeting()
                     navController.navigate(Routes.recording(id))
                 },
+                onShowBriefing = { id -> navController.navigate(Routes.briefing(id)) },
                 onMeetingSelected = { meetingId ->
                     navController.navigate(Routes.meetingDetail(meetingId))
                 },
                 onBack = { navController.popBackStack() },
                 onClientDeleted = { navController.popBackStack(Routes.CLIENT_LIST, inclusive = false) }
+            )
+        }
+        composable(
+            Routes.BRIEFING,
+            arguments = listOf(navArgument("clientId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val clientId = backStackEntry.arguments?.getLong("clientId") ?: return@composable
+            BriefingScreen(
+                repository = repository,
+                clientId = clientId,
+                onStartRecording = { id ->
+                    meetingViewModel.resetForNewMeeting()
+                    navController.navigate(Routes.recording(id))
+                },
+                onBack = { navController.popBackStack() }
             )
         }
         composable(

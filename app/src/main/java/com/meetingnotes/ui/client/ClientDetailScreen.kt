@@ -81,6 +81,7 @@ fun ClientDetailScreen(
     repository: MeetingRepository,
     clientId: Long,
     onStartRecording: (Long) -> Unit,
+    onShowBriefing: (Long) -> Unit,
     onMeetingSelected: (Long) -> Unit,
     onBack: () -> Unit,
     onClientDeleted: () -> Unit
@@ -162,6 +163,15 @@ fun ClientDetailScreen(
                         Icon(Icons.Filled.MoreVert, contentDescription = "メニュー")
                     }
                     DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        if (meetings.isNotEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("前回のおさらい") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onShowBriefing(clientId)
+                                }
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("クライアント名を変更") },
                             onClick = {
@@ -185,7 +195,10 @@ fun ClientDetailScreen(
                 BannerAdView()
                 Surface(shadowElevation = 4.dp) {
                     Button(
-                        onClick = { onStartRecording(clientId) },
+                        onClick = {
+                            // 2回目以降は録音前に「前回のおさらい」を挟む
+                            if (meetings.isNotEmpty()) onShowBriefing(clientId) else onStartRecording(clientId)
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp)

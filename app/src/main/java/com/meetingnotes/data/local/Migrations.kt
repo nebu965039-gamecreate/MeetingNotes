@@ -32,4 +32,22 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
-val databaseMigrations: Array<Migration> = arrayOf(MIGRATION_5_6)
+/** v6 → v7: F2 用の `client_briefing` テーブルを追加。 */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `client_briefing` (" +
+                "`clientId` INTEGER NOT NULL, `flowText` TEXT NOT NULL, " +
+                "`generatedAt` INTEGER NOT NULL, `sourceMeetingCount` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`clientId`), " +
+                "FOREIGN KEY(`clientId`) REFERENCES `clients`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_client_briefing_clientId` " +
+                "ON `client_briefing` (`clientId`)"
+        )
+    }
+}
+
+val databaseMigrations: Array<Migration> = arrayOf(MIGRATION_5_6, MIGRATION_6_7)

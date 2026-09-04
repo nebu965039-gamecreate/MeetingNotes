@@ -13,6 +13,9 @@ interface MeetingDao {
     @Query("SELECT * FROM meetings WHERE clientId = :clientId ORDER BY recordedAt DESC")
     fun observeByClient(clientId: Long): Flow<List<MeetingEntity>>
 
+    @Query("SELECT * FROM meetings WHERE clientId = :clientId ORDER BY recordedAt ASC")
+    suspend fun getByClientChrono(clientId: Long): List<MeetingEntity>
+
     /** クライアントごとの最新商談(フォローボード用の軽量射影)。 */
     @Query(
         """
