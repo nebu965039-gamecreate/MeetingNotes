@@ -16,6 +16,7 @@ import com.meetingnotes.export.IcsExporter
 import com.meetingnotes.export.MarkdownExporter
 import com.meetingnotes.export.MeetingExportContentBuilder
 import com.meetingnotes.export.PdfExporter
+import com.meetingnotes.export.PdfPasswordProtector
 import com.meetingnotes.export.Watermark
 import com.meetingnotes.export.WordExporter
 import kotlinx.coroutines.Dispatchers
@@ -109,14 +110,28 @@ class MeetingDetailViewModel(
         }
     }
 
-    fun exportPdf(watermark: Watermark?, onReady: (File) -> Unit) {
+    /**
+     * [password] が非空なら Pro機能として PDF にパスワードを設定する(AES-256、後処理方式)。
+     * 失敗時(暗号化ライブラリのI/Oエラー等)は [onError] を呼ぶ。
+     */
+    fun exportPdf(
+        watermark: Watermark?,
+        password: String?,
+        onReady: (File) -> Unit,
+        onError: (String) -> Unit = {}
+    ) {
         val current = meeting.value ?: return
         viewModelScope.launch {
             val blocks = MeetingExportContentBuilder.build(clientName.value, current, todos.value)
-            val file = withContext(Dispatchers.IO) {
-                PdfExporter.exportToFile(getApplication(), "meeting_${current.id}.pdf", blocks, watermark)
-            }
-            onReady(file)
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val file = PdfExporter.exportToFile(getApplication(), "meeting_${current.id}.pdf", blocks, watermark)
+                    if (!password.isNullOrBlank()) {
+                        PdfPasswordProtector.protect(getApplication(), file, password)
+                    }
+                    file
+                }
+            }.onSuccess(onReady).onFailure { onError(it.message ?: "PDFの生成に失敗しました。") }
         }
     }
 

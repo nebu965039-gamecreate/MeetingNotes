@@ -63,6 +63,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import com.meetingnotes.ads.BannerAdFormat
 import com.meetingnotes.ads.BannerAdView
@@ -311,12 +312,15 @@ fun MeetingDetailScreen(
             action = action,
             icsAvailable = IcsExporter.hasUsableDate(meeting?.nextMeetingDate),
             onDismiss = { exportAction = null },
-            onExport = { format, watermark ->
+            onExport = { format, watermark, password ->
                 exportAction = null
                 when (format) {
-                    ExportFormat.PDF -> viewModel.exportPdf(watermark) {
-                        deliver(it, PdfExporter.MIME_TYPE, "商談メモをPDFで共有")
-                    }
+                    ExportFormat.PDF -> viewModel.exportPdf(
+                        watermark = watermark,
+                        password = password,
+                        onReady = { deliver(it, PdfExporter.MIME_TYPE, "商談メモをPDFで共有") },
+                        onError = { message -> Toast.makeText(context, message, Toast.LENGTH_LONG).show() }
+                    )
                     ExportFormat.WORD -> viewModel.exportWord {
                         deliver(it, WordExporter.MIME_TYPE, "商談メモをWordで共有")
                     }
@@ -501,7 +505,7 @@ private fun ExportOptionsDialog(
     action: ExportAction,
     icsAvailable: Boolean,
     onDismiss: () -> Unit,
-    onExport: (ExportFormat, Watermark?) -> Unit
+    onExport: (ExportFormat, Watermark?, String?) -> Unit
 ) {
     val groups = if (icsAvailable) formatGroups else formatGroups.filter { it.items.none { i -> i.first == ExportFormat.ICS } }
     var format by remember { mutableStateOf(ExportFormat.PDF) }
@@ -510,6 +514,8 @@ private fun ExportOptionsDialog(
     var watermarkText by remember { mutableStateOf("SAMPLE") }
     var position by remember { mutableStateOf(WatermarkPosition.CENTER) }
     var positionMenuExpanded by remember { mutableStateOf(false) }
+    var passwordEnabled by remember { mutableStateOf(false) }
+    var password by remember { mutableStateOf("") }
 
     // Pro 未加入で透かしを外せない場合は常に透かしあり。それ以外はトグルに従う。
     val watermarkForced = format == ExportFormat.PDF && ProAccess.shouldLock
@@ -527,6 +533,11 @@ private fun ExportOptionsDialog(
         if (watermarkActive)
             Watermark(text = watermarkText.ifBlank { "SAMPLE" }, position = position)
         else null
+
+    // パスワード保護は Pro 限定。未加入では設定できない(常に null)。
+    val passwordActive = format == ExportFormat.PDF && passwordEnabled && !ProAccess.shouldLock
+    fun currentPassword(): String? = if (passwordActive && password.isNotBlank()) password else null
+    val canExport = !passwordActive || password.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -679,10 +690,58 @@ private fun ExportOptionsDialog(
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
+
+                if (format == ExportFormat.PDF) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    ProGate(
+                        locked = ProAccess.shouldLock,
+                        onLockedTap = { paywallFeature = "PDFのパスワード保護" },
+                        modifier = if (ProAccess.shouldLock) {
+                            Modifier.fillMaxWidth().padding(top = 12.dp)
+                        } else {
+                            Modifier.fillMaxWidth()
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("パスワードを設定する")
+                            Switch(
+                                checked = passwordEnabled && !ProAccess.shouldLock,
+                                enabled = !ProAccess.shouldLock,
+                                onCheckedChange = { passwordEnabled = it }
+                            )
+                        }
+                    }
+
+                    if (passwordActive) {
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("パスワード") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            supportingText = if (password.isBlank()) {
+                                { Text("パスワードを入力してください") }
+                            } else null,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            "このパスワードを知っている人だけがPDFを開けます。アプリ側には保存されないため、共有先に別途伝えてください。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onExport(format, currentWatermark()) }) {
+            TextButton(
+                onClick = { onExport(format, currentWatermark(), currentPassword()) },
+                enabled = canExport
+            ) {
                 Text(if (action == ExportAction.SHARE) "共有する" else "保存する")
             }
         },

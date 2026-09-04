@@ -158,6 +158,7 @@ dependencies {
     implementation(libs.play.integrity)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.pdfbox.android)
 
     debugImplementation(libs.androidx.ui.tooling)
 
