@@ -302,7 +302,7 @@ private fun PhaseTrackerSection(counts: PhaseTrackerCounts, modifier: Modifier =
             Box(Modifier.fillMaxWidth()) {
                 HorizontalDivider(
                     modifier = Modifier
-                        .align(Alignment.CenterStart)
+                        .align(Alignment.TopStart)
                         .padding(top = 7.dp, start = 7.dp, end = 7.dp)
                 )
                 Row(Modifier.fillMaxWidth()) {
