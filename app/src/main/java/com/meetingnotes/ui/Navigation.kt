@@ -20,6 +20,7 @@ import com.meetingnotes.ui.notifications.NotificationScreen
 import com.meetingnotes.ui.recording.RecordingScreen
 import com.meetingnotes.ui.result.ResultScreen
 import com.meetingnotes.ui.schedule.ScheduleScreen
+import com.meetingnotes.ui.settings.SettingsScreen
 
 object Routes {
     const val HOME = "home"
@@ -33,6 +34,7 @@ object Routes {
     const val NOTIFICATIONS = "notifications"
     const val SCHEDULE = "schedule"
     const val FOLLOWUP_LIST = "followupList"
+    const val SETTINGS = "settings"
 
     fun clientDetail(clientId: Long) = "clientDetail/$clientId"
     fun briefing(clientId: Long) = "briefing/$clientId"
@@ -61,8 +63,12 @@ fun MeetingNotesNavHost(
                     meetingViewModel.resetForNewMeeting()
                     navController.navigate(Routes.recording(clientId))
                 },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onHelp = { navController.navigate(Routes.HELP) }
             )
+        }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.CLIENT_LIST) {
             ClientListScreen(

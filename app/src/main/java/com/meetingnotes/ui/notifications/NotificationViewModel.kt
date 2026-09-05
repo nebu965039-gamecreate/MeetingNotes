@@ -8,8 +8,6 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.NotificationLogEntity
 import com.meetingnotes.data.model.NextMeetingTime
-import com.meetingnotes.notifications.ReminderPrefs
-import com.meetingnotes.notifications.ReminderScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,11 +32,6 @@ class NotificationViewModel(
     private val repository: MeetingRepository
 ) : AndroidViewModel(application) {
 
-    private val prefs = ReminderPrefs(application)
-
-    private val _remindersEnabled = MutableStateFlow(prefs.enabled)
-    val remindersEnabled: StateFlow<Boolean> = _remindersEnabled.asStateFlow()
-
     val history: StateFlow<List<NotificationLogEntity>> = repository.observeNotificationLog()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -61,12 +54,6 @@ class NotificationViewModel(
             }
             _upcoming.value = list
         }
-    }
-
-    fun setRemindersEnabled(enabled: Boolean) {
-        prefs.enabled = enabled
-        _remindersEnabled.value = enabled
-        ReminderScheduler.reschedule(getApplication())
     }
 
     companion object {

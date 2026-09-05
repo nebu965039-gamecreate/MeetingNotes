@@ -3,6 +3,7 @@ package com.meetingnotes.ui.client
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -96,7 +97,7 @@ private val boardDateFormatter = DateTimeFormatter.ofPattern("M/d")
 /** 内部スクロールで表示する最大件数。これを超える分は「すべて表示」で全件ページへ誘導する。 */
 private const val MAX_VISIBLE = 10
 
-/** ホーム画面の「要フォロー」カード。空なら何も描かない。デフォルトで3件ぶんの高さ、内部スクロールで最大10件確認できる。 */
+/** ホーム画面の「要フォロー」カード。0件でも表示する。デフォルトで3件ぶんの高さ、内部スクロールで最大10件確認できる。 */
 @Composable
 fun FollowupBoard(
     items: List<FollowupItem>,
@@ -104,7 +105,6 @@ fun FollowupBoard(
     onShowAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (items.isEmpty()) return
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
@@ -128,6 +128,21 @@ fun FollowupBoard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            if (items.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(16.dp))
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        "フォローが必要な商談はありません。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                return@Column
             }
             Column(
                 modifier = Modifier

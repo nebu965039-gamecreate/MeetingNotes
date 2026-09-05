@@ -1,6 +1,8 @@
 package com.meetingnotes
 
 import android.app.Application
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.room.Room
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
@@ -11,6 +13,8 @@ import com.meetingnotes.data.local.databaseMigrations
 import com.meetingnotes.data.remote.IntegrityTokenProvider
 import com.meetingnotes.notifications.NotificationHelper
 import com.meetingnotes.notifications.ReminderScheduler
+import com.meetingnotes.ui.theme.ThemeMode
+import com.meetingnotes.ui.theme.ThemePrefs
 
 class MeetingNotesApp : Application() {
 
@@ -30,6 +34,16 @@ class MeetingNotesApp : Application() {
 
     val recordingDraftStore: RecordingDraftStore by lazy {
         RecordingDraftStore(this)
+    }
+
+    private val themePrefs: ThemePrefs by lazy { ThemePrefs(this) }
+
+    /** アプリ全体のテーマ(ライト/ダーク/端末設定)。Compose の状態として持ちどの画面からでも即時反映する。 */
+    val themeModeState: MutableState<ThemeMode> by lazy { mutableStateOf(themePrefs.mode) }
+
+    fun setThemeMode(mode: ThemeMode) {
+        themePrefs.mode = mode
+        themeModeState.value = mode
     }
 
     val repository: MeetingRepository by lazy {

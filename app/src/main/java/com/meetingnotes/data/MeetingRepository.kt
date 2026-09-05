@@ -33,8 +33,8 @@ class MeetingRepository(
 ) {
     fun observeClients(): Flow<List<ClientEntity>> = clientDao.observeAll()
 
-    suspend fun addClient(name: String): Long =
-        clientDao.insert(ClientEntity(name = name, createdAt = System.currentTimeMillis()))
+    suspend fun addClient(name: String, groupId: Long? = null): Long =
+        clientDao.insert(ClientEntity(name = name, groupId = groupId, createdAt = System.currentTimeMillis()))
 
     suspend fun getClient(clientId: Long): ClientEntity? = clientDao.getById(clientId)
 

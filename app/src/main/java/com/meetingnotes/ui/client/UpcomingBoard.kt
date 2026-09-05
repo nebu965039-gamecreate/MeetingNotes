@@ -3,6 +3,7 @@ package com.meetingnotes.ui.client
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -70,7 +71,7 @@ object UpcomingRules {
 
 private const val PREVIEW_COUNT = 3
 
-/** ホーム画面の「次回の予定」カード。空なら何も描かない。 */
+/** ホーム画面の「次回の予定」カード。0件でも表示する。 */
 @Composable
 fun UpcomingBoard(
     items: List<UpcomingItem>,
@@ -78,7 +79,6 @@ fun UpcomingBoard(
     onShowAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (items.isEmpty()) return
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
@@ -116,17 +116,32 @@ fun UpcomingBoard(
                     modifier = Modifier.clickable(onClick = onShowAll)
                 )
             }
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 14.dp)
-            ) {
-                val preview = items.take(PREVIEW_COUNT)
-                preview.forEachIndexed { index, item ->
-                    UpcomingRow(item = item, onClick = { onOpenMeeting(item.meetingId) })
-                    if (index != preview.lastIndex) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.08f))
+            if (items.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp))
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        "次回打ち合わせの予定はありません。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 14.dp)
+                ) {
+                    val preview = items.take(PREVIEW_COUNT)
+                    preview.forEachIndexed { index, item ->
+                        UpcomingRow(item = item, onClick = { onOpenMeeting(item.meetingId) })
+                        if (index != preview.lastIndex) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.08f))
+                        }
                     }
                 }
             }

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -68,6 +69,7 @@ fun HomeScreen(
     onOpenClient: (Long) -> Unit,
     onOpenMeeting: (Long) -> Unit,
     onRecoverDraft: (Long) -> Unit,
+    onOpenSettings: () -> Unit,
     onHelp: () -> Unit
 ) {
     val viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory(repository))
@@ -108,8 +110,13 @@ fun HomeScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    IconButton(onClick = onHelp) {
-                        Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "使い方・ヘルプ")
+                    Row {
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(Icons.Filled.Settings, contentDescription = "設定")
+                        }
+                        IconButton(onClick = onHelp) {
+                            Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "使い方・ヘルプ")
+                        }
                     }
                 }
             }

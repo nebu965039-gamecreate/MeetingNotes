@@ -20,10 +20,10 @@ class ClientListViewModel(private val repository: MeetingRepository) : ViewModel
     val groups: StateFlow<List<ClientGroupEntity>> = repository.observeClientGroups()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun addClient(name: String) {
+    fun addClient(name: String, groupId: Long? = null) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
-        viewModelScope.launch { repository.addClient(trimmed) }
+        viewModelScope.launch { repository.addClient(trimmed, groupId) }
     }
 
     fun renameClient(clientId: Long, name: String) {
