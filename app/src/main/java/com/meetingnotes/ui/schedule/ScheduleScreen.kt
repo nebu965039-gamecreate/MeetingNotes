@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.model.NextMeetingTime
 import com.meetingnotes.ui.client.UpcomingItem
@@ -116,7 +118,8 @@ fun ScheduleScreen(
             FloatingActionButton(onClick = { showAddDialog = true }) {
                 Icon(Icons.Filled.Add, contentDescription = "予定を追加")
             }
-        }
+        },
+        bottomBar = { BannerAdView(Modifier.navigationBarsPadding()) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier

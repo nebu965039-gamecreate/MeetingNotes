@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.MeetingRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,7 +55,8 @@ fun FollowupListScreen(
                     }
                 }
             )
-        }
+        },
+        bottomBar = { BannerAdView(Modifier.navigationBarsPadding()) }
     ) { padding ->
         if (items.isEmpty()) {
             Box(

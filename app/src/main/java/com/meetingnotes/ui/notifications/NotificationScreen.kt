@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.NotificationLogEntity
 import java.time.Instant
@@ -87,13 +88,13 @@ fun NotificationScreen(
                     }
                 }
             )
-        }
+        },
+        bottomBar = { BannerAdView(Modifier.navigationBarsPadding()) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .navigationBarsPadding()
                 .padding(horizontal = 16.dp),
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -40,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.MeetingNotesApp
+import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.notifications.NotificationHelper
 import com.meetingnotes.ui.theme.ThemeMode
 
@@ -79,7 +81,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                     }
                 }
             )
-        }
+        },
+        bottomBar = { BannerAdView(Modifier.navigationBarsPadding()) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier
