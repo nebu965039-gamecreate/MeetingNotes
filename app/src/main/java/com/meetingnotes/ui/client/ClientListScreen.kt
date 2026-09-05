@@ -27,13 +27,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,19 +42,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.ClientGroupEntity
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.TextInputDialog
-import com.meetingnotes.util.CalendarIntent
 import com.meetingnotes.ui.theme.CreateActionBlue
 import com.meetingnotes.ui.theme.OnCreateActionBlue
 
@@ -64,20 +60,12 @@ import com.meetingnotes.ui.theme.OnCreateActionBlue
 fun ClientListScreen(
     repository: MeetingRepository,
     onClientSelected: (Long) -> Unit,
-    onMeetingSelected: (Long) -> Unit,
-    onRecoverDraft: (Long) -> Unit,
-    onShowNotifications: () -> Unit,
-    onHelp: () -> Unit
+    onBack: () -> Unit
 ) {
     val viewModel: ClientListViewModel = viewModel(factory = ClientListViewModel.factory(repository))
     val clients by viewModel.clients.collectAsState()
     val groups by viewModel.groups.collectAsState()
-    val followups by viewModel.followups.collectAsState()
-    val upcoming by viewModel.upcoming.collectAsState()
 
-    val context = LocalContext.current
-    val app = context.applicationContext as MeetingNotesApp
-    val draft by app.recordingDraftStore.draft.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var showAddGroupDialog by remember { mutableStateOf(false) }
     var clientToRename by remember { mutableStateOf<ClientEntity?>(null) }
@@ -98,19 +86,18 @@ fun ClientListScreen(
                         fontWeight = FontWeight.Bold
                     )
                 },
-                actions = {
-                    IconButton(onClick = onShowNotifications) {
-                        Icon(Icons.Filled.Notifications, contentDescription = "通知一覧")
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                     }
+                },
+                actions = {
                     IconButton(onClick = { showAddGroupDialog = true }) {
                         Icon(
                             Icons.Filled.CreateNewFolder,
                             contentDescription = "グループを作成",
                             tint = CreateActionBlue
                         )
-                    }
-                    IconButton(onClick = onHelp) {
-                        Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "使い方・ヘルプ")
                     }
                 }
             )
@@ -131,16 +118,6 @@ fun ClientListScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            draft?.let { d ->
-                DraftRecoveryCard(
-                    endedAt = d.endedAt,
-                    updatedAt = d.updatedAt,
-                    onOpen = { onRecoverDraft(d.clientId) },
-                    onDiscard = { app.recordingDraftStore.clear() },
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-
             if (clients.isEmpty()) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text("右下の + からクライアントを追加してください。")
@@ -155,29 +132,6 @@ fun ClientListScreen(
                 contentPadding = PaddingValues(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (upcoming.isNotEmpty()) {
-                    item(key = "upcoming_board") {
-                        UpcomingBoard(
-                            items = upcoming,
-                            onOpenMeeting = onMeetingSelected,
-                            onAddToCalendar = { item ->
-                                CalendarIntent.add(
-                                    context = context,
-                                    title = "${item.client.name}との打ち合わせ",
-                                    start = item.start,
-                                    allDay = item.allDay
-                                )
-                            }
-                        )
-                    }
-                }
-
-                if (followups.isNotEmpty()) {
-                    item(key = "followup_board") {
-                        FollowupBoard(items = followups, onOpen = onClientSelected)
-                    }
-                }
-
                 if (groups.isEmpty()) {
                     items(clients, key = { it.id }) { client ->
                         ClientRow(
@@ -318,39 +272,6 @@ fun ClientListScreen(
                 groupToDelete = null
             }
         )
-    }
-}
-
-/** 前回の録音〜要約が途中で終わっている場合に一覧の先頭に出す復元カード。 */
-@Composable
-private fun DraftRecoveryCard(
-    endedAt: Long,
-    updatedAt: Long,
-    onOpen: () -> Unit,
-    onDiscard: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val whenText = java.time.Instant.ofEpochMilli(if (updatedAt > 0) updatedAt else endedAt)
-        .atZone(java.time.ZoneId.systemDefault())
-        .format(java.time.format.DateTimeFormatter.ofPattern("M/d HH:mm"))
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text("未完了の商談メモがあります", style = MaterialTheme.typography.titleSmall)
-            Text(
-                "$whenText の録音。文字起こしが保存されています。",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onDiscard) { Text("破棄") }
-                TextButton(onClick = onOpen) { Text("開いて続ける") }
-            }
-        }
     }
 }
 

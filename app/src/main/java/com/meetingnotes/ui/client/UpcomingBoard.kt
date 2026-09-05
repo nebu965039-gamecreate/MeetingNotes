@@ -1,5 +1,6 @@
 package com.meetingnotes.ui.client
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,13 +10,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,11 +30,10 @@ import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.ClientLatestMeeting
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.NextMeetingTime
+import com.meetingnotes.ui.common.DealPhaseChip
+import com.meetingnotes.ui.common.relativeDateTimeLabel
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
 
 /** 予定カレンダー(F7)の1行。 */
 data class UpcomingItem(
@@ -67,79 +68,106 @@ object UpcomingRules {
     }
 }
 
-private val agendaDate = DateTimeFormatter.ofPattern("M/d")
+private const val PREVIEW_COUNT = 3
 
-/** クライアント一覧の「近日の予定」カード。空なら何も描かない。 */
+/** ホーム画面の「次回の予定」カード。空なら何も描かない。 */
 @Composable
 fun UpcomingBoard(
     items: List<UpcomingItem>,
     onOpenMeeting: (Long) -> Unit,
-    onAddToCalendar: (UpcomingItem) -> Unit,
+    onShowAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (items.isEmpty()) return
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Filled.EventAvailable,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.size(18.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Filled.EventAvailable,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("次回の予定", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "全${items.size}件",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    "すべて表示",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable(onClick = onShowAll)
                 )
-                Spacer(Modifier.width(8.dp))
-                Text("近日の予定 (${items.size})", style = MaterialTheme.typography.titleSmall)
             }
-            items.take(6).forEach { item ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenMeeting(item.meetingId) }
-                        .padding(vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "${item.start.toLocalDate().format(agendaDate)} " +
-                                "(${item.start.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.JAPAN)})" +
-                                if (!item.allDay) " %02d:%02d".format(item.start.hour, item.start.minute) else "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            buildString {
-                                append(item.client.name)
-                                item.phase?.let { append("・").append(it.label) }
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    IconButton(onClick = { onAddToCalendar(item) }) {
-                        Icon(
-                            Icons.Filled.Event,
-                            contentDescription = "カレンダーに追加",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp))
+                    .padding(horizontal = 14.dp)
+            ) {
+                val preview = items.take(PREVIEW_COUNT)
+                preview.forEachIndexed { index, item ->
+                    UpcomingRow(item = item, onClick = { onOpenMeeting(item.meetingId) })
+                    if (index != preview.lastIndex) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.08f))
                     }
                 }
             }
-            if (items.size > 6) {
-                Text(
-                    "ほか ${items.size - 6} 件",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+        }
+    }
+}
+
+@Composable
+private fun UpcomingRow(item: UpcomingItem, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 9.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(
+                relativeDateTimeLabel(item.start, item.allDay),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                item.client.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (item.phase != null) {
+                DealPhaseChip(phase = item.phase)
+                Spacer(Modifier.width(6.dp))
             }
+            Icon(
+                Icons.Filled.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

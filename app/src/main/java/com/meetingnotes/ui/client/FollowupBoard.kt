@@ -1,19 +1,25 @@
 package com.meetingnotes.ui.client
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -87,71 +93,100 @@ object FollowupRules {
 
 private val boardDateFormatter = DateTimeFormatter.ofPattern("M/d")
 
-/** クライアント一覧の先頭に置く「要フォロー」カード。空なら何も描かない。 */
+/** 内部スクロールで表示する最大件数。これを超える分は「すべて表示」で全件ページへ誘導する。 */
+private const val MAX_VISIBLE = 10
+
+/** ホーム画面の「要フォロー」カード。空なら何も描かない。デフォルトで3件ぶんの高さ、内部スクロールで最大10件確認できる。 */
 @Composable
 fun FollowupBoard(
     items: List<FollowupItem>,
     onOpen: (Long) -> Unit,
+    onShowAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (items.isEmpty()) return
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Filled.NotificationsActive,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier.size(18.dp)
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("要フォロー", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.width(6.dp))
                 Text(
-                    "要フォロー (${items.size})",
-                    style = MaterialTheme.typography.titleSmall
+                    "${items.size}件",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            items.take(5).forEach { item ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpen(item.client.id) }
-                        .padding(vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            item.client.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            "最終 ${formatDate(item.lastRecordedAt)}・${item.phase?.label ?: "次回未定"}・${item.daysSince}日",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(16.dp))
+                    .heightIn(max = 152.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 14.dp)
+            ) {
+                val visible = items.take(MAX_VISIBLE)
+                val hasMore = items.size > MAX_VISIBLE
+                visible.forEachIndexed { index, item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpen(item.client.id) }
+                            .padding(vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                item.client.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                "最終 ${formatDate(item.lastRecordedAt)}・${item.phase?.label ?: "次回未定"}・${item.daysSince}日経過",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Filled.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Icon(
-                        Icons.Filled.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (index != visible.lastIndex || hasMore) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.08f))
+                    }
                 }
-            }
-            if (items.size > 5) {
-                Text(
-                    "ほか ${items.size - 5} 件",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                if (hasMore) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onShowAll)
+                            .padding(vertical = 11.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "すべて表示",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
         }
     }

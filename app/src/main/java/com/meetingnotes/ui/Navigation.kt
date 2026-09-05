@@ -12,13 +12,17 @@ import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.briefing.BriefingScreen
 import com.meetingnotes.ui.client.ClientDetailScreen
 import com.meetingnotes.ui.client.ClientListScreen
+import com.meetingnotes.ui.client.FollowupListScreen
 import com.meetingnotes.ui.help.HelpScreen
+import com.meetingnotes.ui.home.HomeScreen
 import com.meetingnotes.ui.meeting.MeetingDetailScreen
 import com.meetingnotes.ui.notifications.NotificationScreen
 import com.meetingnotes.ui.recording.RecordingScreen
 import com.meetingnotes.ui.result.ResultScreen
+import com.meetingnotes.ui.schedule.ScheduleScreen
 
 object Routes {
+    const val HOME = "home"
     const val CLIENT_LIST = "clientList"
     const val CLIENT_DETAIL = "clientDetail/{clientId}"
     const val BRIEFING = "briefing/{clientId}"
@@ -27,6 +31,8 @@ object Routes {
     const val MEETING_DETAIL = "meetingDetail/{meetingId}"
     const val HELP = "help"
     const val NOTIFICATIONS = "notifications"
+    const val SCHEDULE = "schedule"
+    const val FOLLOWUP_LIST = "followupList"
 
     fun clientDetail(clientId: Long) = "clientDetail/$clientId"
     fun briefing(clientId: Long) = "briefing/$clientId"
@@ -41,22 +47,44 @@ fun MeetingNotesNavHost(
 ) {
     val meetingViewModel: MeetingViewModel = viewModel()
 
-    NavHost(navController = navController, startDestination = Routes.CLIENT_LIST) {
+    NavHost(navController = navController, startDestination = Routes.HOME) {
+        composable(Routes.HOME) {
+            HomeScreen(
+                repository = repository,
+                onOpenClientList = { navController.navigate(Routes.CLIENT_LIST) },
+                onOpenSchedule = { navController.navigate(Routes.SCHEDULE) },
+                onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
+                onOpenFollowupList = { navController.navigate(Routes.FOLLOWUP_LIST) },
+                onOpenClient = { clientId -> navController.navigate(Routes.clientDetail(clientId)) },
+                onOpenMeeting = { meetingId -> navController.navigate(Routes.meetingDetail(meetingId)) },
+                onRecoverDraft = { clientId ->
+                    meetingViewModel.resetForNewMeeting()
+                    navController.navigate(Routes.recording(clientId))
+                },
+                onHelp = { navController.navigate(Routes.HELP) }
+            )
+        }
         composable(Routes.CLIENT_LIST) {
             ClientListScreen(
                 repository = repository,
                 onClientSelected = { clientId ->
                     navController.navigate(Routes.clientDetail(clientId))
                 },
-                onMeetingSelected = { meetingId ->
-                    navController.navigate(Routes.meetingDetail(meetingId))
-                },
-                onRecoverDraft = { clientId ->
-                    meetingViewModel.resetForNewMeeting()
-                    navController.navigate(Routes.recording(clientId))
-                },
-                onShowNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
-                onHelp = { navController.navigate(Routes.HELP) }
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Routes.SCHEDULE) {
+            ScheduleScreen(
+                repository = repository,
+                onBack = { navController.popBackStack() },
+                onOpenMeeting = { meetingId -> navController.navigate(Routes.meetingDetail(meetingId)) }
+            )
+        }
+        composable(Routes.FOLLOWUP_LIST) {
+            FollowupListScreen(
+                repository = repository,
+                onBack = { navController.popBackStack() },
+                onOpenClient = { clientId -> navController.navigate(Routes.clientDetail(clientId)) }
             )
         }
         composable(Routes.HELP) {
