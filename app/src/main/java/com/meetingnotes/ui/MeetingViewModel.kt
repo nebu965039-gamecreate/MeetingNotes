@@ -8,6 +8,8 @@ import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.ads.InterstitialAdController
 import com.meetingnotes.ads.RewardedAdController
 import com.meetingnotes.data.RecordingDraftStore
+import com.meetingnotes.data.local.ClientEntity
+import com.meetingnotes.data.local.ClientGroupEntity
 import com.meetingnotes.data.model.MeetingSummary
 import com.meetingnotes.data.remote.AnthropicClient
 import com.meetingnotes.speech.TranscriptPreprocessor
@@ -84,6 +86,15 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val isRewardedAdLoaded: StateFlow<Boolean> = rewardedAdController.isLoaded
+
+    /** TOPから直接録音した場合、保存時にクライアントを選ぶ必要がある(clientId 未割り当て)。 */
+    fun isClientAssigned(): Boolean = clientId >= 0
+
+    val clients: StateFlow<List<ClientEntity>> = repository.observeClients()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val clientGroups: StateFlow<List<ClientGroupEntity>> = repository.observeClientGroups()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         viewModelScope.launch { repository.getOrInitCredits(deviceIdHash) }
@@ -196,7 +207,7 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         } else {
             liveTranscript.value
         }
-        if (text.isBlank() || clientId < 0) return
+        if (text.isBlank()) return
         draftStore.save(
             RecordingDraftStore.Draft(
                 clientId = clientId,
@@ -275,22 +286,47 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
     fun defaultMeetingTitle(): String =
         "${LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}の議事録"
 
-    fun saveMeeting(title: String, onSaved: () -> Unit) {
+    /** 要約結果を指定クライアントに保存する共通処理。保存できたら true。 */
+    private suspend fun persistMeeting(targetClientId: Long, title: String): Boolean {
         val state = _summaryState.value
-        if (state !is SummaryUiState.Success) return
-        val transcript = _editableTranscript.value
-        val finalTitle = title.ifBlank { defaultMeetingTitle() }
+        if (state !is SummaryUiState.Success) return false
+        repository.saveMeeting(
+            clientId = targetClientId,
+            title = title.ifBlank { defaultMeetingTitle() },
+            transcript = _editableTranscript.value,
+            summary = state.summary,
+            recordedAt = recordingStartedAt,
+            endedAt = recordingEndedAt
+        )
+        draftStore.clear()
+        return true
+    }
+
+    /** クライアントが確定している通常フロー(クライアント画面から録音)での保存。 */
+    fun saveMeeting(title: String, onSaved: (clientId: Long) -> Unit) {
+        if (clientId < 0) return
         viewModelScope.launch {
-            repository.saveMeeting(
-                clientId = clientId,
-                title = finalTitle,
-                transcript = transcript,
-                summary = state.summary,
-                recordedAt = recordingStartedAt,
-                endedAt = recordingEndedAt
-            )
-            draftStore.clear()
-            onSaved()
+            if (persistMeeting(clientId, title)) onSaved(clientId)
+        }
+    }
+
+    /** TOPから直接録音した場合に、保存時に選んだ既存クライアントへ保存する。 */
+    fun saveMeetingToClient(targetClientId: Long, title: String, onSaved: (clientId: Long) -> Unit) {
+        viewModelScope.launch {
+            if (persistMeeting(targetClientId, title)) onSaved(targetClientId)
+        }
+    }
+
+    /** TOPから直接録音した場合に、保存時に新規クライアントを作成してそこへ保存する。 */
+    fun saveMeetingToNewClient(
+        name: String,
+        groupId: Long?,
+        title: String,
+        onSaved: (clientId: Long) -> Unit
+    ) {
+        viewModelScope.launch {
+            val newId = repository.addClient(name.trim(), groupId)
+            if (persistMeeting(newId, title)) onSaved(newId)
         }
     }
 

@@ -62,6 +62,7 @@ private val headerDateFormatter = DateTimeFormatter.ofPattern("M月d日(E)", Loc
 @Composable
 fun HomeScreen(
     repository: MeetingRepository,
+    onStartRecording: () -> Unit,
     onOpenClientList: () -> Unit,
     onOpenSchedule: () -> Unit,
     onOpenNotifications: () -> Unit,
@@ -134,7 +135,7 @@ fun HomeScreen(
 
             item(key = "action_tiles") {
                 ActionTilesSection(
-                    onStartRecording = onOpenClientList,
+                    onStartRecording = onStartRecording,
                     onOpenClientList = onOpenClientList,
                     onOpenSchedule = onOpenSchedule,
                     onOpenNotifications = onOpenNotifications,

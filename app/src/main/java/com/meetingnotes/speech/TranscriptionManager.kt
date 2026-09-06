@@ -3,6 +3,7 @@ package com.meetingnotes.speech
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
+import android.media.MediaRecorder
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -127,7 +128,26 @@ class TranscriptionManager(private val context: Context) {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.JAPAN.toLanguageTag())
             putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+
+            // 【実験的】既定の音声認識用マイク処理(近接音声向けのノイズ抑制・AGC)は、
+            // PCスピーカーから離れて聞こえる相手の声を「背景音」として削ってしまう。
+            // 端末が UNPROCESSED 入力に対応していれば、処理を通さない生の入力に切り替えて
+            // 遠くの声も拾いやすくする(対応しない端末では extra は無視される)。
+            preferredAudioSource()?.let { source ->
+                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, source)
+                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, 16_000)
+            }
         }
+
+    /**
+     * UNPROCESSED(無加工入力)に対応していればそれを、無ければ通常のマイクを返す。
+     * どちらの extra も Google 系の認識エンジンでは無視されることがあるため、あくまで best-effort。
+     */
+    private fun preferredAudioSource(): Int? {
+        val unprocessedSupported =
+            audioManager.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED) == "true"
+        return if (unprocessedSupported) MediaRecorder.AudioSource.UNPROCESSED else MediaRecorder.AudioSource.MIC
+    }
 
     /** 直前のセッションが確実に終了してから startListening するため、必ずこの経路を通す。 */
     private fun scheduleSessionStart() {

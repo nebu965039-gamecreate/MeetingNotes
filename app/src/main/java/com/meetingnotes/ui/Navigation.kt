@@ -28,6 +28,7 @@ object Routes {
     const val CLIENT_DETAIL = "clientDetail/{clientId}"
     const val BRIEFING = "briefing/{clientId}"
     const val RECORDING = "recording/{clientId}"
+    const val RECORDING_UNASSIGNED = "recordingUnassigned"
     const val RESULT = "result"
     const val MEETING_DETAIL = "meetingDetail/{meetingId}"
     const val HELP = "help"
@@ -53,6 +54,10 @@ fun MeetingNotesNavHost(
         composable(Routes.HOME) {
             HomeScreen(
                 repository = repository,
+                onStartRecording = {
+                    meetingViewModel.resetForNewMeeting()
+                    navController.navigate(Routes.RECORDING_UNASSIGNED)
+                },
                 onOpenClientList = { navController.navigate(Routes.CLIENT_LIST) },
                 onOpenSchedule = { navController.navigate(Routes.SCHEDULE) },
                 onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
@@ -60,7 +65,11 @@ fun MeetingNotesNavHost(
                 onOpenClient = { clientId -> navController.navigate(Routes.clientDetail(clientId)) },
                 onRecoverDraft = { clientId ->
                     meetingViewModel.resetForNewMeeting()
-                    navController.navigate(Routes.recording(clientId))
+                    if (clientId < 0) {
+                        navController.navigate(Routes.RECORDING_UNASSIGNED)
+                    } else {
+                        navController.navigate(Routes.recording(clientId))
+                    }
                 },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onHelp = { navController.navigate(Routes.HELP) }
@@ -151,12 +160,29 @@ fun MeetingNotesNavHost(
                 onCancel = { navController.popBackStack() }
             )
         }
+        composable(Routes.RECORDING_UNASSIGNED) {
+            RecordingScreen(
+                viewModel = meetingViewModel,
+                clientId = -1L,
+                onSubmitted = { navController.navigate(Routes.RESULT) },
+                onCancel = { navController.popBackStack() }
+            )
+        }
         composable(Routes.RESULT) {
             ResultScreen(
                 viewModel = meetingViewModel,
-                onSaved = {
+                onSaved = { savedClientId ->
+                    // 直接録音フローかどうかを、リセット前に判定しておく。
+                    val cameFromClientDetail = meetingViewModel.isClientAssigned()
                     meetingViewModel.resetForNewMeeting()
-                    navController.popBackStack(Routes.CLIENT_DETAIL, inclusive = false)
+                    if (cameFromClientDetail) {
+                        // 通常フロー: クライアント詳細がスタックに残っているのでそこへ戻る。
+                        navController.popBackStack(Routes.CLIENT_DETAIL, inclusive = false)
+                    } else {
+                        // 直接録音フロー: 詳細がスタックに無いので、ホームまで戻してから開く。
+                        navController.popBackStack(Routes.HOME, inclusive = false)
+                        navController.navigate(Routes.clientDetail(savedClientId))
+                    }
                 },
                 onBack = { navController.popBackStack() }
             )
