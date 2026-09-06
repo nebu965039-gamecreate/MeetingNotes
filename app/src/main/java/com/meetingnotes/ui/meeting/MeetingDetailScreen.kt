@@ -92,7 +92,7 @@ import com.meetingnotes.ui.common.TextInputDialog
 import com.meetingnotes.ui.common.effectivePhase
 import com.meetingnotes.ui.theme.OnProGold
 import com.meetingnotes.ui.theme.ProGold
-import com.meetingnotes.ui.common.NextMeetingDatePickerDialog
+import com.meetingnotes.ui.common.NextMeetingDateTimeDialog
 import com.meetingnotes.ui.common.meetingSummarySections
 import com.meetingnotes.data.model.NextMeetingTime
 import com.meetingnotes.util.CalendarIntent
@@ -363,11 +363,13 @@ fun MeetingDetailScreen(
     }
 
     if (showNextMeetingPicker) {
-        NextMeetingDatePickerDialog(
-            initialDate = NextMeetingTime.parse(meeting?.nextMeetingDate)?.date,
+        val parsedNext = NextMeetingTime.parse(meeting?.nextMeetingDate)
+        NextMeetingDateTimeDialog(
+            initial = parsedNext?.start,
+            initialHasTime = parsedNext?.allDay == false,
             onDismiss = { showNextMeetingPicker = false },
-            onConfirm = { date ->
-                viewModel.setNextMeetingDate(date.toString())
+            onConfirm = { dateTime, hasTime ->
+                viewModel.setNextMeetingDate(NextMeetingTime.toIso(dateTime, includeTime = hasTime))
                 showNextMeetingPicker = false
             }
         )

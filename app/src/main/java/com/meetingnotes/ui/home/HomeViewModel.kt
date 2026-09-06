@@ -6,6 +6,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.model.DealPhase
+import com.meetingnotes.notifications.NotificationSeenState
 import com.meetingnotes.ui.client.FollowupItem
 import com.meetingnotes.ui.client.FollowupRules
 import com.meetingnotes.ui.client.UpcomingItem
@@ -41,6 +42,12 @@ class HomeViewModel(repository: MeetingRepository) : ViewModel() {
     val upcoming: StateFlow<List<UpcomingItem>> =
         combine(clients, latestMeetings) { clientList, latest -> UpcomingRules.compute(clientList, latest) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** 通知一覧を最後に開いてから発火した通知があれば true(ホームの通知タイルの赤マーク)。 */
+    val hasUnseenNotifications: StateFlow<Boolean> =
+        combine(repository.observeNotificationLog(), NotificationSeenState.seenAt) { log, seenAt ->
+            log.any { it.firedAt > seenAt }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val phaseCounts: StateFlow<PhaseTrackerCounts> =
         latestMeetings

@@ -67,7 +67,6 @@ fun HomeScreen(
     onOpenNotifications: () -> Unit,
     onOpenFollowupList: () -> Unit,
     onOpenClient: (Long) -> Unit,
-    onOpenMeeting: (Long) -> Unit,
     onRecoverDraft: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     onHelp: () -> Unit
@@ -76,6 +75,7 @@ fun HomeScreen(
     val followups by viewModel.followups.collectAsState()
     val upcoming by viewModel.upcoming.collectAsState()
     val phaseCounts by viewModel.phaseCounts.collectAsState()
+    val hasUnseenNotifications by viewModel.hasUnseenNotifications.collectAsState()
 
     val context = LocalContext.current
     val app = context.applicationContext as MeetingNotesApp
@@ -138,7 +138,7 @@ fun HomeScreen(
                     onOpenClientList = onOpenClientList,
                     onOpenSchedule = onOpenSchedule,
                     onOpenNotifications = onOpenNotifications,
-                    hasNotificationBadge = upcoming.isNotEmpty()
+                    hasNotificationBadge = hasUnseenNotifications
                 )
             }
 
@@ -151,7 +151,7 @@ fun HomeScreen(
             }
 
             item(key = "upcoming_board") {
-                UpcomingBoard(items = upcoming, onOpenMeeting = onOpenMeeting, onShowAll = onOpenSchedule)
+                UpcomingBoard(items = upcoming, onOpenClient = onOpenClient, onShowAll = onOpenSchedule)
             }
         }
     }
@@ -241,7 +241,7 @@ private fun ActionTile(
 
     Card(
         onClick = onClick,
-        modifier = modifier.height(100.dp),
+        modifier = modifier.height(108.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor, contentColor = contentColor),
         border = if (!filled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null
     ) {
@@ -249,17 +249,19 @@ private fun ActionTile(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(horizontal = 8.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(28.dp))
-                Spacer(Modifier.height(10.dp))
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(26.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text = label,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
             if (badge) {

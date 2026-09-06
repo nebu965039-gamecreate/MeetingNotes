@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -39,6 +40,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.NotificationLogEntity
+import com.meetingnotes.notifications.NotificationSeenState
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -61,6 +63,9 @@ fun NotificationScreen(
     )
     val upcoming by viewModel.upcoming.collectAsState()
     val history by viewModel.history.collectAsState()
+
+    // この画面を開いたら通知は既読扱い(ホームの赤マークを消す)。
+    LaunchedEffect(Unit) { NotificationSeenState.markSeen(context) }
 
     Scaffold(
         topBar = {

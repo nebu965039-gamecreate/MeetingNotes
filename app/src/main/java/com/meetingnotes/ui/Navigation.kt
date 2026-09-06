@@ -58,7 +58,6 @@ fun MeetingNotesNavHost(
                 onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                 onOpenFollowupList = { navController.navigate(Routes.FOLLOWUP_LIST) },
                 onOpenClient = { clientId -> navController.navigate(Routes.clientDetail(clientId)) },
-                onOpenMeeting = { meetingId -> navController.navigate(Routes.meetingDetail(meetingId)) },
                 onRecoverDraft = { clientId ->
                     meetingViewModel.resetForNewMeeting()
                     navController.navigate(Routes.recording(clientId))
@@ -83,7 +82,7 @@ fun MeetingNotesNavHost(
             ScheduleScreen(
                 repository = repository,
                 onBack = { navController.popBackStack() },
-                onOpenMeeting = { meetingId -> navController.navigate(Routes.meetingDetail(meetingId)) }
+                onOpenClient = { clientId -> navController.navigate(Routes.clientDetail(clientId)) }
             )
         }
         composable(Routes.FOLLOWUP_LIST) {

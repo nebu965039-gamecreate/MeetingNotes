@@ -12,6 +12,7 @@ import com.meetingnotes.data.local.MeetingNotesDatabase
 import com.meetingnotes.data.local.databaseMigrations
 import com.meetingnotes.data.remote.IntegrityTokenProvider
 import com.meetingnotes.notifications.NotificationHelper
+import com.meetingnotes.notifications.NotificationSeenState
 import com.meetingnotes.notifications.ReminderScheduler
 import com.meetingnotes.ui.theme.ThemeMode
 import com.meetingnotes.ui.theme.ThemePrefs
@@ -79,5 +80,6 @@ class MeetingNotesApp : Application() {
         // F7: 次回打ち合わせのリマインドチェック(周期ジョブ)。
         NotificationHelper.ensureChannel(this)
         ReminderScheduler.schedule(this)
+        NotificationSeenState.init(this)
     }
 }

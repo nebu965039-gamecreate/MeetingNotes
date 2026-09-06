@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -40,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -59,20 +60,24 @@ import com.meetingnotes.ui.client.UpcomingItem
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.DealPhaseChip
 import com.meetingnotes.ui.common.LabeledDropdownField
-import com.meetingnotes.ui.common.NextMeetingDatePickerDialog
+import com.meetingnotes.ui.common.NextMeetingDateTimeDialog
 import com.meetingnotes.ui.common.relativeDateTimeLabel
+import com.meetingnotes.util.JapaneseHolidays
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
+
+private val SATURDAY_COLOR = Color(0xFF1565C0)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleScreen(
     repository: MeetingRepository,
     onBack: () -> Unit,
-    onOpenMeeting: (Long) -> Unit
+    onOpenClient: (Long) -> Unit
 ) {
     val viewModel: ScheduleViewModel = viewModel(factory = ScheduleViewModel.factory(repository))
     val items by viewModel.upcoming.collectAsState()
@@ -174,7 +179,7 @@ fun ScheduleScreen(
                 items(filteredItems, key = { it.meetingId }) { item ->
                     ScheduleRow(
                         item = item,
-                        onClick = { onOpenMeeting(item.meetingId) },
+                        onClick = { onOpenClient(item.client.id) },
                         onReschedule = { meetingToReschedule = item },
                         onDelete = { meetingToClear = item }
                     )
@@ -187,19 +192,20 @@ fun ScheduleScreen(
         AddScheduleDialog(
             clients = schedulableClients,
             onDismiss = { showAddDialog = false },
-            onConfirm = { clientId, date ->
-                viewModel.scheduleForClient(clientId, NextMeetingTime.toIso(date.atStartOfDay(), includeTime = false))
+            onConfirm = { clientId, dateTime, hasTime ->
+                viewModel.scheduleForClient(clientId, NextMeetingTime.toIso(dateTime, includeTime = hasTime))
                 showAddDialog = false
             }
         )
     }
 
     meetingToReschedule?.let { item ->
-        NextMeetingDatePickerDialog(
-            initialDate = item.start.toLocalDate(),
+        NextMeetingDateTimeDialog(
+            initial = item.start,
+            initialHasTime = !item.allDay,
             onDismiss = { meetingToReschedule = null },
-            onConfirm = { date ->
-                viewModel.rescheduleMeeting(item.meetingId, NextMeetingTime.toIso(date.atStartOfDay(), includeTime = false))
+            onConfirm = { dateTime, hasTime ->
+                viewModel.rescheduleMeeting(item.meetingId, NextMeetingTime.toIso(dateTime, includeTime = hasTime))
                 meetingToReschedule = null
             }
         )
@@ -283,7 +289,7 @@ private fun ScheduleRow(
     }
 }
 
-/** シンプルな月カレンダー。予定がある日には下に丸印を付け、タップで一覧を絞り込む。 */
+/** 月カレンダー。予定がある日に丸印、土曜は青・日曜と祝日は赤。タップで一覧を絞り込む。 */
 @Composable
 private fun MonthCalendar(
     month: YearMonth,
@@ -293,6 +299,8 @@ private fun MonthCalendar(
     onDateClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val holidays = remember(month) { JapaneseHolidays.holidaysInMonth(month.year, month.monthValue) }
+
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -323,7 +331,11 @@ private fun MonthCalendar(
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = when (dow) {
+                            0 -> MaterialTheme.colorScheme.error
+                            6 -> SATURDAY_COLOR
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                     )
                 }
             }
@@ -332,14 +344,12 @@ private fun MonthCalendar(
             // 日曜始まり: 月曜=1...土曜=6、日曜=7 なので mod 7 で日曜=0 に揃える
             val leadingBlanks = firstDay.dayOfWeek.value % 7
             val daysInMonth = month.lengthOfMonth()
-            val totalCells = leadingBlanks + daysInMonth
-            val rows = (totalCells + 6) / 7
+            val rows = (leadingBlanks + daysInMonth + 6) / 7
 
             for (row in 0 until rows) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     for (col in 0 until 7) {
-                        val cellIndex = row * 7 + col
-                        val dayNum = cellIndex - leadingBlanks + 1
+                        val dayNum = row * 7 + col - leadingBlanks + 1
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -350,6 +360,15 @@ private fun MonthCalendar(
                                 val date = month.atDay(dayNum)
                                 val isSelected = date == selectedDate
                                 val hasMark = date in markedDates
+                                val isSunday = date.dayOfWeek == DayOfWeek.SUNDAY
+                                val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
+                                val isHoliday = date in holidays
+                                val numberColor = when {
+                                    isSelected -> MaterialTheme.colorScheme.onPrimary
+                                    isSunday || isHoliday -> MaterialTheme.colorScheme.error
+                                    isSaturday -> SATURDAY_COLOR
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                }
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -372,11 +391,7 @@ private fun MonthCalendar(
                                         Text(
                                             text = dayNum.toString(),
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = if (isSelected) {
-                                                MaterialTheme.colorScheme.onPrimary
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurface
-                                            }
+                                            color = numberColor
                                         )
                                     }
                                     Box(
@@ -405,11 +420,12 @@ private fun MonthCalendar(
 private fun AddScheduleDialog(
     clients: List<Pair<Long, String>>,
     onDismiss: () -> Unit,
-    onConfirm: (clientId: Long, date: LocalDate) -> Unit
+    onConfirm: (clientId: Long, dateTime: LocalDateTime, hasTime: Boolean) -> Unit
 ) {
     var clientId by remember { mutableStateOf(clients.firstOrNull()?.first) }
-    var date by remember { mutableStateOf(LocalDate.now().plusDays(1)) }
-    var showDatePicker by remember { mutableStateOf(false) }
+    var dateTime by remember { mutableStateOf(LocalDate.now().plusDays(1).atStartOfDay()) }
+    var hasTime by remember { mutableStateOf(false) }
+    var showPicker by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -426,15 +442,18 @@ private fun AddScheduleDialog(
                         onSelect = { clientId = it },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    TextButton(onClick = { showDatePicker = true }) {
-                        Text("日程: ${date.monthValue}月${date.dayOfMonth}日")
+                    TextButton(onClick = { showPicker = true }) {
+                        Text(
+                            "日程: ${dateTime.monthValue}月${dateTime.dayOfMonth}日" +
+                                if (hasTime) " %02d:%02d".format(dateTime.hour, dateTime.minute) else ""
+                        )
                     }
                 }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { clientId?.let { onConfirm(it, date) } },
+                onClick = { clientId?.let { onConfirm(it, dateTime, hasTime) } },
                 enabled = clients.isNotEmpty() && clientId != null
             ) { Text("追加") }
         },
@@ -443,13 +462,15 @@ private fun AddScheduleDialog(
         }
     )
 
-    if (showDatePicker) {
-        NextMeetingDatePickerDialog(
-            initialDate = date,
-            onDismiss = { showDatePicker = false },
-            onConfirm = { picked ->
-                date = picked
-                showDatePicker = false
+    if (showPicker) {
+        NextMeetingDateTimeDialog(
+            initial = dateTime,
+            initialHasTime = hasTime,
+            onDismiss = { showPicker = false },
+            onConfirm = { dt, withTime ->
+                dateTime = dt
+                hasTime = withTime
+                showPicker = false
             }
         )
     }
