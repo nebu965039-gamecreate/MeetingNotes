@@ -15,5 +15,6 @@ data class ClientLatestMeeting(
     val lastRecordedAt: Long,
     val nextMeetingDate: String?,
     val dealPhase: String? = null,
-    val phaseOverride: String? = null
+    val phaseOverride: String? = null,
+    val followedUpAt: Long? = null
 )

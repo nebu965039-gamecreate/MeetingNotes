@@ -82,4 +82,33 @@ class MigrationTest {
             assertTrue(c.getString(1) == "2026-09-10")
         }
     }
+
+    @Test
+    fun migrate8To9_addsFollowedUpAtColumn_keepsExistingRows() {
+        helper.createDatabase(dbName, 8).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL(
+                """
+                INSERT INTO meetings
+                  (clientId, folderId, title, recordedAt, endedAt, transcript, summary,
+                   decisions, concerns, nextMeetingDate, nextMeetingOriginalText, dealPhase, phaseOverride)
+                VALUES (1, NULL, '既存商談', 1000, NULL, 't', 's', '[]', '[]', NULL, NULL, NULL, NULL)
+                """.trimIndent()
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 9, true, MIGRATION_8_9)
+
+        db.query("SELECT title, followedUpAt FROM meetings WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getString(0) == "既存商談")
+            assertNull(c.getString(1))
+        }
+        db.execSQL("UPDATE meetings SET followedUpAt = 12345 WHERE id = 1")
+        db.query("SELECT followedUpAt FROM meetings WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getLong(0) == 12345L)
+        }
+    }
 }

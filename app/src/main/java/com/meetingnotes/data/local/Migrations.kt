@@ -67,4 +67,12 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
     }
 }
 
-val databaseMigrations: Array<Migration> = arrayOf(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+/** v8 → v9: F1 用に `meetings.followedUpAt`(メールフォロー済み時刻)を追加。 */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE meetings ADD COLUMN followedUpAt INTEGER")
+    }
+}
+
+val databaseMigrations: Array<Migration> =
+    arrayOf(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)

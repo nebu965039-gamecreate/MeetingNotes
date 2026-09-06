@@ -20,7 +20,8 @@ interface MeetingDao {
     @Query(
         """
         SELECT m.clientId AS clientId, m.id AS meetingId, m.recordedAt AS lastRecordedAt,
-               m.nextMeetingDate AS nextMeetingDate, m.dealPhase AS dealPhase, m.phaseOverride AS phaseOverride
+               m.nextMeetingDate AS nextMeetingDate, m.dealPhase AS dealPhase, m.phaseOverride AS phaseOverride,
+               m.followedUpAt AS followedUpAt
         FROM meetings m
         INNER JOIN (SELECT clientId, MAX(recordedAt) AS maxAt FROM meetings GROUP BY clientId) latest
           ON m.clientId = latest.clientId AND m.recordedAt = latest.maxAt
@@ -59,4 +60,7 @@ interface MeetingDao {
 
     @Query("UPDATE meetings SET title = :title WHERE id = :meetingId")
     suspend fun updateTitle(meetingId: Long, title: String)
+
+    @Query("UPDATE meetings SET followedUpAt = :at WHERE id = :meetingId")
+    suspend fun updateFollowedUpAt(meetingId: Long, at: Long?)
 }

@@ -15,31 +15,48 @@ class FollowupRulesTest {
     private fun client(id: Long, name: String = "C$id") =
         ClientEntity(id = id, name = name, createdAt = 0L)
 
-    private fun latest(clientId: Long, daysAgo: Long, next: String? = null, phase: String? = null) =
-        ClientLatestMeeting(
-            clientId = clientId,
-            meetingId = clientId,
-            lastRecordedAt = now - daysAgo * day,
-            nextMeetingDate = next,
-            dealPhase = phase
-        )
+    private fun latest(
+        clientId: Long,
+        daysAgo: Long,
+        next: String? = null,
+        phase: String? = null,
+        followedUp: Boolean = false
+    ) = ClientLatestMeeting(
+        clientId = clientId,
+        meetingId = clientId,
+        lastRecordedAt = now - daysAgo * day,
+        nextMeetingDate = next,
+        dealPhase = phase,
+        followedUpAt = if (followedUp) now - daysAgo * day else null
+    )
 
     @Test
-    fun `stale client with no next meeting is a followup`() {
-        val items = FollowupRules.compute(
-            clients = listOf(client(1)),
-            latest = listOf(latest(1, daysAgo = 20)),
-            now = now
-        )
+    fun `just summarized meeting needs an email followup regardless of days`() {
+        val items = FollowupRules.compute(listOf(client(1)), listOf(latest(1, daysAgo = 0)), now)
         assertEquals(1, items.size)
-        assertEquals(1L, items[0].client.id)
-        assertEquals(20, items[0].daysSince)
+        assertEquals(FollowupReason.NEEDS_EMAIL, items[0].reason)
     }
 
     @Test
-    fun `recent client is not a followup`() {
-        val items = FollowupRules.compute(listOf(client(1)), listOf(latest(1, daysAgo = 3)), now)
+    fun `followed up recent client is not a followup`() {
+        val items = FollowupRules.compute(
+            listOf(client(1)),
+            listOf(latest(1, daysAgo = 3, followedUp = true)),
+            now
+        )
         assertTrue(items.isEmpty())
+    }
+
+    @Test
+    fun `followed up client with no next meeting becomes stale after threshold`() {
+        val items = FollowupRules.compute(
+            listOf(client(1)),
+            listOf(latest(1, daysAgo = 20, followedUp = true)),
+            now
+        )
+        assertEquals(1, items.size)
+        assertEquals(FollowupReason.STALE, items[0].reason)
+        assertEquals(20, items[0].daysSince)
     }
 
     @Test
@@ -69,10 +86,27 @@ class FollowupRulesTest {
     }
 
     @Test
-    fun `results are sorted by days elapsed descending`() {
+    fun `needs-email items come before stale items`() {
+        val items = FollowupRules.compute(
+            listOf(client(1), client(2)),
+            listOf(
+                latest(1, 40, followedUp = true), // STALE
+                latest(2, 2)                      // NEEDS_EMAIL
+            ),
+            now
+        )
+        assertEquals(listOf(2L, 1L), items.map { it.client.id })
+    }
+
+    @Test
+    fun `stale items are sorted by days elapsed descending`() {
         val items = FollowupRules.compute(
             listOf(client(1), client(2), client(3)),
-            listOf(latest(1, 15), latest(2, 60), latest(3, 30)),
+            listOf(
+                latest(1, 15, followedUp = true),
+                latest(2, 60, followedUp = true),
+                latest(3, 30, followedUp = true)
+            ),
             now
         )
         assertEquals(listOf(2L, 3L, 1L), items.map { it.client.id })

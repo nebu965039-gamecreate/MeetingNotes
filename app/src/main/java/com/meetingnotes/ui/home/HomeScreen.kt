@@ -68,6 +68,7 @@ fun HomeScreen(
     onOpenNotifications: () -> Unit,
     onOpenFollowupList: () -> Unit,
     onOpenClient: (Long) -> Unit,
+    onOpenMeeting: (Long) -> Unit,
     onRecoverDraft: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     onHelp: () -> Unit
@@ -148,7 +149,12 @@ fun HomeScreen(
             }
 
             item(key = "followup_board") {
-                FollowupBoard(items = followups, onOpen = onOpenClient, onShowAll = onOpenFollowupList)
+                FollowupBoard(
+                    items = followups,
+                    onOpen = onOpenMeeting,
+                    onMarkFollowedUp = { viewModel.markFollowedUp(it) },
+                    onShowAll = onOpenFollowupList
+                )
             }
 
             item(key = "upcoming_board") {

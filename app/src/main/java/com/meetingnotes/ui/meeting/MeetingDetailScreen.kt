@@ -103,6 +103,12 @@ import java.time.format.DateTimeFormatter
 
 private val meetingDateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
 
+/** 商談の管理番号。録音開始日時を並べた数字(例: 202609071200)。保存はせず recordedAt から都度生成する。 */
+private val meetingNoFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmm")
+
+private fun meetingNo(recordedAt: Long): String =
+    Instant.ofEpochMilli(recordedAt).atZone(ZoneId.systemDefault()).format(meetingNoFormatter)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MeetingDetailScreen(
@@ -197,11 +203,18 @@ fun MeetingDetailScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "録音: ${startedAt.format(meetingDateTimeFormatter)}" +
-                            (endedAtText?.let { " 〜 $it" } ?: ""),
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Column {
+                        Text(
+                            text = "No. ${meetingNo(current.recordedAt)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "録音: ${startedAt.format(meetingDateTimeFormatter)}" +
+                                (endedAtText?.let { " 〜 $it" } ?: ""),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                     DealPhaseChip(
                         phase = current.effectivePhase(),
                         onClick = { showPhasePicker = true }

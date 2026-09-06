@@ -39,5 +39,10 @@ data class MeetingEntity(
     /** AI が推定した商談フェーズ(`DealPhase.wireValue`)。 */
     val dealPhase: String? = null,
     /** ユーザーが上書きしたフェーズ。表示は phaseOverride ?: dealPhase。 */
-    val phaseOverride: String? = null
+    val phaseOverride: String? = null,
+    /**
+     * この商談についてメールでのフォローアップを済ませた時刻(epoch millis)。
+     * null のあいだは「要フォロー」に「メールでフォロー」として出続ける(F1)。
+     */
+    val followedUpAt: Long? = null
 )

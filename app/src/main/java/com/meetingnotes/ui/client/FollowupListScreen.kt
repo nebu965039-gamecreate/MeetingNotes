@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -40,7 +41,7 @@ import com.meetingnotes.data.MeetingRepository
 fun FollowupListScreen(
     repository: MeetingRepository,
     onBack: () -> Unit,
-    onOpenClient: (Long) -> Unit
+    onOpenMeeting: (Long) -> Unit
 ) {
     val viewModel: FollowupListViewModel = viewModel(factory = FollowupListViewModel.factory(repository))
     val items by viewModel.followups.collectAsState()
@@ -81,14 +82,22 @@ fun FollowupListScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(items, key = { it.client.id }) { item ->
-                FollowupListRow(item = item, onClick = { onOpenClient(item.client.id) })
+                FollowupListRow(
+                    item = item,
+                    onClick = { onOpenMeeting(item.meetingId) },
+                    onMarkFollowedUp = { viewModel.markFollowedUp(item.meetingId) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun FollowupListRow(item: FollowupItem, onClick: () -> Unit) {
+private fun FollowupListRow(
+    item: FollowupItem,
+    onClick: () -> Unit,
+    onMarkFollowedUp: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -98,32 +107,33 @@ private fun FollowupListRow(item: FollowupItem, onClick: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     item.client.name,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    "最終 ${formatFollowupDate(item.lastRecordedAt)}・${item.phase?.label ?: "次回未定"}・${item.daysSince}日経過",
+                    followupSubtitle(item),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Icon(
-                Icons.Filled.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (item.reason == FollowupReason.NEEDS_EMAIL) {
+                TextButton(onClick = onMarkFollowedUp) {
+                    Text("フォロー済み", style = MaterialTheme.typography.labelLarge)
+                }
+            } else {
+                Icon(
+                    Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
-
-private fun formatFollowupDate(epochMillis: Long): String =
-    java.time.Instant.ofEpochMilli(epochMillis)
-        .atZone(java.time.ZoneId.systemDefault())
-        .format(java.time.format.DateTimeFormatter.ofPattern("M/d"))

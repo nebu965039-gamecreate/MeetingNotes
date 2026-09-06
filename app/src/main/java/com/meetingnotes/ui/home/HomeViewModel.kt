@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.launch
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.notifications.NotificationSeenState
@@ -30,7 +31,7 @@ data class PhaseTrackerCounts(
     val total: Int get() = hearing + proposal + quoted + considering
 }
 
-class HomeViewModel(repository: MeetingRepository) : ViewModel() {
+class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
 
     private val clients = repository.observeClients()
     private val latestMeetings = repository.observeLatestMeetingPerClient()
@@ -68,6 +69,10 @@ class HomeViewModel(repository: MeetingRepository) : ViewModel() {
                 PhaseTrackerCounts(hearing, proposal, quoted, considering)
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PhaseTrackerCounts())
+
+    fun markFollowedUp(meetingId: Long) {
+        viewModelScope.launch { repository.markMeetingFollowedUp(meetingId) }
+    }
 
     companion object {
         fun factory(repository: MeetingRepository) = viewModelFactory {

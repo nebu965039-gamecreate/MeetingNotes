@@ -73,6 +73,13 @@ class MeetingRepository(
     suspend fun setNextMeeting(meetingId: Long, dateIso: String?, originalText: String? = null) =
         meetingDao.updateNextMeeting(meetingId, dateIso, originalText)
 
+    /** この商談のメールフォローを「済み」にする(要フォローの「メールでフォロー」から除外)。 */
+    suspend fun markMeetingFollowedUp(meetingId: Long) =
+        meetingDao.updateFollowedUpAt(meetingId, System.currentTimeMillis())
+
+    suspend fun clearMeetingFollowedUp(meetingId: Long) =
+        meetingDao.updateFollowedUpAt(meetingId, null)
+
     // --- F7: 予定・リマインド ---
 
     suspend fun getNextMeetingCandidates(): List<NextMeetingCandidate> = meetingDao.getNextMeetingCandidates()

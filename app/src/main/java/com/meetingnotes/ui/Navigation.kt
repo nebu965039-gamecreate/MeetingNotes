@@ -63,6 +63,7 @@ fun MeetingNotesNavHost(
                 onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                 onOpenFollowupList = { navController.navigate(Routes.FOLLOWUP_LIST) },
                 onOpenClient = { clientId -> navController.navigate(Routes.clientDetail(clientId)) },
+                onOpenMeeting = { meetingId -> navController.navigate(Routes.meetingDetail(meetingId)) },
                 onRecoverDraft = { clientId ->
                     meetingViewModel.resetForNewMeeting()
                     if (clientId < 0) {
@@ -98,7 +99,7 @@ fun MeetingNotesNavHost(
             FollowupListScreen(
                 repository = repository,
                 onBack = { navController.popBackStack() },
-                onOpenClient = { clientId -> navController.navigate(Routes.clientDetail(clientId)) }
+                onOpenMeeting = { meetingId -> navController.navigate(Routes.meetingDetail(meetingId)) }
             )
         }
         composable(Routes.HELP) {
