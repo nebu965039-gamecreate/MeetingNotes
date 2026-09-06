@@ -141,6 +141,11 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    override fun onCleared() {
+        // 万一録音中に破棄されても、ミュートしたストリームを確実に戻す。
+        transcriptionManager.stop()
+    }
+
     /** カウントダウン中・録音中を問わず、画面を離脱する際に呼ぶ。進行中の処理を安全に後始末する。 */
     fun cancelRecordingFlow() {
         // 中断前に最新の文字起こしを下書き保存(一覧から再開できるようにする)。

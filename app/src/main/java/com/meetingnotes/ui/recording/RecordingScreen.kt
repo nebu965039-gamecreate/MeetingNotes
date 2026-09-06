@@ -10,6 +10,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -310,9 +312,9 @@ private fun RecordingContent(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(24.dp),
+        modifier = modifier.padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
             text = "録音中... ${formatElapsed(elapsedMs)}",
@@ -342,10 +344,19 @@ private fun RecordingContent(
             )
         }
 
+        // 文字起こしは残りの高さいっぱいに広げ、はみ出したぶんは内部スクロールで見る。
+        // 新しい行が来るたび自動で最下部へ追従させる(停止ボタンは常に画面下部に残る)。
+        val transcriptScroll = rememberScrollState()
+        LaunchedEffect(liveTranscript) {
+            transcriptScroll.animateScrollTo(transcriptScroll.maxValue)
+        }
         Text(
             text = liveTranscript.ifBlank { "(話し始めると文字起こしが表示されます)" },
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(transcriptScroll)
         )
 
         SlideToStop(onStop = onStop)

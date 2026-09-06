@@ -2,6 +2,7 @@ package com.meetingnotes.speech
 
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -32,6 +33,11 @@ class TranscriptionManager(private val context: Context) {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
+
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+    /** 認識セッションの開始/終了音を消しているあいだ true。 */
+    private var beepsMuted = false
 
     /** ユーザーが録音中とみなしている間 true。stop() で false。 */
     private var isListening = false
@@ -75,6 +81,9 @@ class TranscriptionManager(private val context: Context) {
         sessionActive = false
         isListening = true
 
+        // SpeechRecognizer は発話の区切りごとにセッションを開始/終了する。多くの端末
+        // (特に OPPO/ColorOS)はそのたびに効果音を鳴らすため、録音中は該当ストリームをミュートする。
+        muteBeeps()
         createRecognizer()
         scheduleSessionStart()
     }
@@ -86,6 +95,23 @@ class TranscriptionManager(private val context: Context) {
         recognizer?.destroy()
         recognizer = null
         _audioLevel.value = 0f
+        unmuteBeeps()
+    }
+
+    private fun muteBeeps() {
+        if (beepsMuted) return
+        beepsMuted = true
+        BEEP_STREAMS.forEach { stream ->
+            runCatching { audioManager.adjustStreamVolume(stream, AudioManager.ADJUST_MUTE, 0) }
+        }
+    }
+
+    private fun unmuteBeeps() {
+        if (!beepsMuted) return
+        beepsMuted = false
+        BEEP_STREAMS.forEach { stream ->
+            runCatching { audioManager.adjustStreamVolume(stream, AudioManager.ADJUST_UNMUTE, 0) }
+        }
     }
 
     private fun createRecognizer() {
@@ -144,6 +170,7 @@ class TranscriptionManager(private val context: Context) {
         mainHandler.removeCallbacksAndMessages(null)
         recognizer?.destroy()
         recognizer = null
+        unmuteBeeps()
         _events.value = TranscriptionEvent.Error(message)
     }
 
@@ -210,5 +237,12 @@ class TranscriptionManager(private val context: Context) {
 
         /** 実エラーがこの回数を超えて連続したら録音を打ち切る。 */
         const val MAX_CONSECUTIVE_ERRORS = 5
+
+        /** 認識セッションの開始/終了音が乗りやすいストリーム。録音中だけミュートする。 */
+        val BEEP_STREAMS = intArrayOf(
+            AudioManager.STREAM_MUSIC,
+            AudioManager.STREAM_SYSTEM,
+            AudioManager.STREAM_NOTIFICATION
+        )
     }
 }
