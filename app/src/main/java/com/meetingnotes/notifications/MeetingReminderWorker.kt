@@ -61,6 +61,32 @@ class MeetingReminderWorker(
             )
         }
 
+        // 期限が本日の未完了 ToDo も通知する。
+        val todayIso = today.toString()
+        val dueTodos = runCatching { repository.getTodosDueOn(todayIso) }.getOrDefault(emptyList())
+        for (t in dueTodos) {
+            val key = "todo-${t.todoId}-$todayIso"
+            if (repository.notificationAlreadyFired(t.meetingId, key)) continue
+            val title = "本日期限のToDo: ${t.clientName}"
+            val body = "「${t.task}」の期限が本日です。"
+            NotificationHelper.notify(
+                context = applicationContext,
+                notificationId = ("todo${t.todoId}").hashCode(),
+                title = title,
+                body = body
+            )
+            repository.logNotification(
+                NotificationLogEntity(
+                    meetingId = t.meetingId,
+                    clientId = t.clientId,
+                    title = title,
+                    body = body,
+                    scheduledFor = key,
+                    firedAt = System.currentTimeMillis()
+                )
+            )
+        }
+
         // 60日より古い履歴は掃除する。
         runCatching {
             repository.pruneNotificationLog(System.currentTimeMillis() - 60L * 24 * 60 * 60 * 1000)

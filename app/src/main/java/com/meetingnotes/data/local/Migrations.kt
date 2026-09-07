@@ -90,6 +90,16 @@ val MIGRATION_10_11 = object : Migration(10, 11) {
     }
 }
 
+/** v11 → v12: ToDo 期限の日付解決(`todos.dueDate`)と顧客の連絡先(`clients.email` / `clients.phone`)。 */
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE todos ADD COLUMN dueDate TEXT")
+        db.execSQL("ALTER TABLE clients ADD COLUMN email TEXT")
+        db.execSQL("ALTER TABLE clients ADD COLUMN phone TEXT")
+    }
+}
+
 val databaseMigrations: Array<Migration> = arrayOf(
-    MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11
+    MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+    MIGRATION_10_11, MIGRATION_11_12
 )

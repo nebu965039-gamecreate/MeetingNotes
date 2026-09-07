@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -35,6 +37,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -100,6 +103,7 @@ fun ClientDetailScreen(
         factory = ClientDetailViewModel.factory(repository, clientId)
     )
     val client by viewModel.client.collectAsState()
+    val openTodos by viewModel.openTodos.collectAsState()
     val meetings by viewModel.sortedMeetings.collectAsState()
     val folders by viewModel.folders.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
@@ -110,7 +114,7 @@ fun ClientDetailScreen(
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var searchActive by remember { mutableStateOf(false) }
     val searchFocusRequester = remember { FocusRequester() }
-    var showRenameClientDialog by remember { mutableStateOf(false) }
+    var showEditInfoDialog by remember { mutableStateOf(false) }
     var showDeleteClientDialog by remember { mutableStateOf(false) }
     var showAddFolderDialog by remember { mutableStateOf(false) }
     // フォルダごとの展開状態。未登録(=このMapに無い)場合はデフォルトで未展開。
@@ -183,10 +187,10 @@ fun ClientDetailScreen(
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text("クライアント名を変更") },
+                            text = { Text("クライアント情報") },
                             onClick = {
                                 menuExpanded = false
-                                showRenameClientDialog = true
+                                showEditInfoDialog = true
                             }
                         )
                         DropdownMenuItem(
@@ -239,6 +243,16 @@ fun ClientDetailScreen(
             }
 
             val searching = searchActive && searchQuery.isNotBlank()
+
+            if (!searching && openTodos.isNotEmpty()) {
+                item(key = "open_todos") {
+                    OpenTodoSection(
+                        todos = openTodos,
+                        onOpenMeeting = onMeetingSelected,
+                        onComplete = { viewModel.completeTodo(it) }
+                    )
+                }
+            }
 
             if (searching) {
                 item {
@@ -374,16 +388,15 @@ fun ClientDetailScreen(
         if (searchActive) searchFocusRequester.requestFocus()
     }
 
-    if (showRenameClientDialog) {
-        TextInputDialog(
-            title = "クライアント名を変更",
-            label = "クライアント名",
-            initialValue = client?.name.orEmpty(),
-            confirmLabel = "変更",
-            onDismiss = { showRenameClientDialog = false },
-            onConfirm = { name ->
-                viewModel.renameClient(name)
-                showRenameClientDialog = false
+    if (showEditInfoDialog) {
+        ClientInfoDialog(
+            initialName = client?.name.orEmpty(),
+            initialEmail = client?.email.orEmpty(),
+            initialPhone = client?.phone.orEmpty(),
+            onDismiss = { showEditInfoDialog = false },
+            onConfirm = { name, email, phone ->
+                viewModel.updateClientInfo(name, email, phone)
+                showEditInfoDialog = false
             }
         )
     }
@@ -738,4 +751,108 @@ private fun FolderOptionRow(label: String, selected: Boolean, onClick: () -> Uni
         RadioButton(selected = selected, onClick = onClick)
         Text(label)
     }
+}
+
+/** クライアント詳細の「未完了ToDo」セクション(アーカイブの上)。 */
+@Composable
+private fun OpenTodoSection(
+    todos: List<com.meetingnotes.data.local.TodoEntity>,
+    onOpenMeeting: (Long) -> Unit,
+    onComplete: (Long) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                "未完了のToDo (${todos.size}件)",
+                style = MaterialTheme.typography.titleMedium
+            )
+            todos.forEach { t ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenMeeting(t.meetingId) }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { onComplete(t.id) }, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.Filled.CheckCircleOutline,
+                            contentDescription = "完了にする",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            t.task,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        val sub = buildString {
+                            append("担当 ${t.assignee}")
+                            if (t.deadline.isNotBlank() && t.deadline != "未定") append("・期限 ${t.deadline}")
+                        }
+                        Text(
+                            sub,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 名前・メール・電話を編集するダイアログ。 */
+@Composable
+private fun ClientInfoDialog(
+    initialName: String,
+    initialEmail: String,
+    initialPhone: String,
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, email: String?, phone: String?) -> Unit
+) {
+    var name by remember { mutableStateOf(initialName) }
+    var email by remember { mutableStateOf(initialEmail) }
+    var phone by remember { mutableStateOf(initialPhone) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("クライアント情報") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it },
+                    label = { Text("クライアント名") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = email, onValueChange = { email = it },
+                    label = { Text("メールアドレス（任意）") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = phone, onValueChange = { phone = it },
+                    label = { Text("電話番号（任意）") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(
+                onClick = { onConfirm(name.trim(), email.trim(), phone.trim()) },
+                enabled = name.isNotBlank()
+            ) { Text("保存") }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) { Text("キャンセル") }
+        }
+    )
 }

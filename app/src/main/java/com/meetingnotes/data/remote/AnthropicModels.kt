@@ -57,7 +57,8 @@ data class DecisionDto(val content: String)
 data class TodoDto(
     val task: String,
     val assignee: String = "未定",
-    val deadline: String = "未定"
+    val deadline: String = "未定",
+    val deadlineDate: String? = null
 )
 
 @Serializable
@@ -72,7 +73,12 @@ data class ConcernDto(val content: String)
 fun SummaryDto.toDomain(): MeetingSummary = MeetingSummary(
     decisions = decisions.map { Decision(it.content.stripLlmControlTokens()) },
     todos = todos.map {
-        TodoItem(it.task.stripLlmControlTokens(), it.assignee.stripLlmControlTokens(), it.deadline.stripLlmControlTokens())
+        TodoItem(
+            it.task.stripLlmControlTokens(),
+            it.assignee.stripLlmControlTokens(),
+            it.deadline.stripLlmControlTokens(),
+            it.deadlineDate?.takeIf { d -> d.matches(Regex("""\d{4}-\d{2}-\d{2}""")) }
+        )
     },
     nextMeeting = NextMeeting(nextMeeting?.date, nextMeeting?.originalText),
     concerns = concerns.map { Concern(it.content.stripLlmControlTokens()) },

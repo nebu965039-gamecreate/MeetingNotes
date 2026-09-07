@@ -846,9 +846,20 @@ private fun WatermarkPositionPreview(position: WatermarkPosition, modifier: Modi
 private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(checked = todo.isDone, onCheckedChange = { onToggle() })
-        Text(
-            text = "${todo.task}(担当: ${todo.assignee} / 期限: ${todo.deadline})",
-            textDecoration = if (todo.isDone) TextDecoration.LineThrough else TextDecoration.None
-        )
+        Column {
+            Text(
+                text = todo.task,
+                textDecoration = if (todo.isDone) TextDecoration.LineThrough else TextDecoration.None
+            )
+            val dueText = todo.dueDate
+                ?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+                ?.let { "${it.monthValue}/${it.dayOfMonth}" }
+            Text(
+                text = "担当: ${todo.assignee} / 期限: ${todo.deadline}" +
+                    (dueText?.let { "（$it）" } ?: ""),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

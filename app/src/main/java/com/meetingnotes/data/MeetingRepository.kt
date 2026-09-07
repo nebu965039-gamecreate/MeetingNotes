@@ -42,6 +42,9 @@ class MeetingRepository(
 
     suspend fun renameClient(clientId: Long, name: String) = clientDao.rename(clientId, name)
 
+    suspend fun updateClientInfo(clientId: Long, name: String, email: String?, phone: String?) =
+        clientDao.updateInfo(clientId, name.trim(), email?.trim()?.ifBlank { null }, phone?.trim()?.ifBlank { null })
+
     suspend fun deleteClient(clientId: Long) = clientDao.deleteById(clientId)
 
     fun observeClientGroups(): Flow<List<ClientGroupEntity>> = clientGroupDao.observeAll()
@@ -105,6 +108,12 @@ class MeetingRepository(
 
     fun observeTodosByClient(clientId: Long): Flow<List<TodoEntity>> = todoDao.observeByClient(clientId)
 
+    fun observeOpenTodosWithDueDate(): Flow<List<com.meetingnotes.data.local.OpenTodo>> =
+        todoDao.observeOpenTodosWithDueDate()
+
+    suspend fun getTodosDueOn(date: String): List<com.meetingnotes.data.local.OpenTodo> =
+        todoDao.getTodosDueOn(date)
+
     // --- F2: 前回のおさらい(ブリーフィング)---
 
     fun observeBriefing(clientId: Long): Flow<ClientBriefingEntity?> = clientBriefingDao.observe(clientId)
@@ -163,7 +172,9 @@ class MeetingRepository(
                         meetingId = meetingId,
                         task = it.task,
                         assignee = it.assignee,
-                        deadline = it.deadline
+                        deadline = it.deadline,
+                        dueDate = it.deadlineDate
+                            ?: com.meetingnotes.data.model.TodoDueDate.parse(it.deadline)
                     )
                 }
             )

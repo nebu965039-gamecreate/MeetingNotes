@@ -62,6 +62,9 @@ const SYSTEM_PROMPT = `あなたはフリーランス・個人事業主向けの
 2. 「ToDo」: 誰が(担当者)、何を、いつまでに行うかが
    話されているものを抽出する。担当者や期限が不明な場合は
    「担当者: 未定」「期限: 未定」と明記する。
+   さらに、期限が具体的な日付に解決できる場合のみ、メッセージ冒頭の「現在の日付」を基準に
+   ISO 8601(YYYY-MM-DD)で deadlineDate に入れる。
+   「未定」「なるべく早く」など日付にできないものは deadlineDate を null にする。
 3. 「次回打ち合わせ」: 日時が明言されている場合のみ抽出する。
    曖昧な表現(例:「また来週あたり」)は
    originalText にそのまま記録し、date は null とする。
@@ -123,8 +126,9 @@ const SUMMARY_TOOL_SCHEMA = {
           task: { type: "string" },
           assignee: { type: "string" },
           deadline: { type: "string" },
+          deadlineDate: { type: ["string", "null"] },
         },
-        required: ["task", "assignee", "deadline"],
+        required: ["task", "assignee", "deadline", "deadlineDate"],
       },
     },
     nextMeeting: {

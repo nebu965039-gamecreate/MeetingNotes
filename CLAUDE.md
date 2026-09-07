@@ -17,7 +17,7 @@ Kotlin 2.4.0 / Jetpack Compose(Material3、BOM 2026.08.00) / Navigation Compose 
 - `app/src/main/java/com/meetingnotes/data/remote/AnthropicClient.kt` — 要約クライアント。APIキーはアプリに持たず、`server/` の中継Worker(`SUMMARY_PROXY_URL`)へ `{transcript}` をPOSTする。Workerが Anthropic のレスポンスをそのまま返すためパース処理(`MessagesResponse`/`SummaryDto`)は不変。プロンプト・toolスキーマ・モデルは **Worker側(`server/src/index.ts`)** にある
 - `server/` — 要約プロキシ(Cloudflare Worker、TypeScript)。デプロイ手順は `server/README.md`。秘密情報(`ANTHROPIC_API_KEY`, `APP_TOKEN`)は `wrangler secret` 管理でリポジトリに入らない
 - `app/src/main/java/com/meetingnotes/data/MeetingRepository.kt` — 全DAOを束ねる単一リポジトリ。新機能を足す時はまずここにメソッドを足す
-- `app/src/main/java/com/meetingnotes/data/local/MeetingNotesDatabase.kt` — Room DB定義。現在 version = 11(v6 = 商談フェーズ列、v7 = `client_briefing`、v8 = `notification_log`、v9 = `meetings.followedUpAt`、v10 = `meetings.followupDraft`、v11 = `meetings.meetingType` + `user_credits.onlineTranscriptionsUsed/Bonus`(リモート会議モード)。`feature/solo-crm` ブランチ)
+- `app/src/main/java/com/meetingnotes/data/local/MeetingNotesDatabase.kt` — Room DB定義。現在 version = 12(v6 = 商談フェーズ列、v7 = `client_briefing`、v8 = `notification_log`、v9 = `meetings.followedUpAt`、v10 = `meetings.followupDraft`、v11 = `meetings.meetingType` + `user_credits.onlineTranscriptionsUsed/Bonus`、v12 = `todos.dueDate` + `clients.email/phone`。`feature/solo-crm` ブランチ)
 
 ## アーキテクチャ・設計上の重要事項
 
@@ -132,6 +132,15 @@ MVP相当の機能は一通り実装済み。Google Play Console でのクロー
   - `MeetingEntity.meetingType` に記録し、商談詳細のヘッダーとエクスポート(`形式: 対面/リモート会議`)に表示。`RecordingDraftStore.Draft.meetingType` も保存。**DB version 11 + `MIGRATION_10_11`**(`11.json`、`MigrationTest` 10→11)。
   - 音声上限: `AudioFileRecorder.MAX_DURATION_MS`(45分)で自動停止、Worker `MAX_AUDIO_BYTES`(12MB)。**長時間のチャンク分割は Phase 2**。
   - **Worker 再デプロイ必要**(`[ai]` バインディング追加 + `/transcribe`)。プライバシーポリシー / データセーフティの更新は Phase 2(未対応)。コスト試算: Whisper $0.0005/音声分(40分商談で ~¥3)。
+
+- **Tier 1 CRM 補強(2026-09-08)**: 他AIの機能提案(`docs` 外)との差分埋め。**DB version 12 + `MIGRATION_11_12`**(`12.json`、`MigrationTest` 11→12)。
+  - **ToDo 期限の日付解決**: Worker の tool スキーマに `todos[].deadlineDate`(ISO or null)を追加。アプリは `deadlineDate ?? TodoDueDate.parse(deadline)` を `TodoEntity.dueDate` に保存(`data/model/TodoDueDate` = "金曜"/"9/15"/"来週月曜" 等をパース、JVM テストあり)。**Worker 再デプロイ必要**
+  - **ホーム「やること(期限あり)」カード**(`ui/home/DueTodoBoard`): 期限切れ + 今日 + 3日以内の未完了 ToDo。`TodoDao.observeOpenTodosWithDueDate` → `OpenTodo` 射影。チェックで完了、タップで商談詳細。アクションタイルの直下に配置
+  - **ToDo 期限リマインダー**: `MeetingReminderWorker` が本日期限の未完了 ToDo も通知(`notification_log` の `scheduledFor = "todo-<id>-<date>"` で重複防止)
+  - **予定表**: カレンダーの丸印に ToDo 期限日を追加。日付選択時に「この日が期限のToDo」一覧
+  - **クライアント詳細**: アーカイブの上に「未完了のToDo」セクション。⋮「クライアント情報」→ 名前/メール/電話の編集ダイアログ(`ClientEntity.email/phone`、`repository.updateClientInfo`)。旧「クライアント名を変更」は統合
+  - **商談詳細**: `TodoRow` に解決済み期限(M/d)を併記
+- 詳細な機能対照(実装済み/一部/未実装/不要/将来)と「案件レイヤー(Tier 2)」の検討は別途
 
 ### 未完了のタスク(優先度順)
 

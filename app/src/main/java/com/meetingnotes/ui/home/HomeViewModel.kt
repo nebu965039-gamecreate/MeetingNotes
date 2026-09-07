@@ -6,8 +6,10 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.launch
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.data.local.OpenTodo
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.notifications.NotificationSeenState
+import java.time.LocalDate
 import com.meetingnotes.ui.client.FollowupItem
 import com.meetingnotes.ui.client.FollowupRules
 import com.meetingnotes.ui.client.UpcomingItem
@@ -70,8 +72,21 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PhaseTrackerCounts())
 
+    /** 期限切れ + 今日 + 3日以内の未完了 ToDo(期限が解決できているもの)。 */
+    val dueTodos: StateFlow<List<OpenTodo>> =
+        repository.observeOpenTodosWithDueDate()
+            .map { list ->
+                val limit = LocalDate.now().plusDays(3).toString()
+                list.filter { it.dueDate <= limit }.sortedBy { it.dueDate }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun markFollowedUp(meetingId: Long) {
         viewModelScope.launch { repository.markMeetingFollowedUp(meetingId) }
+    }
+
+    fun completeTodo(todoId: Long) {
+        viewModelScope.launch { repository.setTodoDone(todoId, true) }
     }
 
     companion object {

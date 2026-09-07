@@ -82,6 +82,7 @@ fun ScheduleScreen(
     val viewModel: ScheduleViewModel = viewModel(factory = ScheduleViewModel.factory(repository))
     val items by viewModel.upcoming.collectAsState()
     val schedulableClients by viewModel.schedulableClients.collectAsState()
+    val dueTodos by viewModel.dueTodos.collectAsState()
 
     var viewedMonth by remember { mutableStateOf(YearMonth.now()) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
@@ -89,8 +90,16 @@ fun ScheduleScreen(
     var meetingToReschedule by remember { mutableStateOf<UpcomingItem?>(null) }
     var meetingToClear by remember { mutableStateOf<UpcomingItem?>(null) }
 
-    val markedDates = remember(items) { items.map { it.start.toLocalDate() }.toSet() }
+    val todoDatesByDay = remember(dueTodos) {
+        dueTodos.groupBy { runCatching { LocalDate.parse(it.dueDate) }.getOrNull() }
+            .filterKeys { it != null }
+            .mapKeys { it.key!! }
+    }
+    val markedDates = remember(items, todoDatesByDay) {
+        items.map { it.start.toLocalDate() }.toSet() + todoDatesByDay.keys
+    }
     val filteredItems = selectedDate?.let { d -> items.filter { it.start.toLocalDate() == d } } ?: items
+    val selectedDayTodos = selectedDate?.let { todoDatesByDay[it].orEmpty() } ?: emptyList()
 
     Scaffold(
         topBar = {
@@ -183,6 +192,39 @@ fun ScheduleScreen(
                         onReschedule = { meetingToReschedule = item },
                         onDelete = { meetingToClear = item }
                     )
+                }
+            }
+
+            if (selectedDate != null && selectedDayTodos.isNotEmpty()) {
+                item(key = "todo_header") {
+                    Text(
+                        "この日が期限のToDo (${selectedDayTodos.size}件)",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                items(selectedDayTodos, key = { "todo-${it.todoId}" }) { t ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().clickable { onOpenClient(t.clientId) },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(t.task, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                Text(
+                                    "${t.clientName}・担当 ${t.assignee}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            TextButton(onClick = { viewModel.completeTodo(t.todoId) }) { Text("完了") }
+                        }
+                    }
                 }
             }
         }

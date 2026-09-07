@@ -7,7 +7,9 @@ data class Decision(
 data class TodoItem(
     val task: String,
     val assignee: String,
-    val deadline: String
+    val deadline: String,
+    /** AI が解決した ISO 日付(yyyy-MM-dd)。無ければ null(アプリ側で再解決を試みる)。 */
+    val deadlineDate: String? = null
 )
 
 data class NextMeeting(

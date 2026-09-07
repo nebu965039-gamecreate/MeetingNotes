@@ -78,6 +78,7 @@ fun HomeScreen(
     val upcoming by viewModel.upcoming.collectAsState()
     val phaseCounts by viewModel.phaseCounts.collectAsState()
     val hasUnseenNotifications by viewModel.hasUnseenNotifications.collectAsState()
+    val dueTodos by viewModel.dueTodos.collectAsState()
 
     val context = LocalContext.current
     val app = context.applicationContext as MeetingNotesApp
@@ -142,6 +143,16 @@ fun HomeScreen(
                     onOpenNotifications = onOpenNotifications,
                     hasNotificationBadge = hasUnseenNotifications
                 )
+            }
+
+            if (dueTodos.isNotEmpty()) {
+                item(key = "due_todos") {
+                    DueTodoBoard(
+                        items = dueTodos,
+                        onOpen = onOpenMeeting,
+                        onComplete = { viewModel.completeTodo(it) }
+                    )
+                }
             }
 
             item(key = "upcoming_board") {

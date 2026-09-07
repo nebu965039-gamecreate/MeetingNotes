@@ -142,6 +142,37 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate11To12_addsTodoDueDateAndClientContact() {
+        helper.createDatabase(dbName, 11).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL(
+                """
+                INSERT INTO meetings
+                  (clientId, folderId, title, recordedAt, endedAt, transcript, summary,
+                   decisions, concerns, nextMeetingDate, nextMeetingOriginalText, dealPhase,
+                   phaseOverride, followedUpAt, followupDraft, meetingType)
+                VALUES (1, NULL, 'M', 1, NULL, 't', 's', '[]', '[]', NULL, NULL, NULL, NULL, NULL, NULL, NULL)
+                """.trimIndent()
+            )
+            execSQL("INSERT INTO todos (meetingId, task, assignee, deadline, isDone) VALUES (1, 'T', '自分', '金曜', 0)")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 12, true, MIGRATION_11_12)
+
+        db.query("SELECT dueDate FROM todos WHERE meetingId = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertNull(c.getString(0))
+        }
+        db.execSQL("UPDATE clients SET email = 'a@b.com', phone = '090' WHERE id = 1")
+        db.query("SELECT email, phone FROM clients WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getString(0) == "a@b.com")
+            assertTrue(c.getString(1) == "090")
+        }
+    }
+
+    @Test
     fun migrate10To11_addsMeetingTypeAndOnlineCounters() {
         helper.createDatabase(dbName, 10).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

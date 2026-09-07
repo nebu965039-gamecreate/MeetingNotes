@@ -8,6 +8,19 @@ data class NextMeetingCandidate(
     val nextMeetingDate: String
 )
 
+/** `TodoDao.observeOpenTodosWithDueDate` / `getTodosDueOn` の射影結果。 */
+data class OpenTodo(
+    val todoId: Long,
+    val meetingId: Long,
+    val task: String,
+    val assignee: String,
+    val deadline: String,
+    val dueDate: String,
+    val isDone: Boolean,
+    val clientId: Long,
+    val clientName: String
+)
+
 /** `MeetingDao.observeFollowedUpMeetings` の射影結果(フォロー済み一覧)。 */
 data class FollowedUpMeeting(
     val meetingId: Long,

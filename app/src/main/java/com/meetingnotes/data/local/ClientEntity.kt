@@ -22,5 +22,7 @@ data class ClientEntity(
     val name: String,
     val memo: String? = null,
     val groupId: Long? = null,
-    val createdAt: Long
+    val createdAt: Long,
+    val email: String? = null,
+    val phone: String? = null
 )
