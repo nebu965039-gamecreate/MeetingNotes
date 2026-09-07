@@ -19,11 +19,7 @@ data class SummarizeRequest(
 @Serializable
 data class BriefingRequest(val summaries: List<String>)
 
-/** F5 フォローアップ下書き。tone = "polite" | "casual"。 */
-@Serializable
-data class FollowupRequest(val summary: String, val tone: String)
-
-/** briefing / followup の共通レスポンス。 */
+/** briefing のレスポンス。 */
 @Serializable
 data class TextResponse(val text: String = "")
 

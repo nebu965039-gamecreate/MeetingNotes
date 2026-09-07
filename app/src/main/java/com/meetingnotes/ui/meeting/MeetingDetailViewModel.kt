@@ -9,7 +9,6 @@ import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
 import com.meetingnotes.data.model.DealPhase
-import com.meetingnotes.data.remote.AnthropicClient
 import com.meetingnotes.export.CsvExporter
 import com.meetingnotes.export.ExcelExporter
 import com.meetingnotes.export.IcsExporter
@@ -31,14 +30,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/**
+ * フォローアップ下書きは「要約時に一緒に生成」だけ(`MeetingEntity.followupDraft`)。
+ * 個別生成の導線は廃止したので、表示するか / 下書きが無いか の2状態のみ。
+ */
 sealed interface FollowupState {
     data object Idle : FollowupState
-    /** 要約時の下書きが無い(旧データ / Worker未更新)。ユーザーが明示的に生成を選べる。 */
-    data object NoStoredDraft : FollowupState
-    data object Loading : FollowupState
-    /** [stored] = 要約時に生成済みの下書きをそのまま表示している(トーン再生成不可・API呼び出し無し)。 */
-    data class Ready(val text: String, val casual: Boolean, val stored: Boolean = false) : FollowupState
-    data class Error(val message: String) : FollowupState
+    data class Ready(val text: String) : FollowupState
+    /** 要約時の下書きが無い(旧データ、または Worker 未更新の時期に録音した商談)。 */
+    data object Empty : FollowupState
 }
 
 class MeetingDetailViewModel(
@@ -46,8 +46,6 @@ class MeetingDetailViewModel(
     private val repository: MeetingRepository,
     meetingId: Long
 ) : AndroidViewModel(application) {
-
-    private val anthropicClient = AnthropicClient()
 
     val meeting: StateFlow<MeetingEntity?> = repository.observeMeeting(meetingId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -89,29 +87,11 @@ class MeetingDetailViewModel(
     private val _followupState = MutableStateFlow<FollowupState>(FollowupState.Idle)
     val followupState: StateFlow<FollowupState> = _followupState.asStateFlow()
 
-    /** 商談詳細で「フォローアップの下書き」を開いたとき。保存済みなら即表示、無ければ生成を促す状態に。 */
+    /** 商談詳細で「フォローアップの下書き」を開いたとき。要約時の下書きを表示する。 */
     fun openFollowup() {
-        if (_followupState.value != FollowupState.Idle) return
         val stored = meeting.value?.followupDraft?.trim().orEmpty()
         _followupState.value =
-            if (stored.isNotEmpty()) FollowupState.Ready(stored, casual = false, stored = true)
-            else FollowupState.NoStoredDraft
-    }
-
-    /** 要約時に下書きがあるか(ボタン文言の出し分け用)。 */
-    fun hasStoredFollowup(): Boolean = !meeting.value?.followupDraft.isNullOrBlank()
-
-    /** F5(フォールバック): 要約時に下書きが無い旧データ用。商談要約から都度生成する。 */
-    fun generateFollowup(casual: Boolean) {
-        val source = buildPlainTextSummary() ?: return
-        _followupState.value = FollowupState.Loading
-        viewModelScope.launch {
-            runCatching { anthropicClient.generateFollowup(source, casual) }
-                .onSuccess { _followupState.value = FollowupState.Ready(it, casual) }
-                .onFailure {
-                    _followupState.value = FollowupState.Error(it.message ?: "下書きの生成に失敗しました。")
-                }
-        }
+            if (stored.isNotEmpty()) FollowupState.Ready(stored) else FollowupState.Empty
     }
 
     fun clearFollowup() {
@@ -209,11 +189,6 @@ class MeetingDetailViewModel(
             }
             if (file != null) onReady(file) else onNoDate()
         }
-    }
-
-    fun buildPlainTextSummary(): String? {
-        val current = meeting.value ?: return null
-        return MeetingExportContentBuilder.buildPlainText(clientName.value, current, todos.value)
     }
 
     companion object {

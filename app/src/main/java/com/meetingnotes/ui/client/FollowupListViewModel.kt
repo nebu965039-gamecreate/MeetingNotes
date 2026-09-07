@@ -23,8 +23,15 @@ class FollowupListViewModel(private val repository: MeetingRepository) : ViewMod
         repository.observeFollowedUpMeetings()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun markFollowedUp(meetingId: Long) {
-        viewModelScope.launch { repository.markMeetingFollowedUp(meetingId) }
+    fun markFollowedUp(meetingIds: List<Long>) {
+        viewModelScope.launch { repository.markMeetingsFollowedUp(meetingIds) }
+    }
+
+    /** 未フォロー(NEEDS_EMAIL / STALE 問わず)を全部フォロー済みにする。 */
+    fun markAllFollowedUp() {
+        viewModelScope.launch {
+            repository.markMeetingsFollowedUp(followups.value.map { it.meetingId })
+        }
     }
 
     /** フォロー済みを取り消して「未フォロー」に戻す。 */

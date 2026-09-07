@@ -77,6 +77,13 @@ class MeetingRepository(
     suspend fun markMeetingFollowedUp(meetingId: Long) =
         meetingDao.updateFollowedUpAt(meetingId, System.currentTimeMillis())
 
+    /** 複数商談をまとめてフォロー済みにする。 */
+    suspend fun markMeetingsFollowedUp(meetingIds: List<Long>) {
+        if (meetingIds.isNotEmpty()) {
+            meetingDao.updateFollowedUpAtBatch(meetingIds, System.currentTimeMillis())
+        }
+    }
+
     suspend fun clearMeetingFollowedUp(meetingId: Long) =
         meetingDao.updateFollowedUpAt(meetingId, null)
 

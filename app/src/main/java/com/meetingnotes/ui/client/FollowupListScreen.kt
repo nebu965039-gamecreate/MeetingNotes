@@ -19,12 +19,15 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -90,10 +94,11 @@ fun FollowupListScreen(
             }
 
             if (tab == 0) {
-                PendingList(
+                PendingTab(
                     items = pending,
                     onOpen = onOpenMeeting,
-                    onMarkFollowedUp = { viewModel.markFollowedUp(it) }
+                    onMark = { viewModel.markFollowedUp(it) },
+                    onMarkAll = { viewModel.markAllFollowedUp() }
                 )
             } else {
                 DoneList(
@@ -107,40 +112,74 @@ fun FollowupListScreen(
 }
 
 @Composable
-private fun PendingList(
+private fun PendingTab(
     items: List<FollowupItem>,
     onOpen: (Long) -> Unit,
-    onMarkFollowedUp: (Long) -> Unit
+    onMark: (List<Long>) -> Unit,
+    onMarkAll: () -> Unit
 ) {
     if (items.isEmpty()) {
         EmptyMessage("フォローが必要な商談はありません。")
         return
     }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(items, key = { it.client.id }) { item ->
-            FollowupCard(
-                name = item.client.name,
-                subtitle = followupSubtitle(item),
-                phase = item.phase,
-                onClick = { onOpen(item.meetingId) },
-                trailing = {
-                    if (item.reason == FollowupReason.NEEDS_EMAIL) {
-                        TextButton(onClick = { onMarkFollowedUp(item.meetingId) }) {
-                            Text("フォロー済み", style = MaterialTheme.typography.labelLarge)
-                        }
-                    } else {
+
+    // チェック状態(meetingId -> checked)。リスト内容が変わったら整理する。
+    val checked = remember { mutableStateMapOf<Long, Boolean>() }
+    val validIds = items.map { it.meetingId }.toSet()
+    checked.keys.retainAll(validIds)
+    val selectedIds = checked.filterValues { it }.keys.toList()
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(items, key = { it.meetingId }) { item ->
+                FollowupCard(
+                    name = item.client.name,
+                    subtitle = followupSubtitle(item),
+                    phase = item.phase,
+                    onClick = { onOpen(item.meetingId) },
+                    leading = {
+                        Checkbox(
+                            checked = checked[item.meetingId] == true,
+                            onCheckedChange = { checked[item.meetingId] = it }
+                        )
+                    },
+                    trailing = {
                         Icon(
                             Icons.Filled.ChevronRight,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                )
+            }
+        }
+
+        Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = { onMark(selectedIds) },
+                    enabled = selectedIds.isNotEmpty(),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        if (selectedIds.isEmpty()) "選択をフォロー済み"
+                        else "選択${selectedIds.size}件をフォロー済み"
+                    )
                 }
-            )
+                TextButton(onClick = onMarkAll) {
+                    Text("すべてフォロー済み")
+                }
+            }
         }
     }
 }
@@ -182,7 +221,8 @@ private fun FollowupCard(
     subtitle: String,
     phase: DealPhase?,
     onClick: () -> Unit,
-    trailing: @Composable () -> Unit
+    trailing: @Composable () -> Unit,
+    leading: (@Composable () -> Unit)? = null
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -191,10 +231,14 @@ private fun FollowupCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, top = 10.dp, bottom = 10.dp, end = 8.dp),
+                .padding(
+                    start = if (leading != null) 4.dp else 16.dp,
+                    top = 8.dp, bottom = 8.dp, end = 8.dp
+                ),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            leading?.invoke()
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(

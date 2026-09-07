@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -266,7 +265,6 @@ fun MeetingDetailScreen(
             }
 
             item {
-                val hasStoredDraft = !current.followupDraft.isNullOrBlank()
                 OutlinedButton(
                     onClick = {
                         showFollowup = true
@@ -276,7 +274,7 @@ fun MeetingDetailScreen(
                 ) {
                     Icon(Icons.Filled.Drafts, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (hasStoredDraft) "フォローアップの下書きを見る" else "フォローアップの下書きを作る")
+                    Text("フォローアップの下書きを見る")
                 }
             }
 
@@ -415,7 +413,6 @@ fun MeetingDetailScreen(
     if (showFollowup) {
         FollowupDialog(
             state = followupState,
-            onRegenerate = { casual -> viewModel.generateFollowup(casual) },
             onShare = { text ->
                 ShareFileHelper.sharePlainText(context, text, "フォローアップを共有")
             },
@@ -430,7 +427,6 @@ fun MeetingDetailScreen(
 @Composable
 private fun FollowupDialog(
     state: FollowupState,
-    onRegenerate: (casual: Boolean) -> Unit,
     onShare: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -449,44 +445,23 @@ private fun FollowupDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 when (state) {
-                    is FollowupState.Loading, FollowupState.Idle -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(10.dp))
-                            Text("下書きを作成しています…", style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                    is FollowupState.NoStoredDraft -> {
+                    FollowupState.Idle -> Unit
+                    FollowupState.Empty -> {
                         Text(
-                            "この商談は要約時に下書きが作成されていません" +
-                                "(以前に録音した商談、またはサーバー未更新の場合)。",
+                            "この商談には下書きがありません。" +
+                                "フォローアップの下書きは要約時に自動生成されます" +
+                                "(以前に録音した商談、またはサーバー更新前の商談には付きません)。",
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        Button(onClick = { onRegenerate(false) }, modifier = Modifier.fillMaxWidth()) {
-                            Text("今から生成する(AIを1回使用)")
-                        }
-                    }
-                    is FollowupState.Error -> {
-                        Text(state.message, color = MaterialTheme.colorScheme.error)
-                        TextButton(onClick = { onRegenerate(false) }) { Text("再試行") }
                     }
                     is FollowupState.Ready -> {
+                        Text(
+                            "商談内容から自動生成した下書きです。必要に応じて編集してお使いください。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         SelectionContainer {
                             Text(state.text, style = MaterialTheme.typography.bodyMedium)
-                        }
-                        if (!state.stored) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                FilterChip(
-                                    selected = !state.casual,
-                                    onClick = { if (state.casual) onRegenerate(false) },
-                                    label = { Text("丁寧") }
-                                )
-                                FilterChip(
-                                    selected = state.casual,
-                                    onClick = { if (!state.casual) onRegenerate(true) },
-                                    label = { Text("カジュアル") }
-                                )
-                            }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = { copy(state.text) }) { Text("コピー") }

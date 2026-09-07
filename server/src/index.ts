@@ -87,6 +87,8 @@ const SYSTEM_PROMPT = `あなたはフリーランス・個人事業主向けの
    金額の話が出ていれば quoted など)。必ず1つ返す。
 10. 「followupDraft」: この商談直後に相手へ送る、フォローアップのメッセージ下書きを作る。
     - 構成: お礼 → 決定事項・確認事項の要点 → 次のアクションのお願い
+    - 「次のアクションのお願い」では、上で抽出した ToDo のうち相手側の担当・期限があるものを
+      自然な依頼文として織り込む(例:「〇〇の件、△日までにご確認いただけますと幸いです」)
     - 3〜5文。丁寧だが冗長でない文体(です・ます)
     - 宛名・署名・件名は入れず、本文のみ
     - 上で抽出した内容の範囲で書き、要約に無い予定や約束を作らない
@@ -185,7 +187,7 @@ async function underDailyCap(env: Env): Promise<boolean> {
   return true;
 }
 
-/** briefing / followup 用の短いテキスト生成(tool_use なしのプレーン補完)。 */
+/** briefing 用の短いテキスト生成(tool_use なしのプレーン補完)。 */
 const BRIEFING_SYSTEM = `あなたはフリーランス・個人事業主の商談準備を手伝うアシスタントです。
 渡された「過去の商談要約」(古い順)を読み、そのクライアントとの
 「ここまでの流れ」を2〜4文でまとめてください。
@@ -193,20 +195,6 @@ const BRIEFING_SYSTEM = `あなたはフリーランス・個人事業主の商�
 - 提案→検討→保留 のような流れの推移がわかるように
 - 過去要約に無い情報を推測で足さない
 - 前置きや見出しを付けず、本文だけを返す`;
-
-const FOLLOWUP_SYSTEM_POLITE = `あなたはフリーランス・個人事業主のフォローアップ文面を作成するアシスタントです。
-渡された商談要約をもとに、商談直後に相手へ送るメッセージの下書きを作ってください。
-- 構成: お礼 → 決定事項・確認事項の要点 → 次のアクションのお願い
-- 3〜5文。丁寧だが冗長でない文体(です・ます)
-- 宛名・署名・件名は入れない。本文のみ
-- 要約に無い予定や約束を作らない`;
-
-const FOLLOWUP_SYSTEM_CASUAL = `あなたはフリーランス・個人事業主のフォローアップ文面を作成するアシスタントです。
-渡された商談要約をもとに、商談直後に相手へ送るメッセージの下書きを作ってください。
-- 構成: お礼 → 決定事項・確認事項の要点 → 次のアクションのお願い
-- 3〜5文。ややカジュアルで簡潔な文体
-- 宛名・署名・件名は入れない。本文のみ
-- 要約に無い予定や約束を作らない`;
 
 /** 認証と日次上限。OKなら null、NGなら返すべき Response。 */
 async function guard(request: Request, env: Env): Promise<Response | null> {
@@ -299,22 +287,6 @@ async function handleBriefing(request: Request, env: Env): Promise<Response> {
   return generateText(env, BRIEFING_SYSTEM, `過去の商談要約(古い順):\n\n${list}`, 400);
 }
 
-async function handleFollowup(request: Request, env: Env): Promise<Response> {
-  const g = await guard(request, env);
-  if (g) return g;
-  let parsed: { summary?: unknown; tone?: unknown };
-  try {
-    parsed = (await request.json()) as { summary?: unknown; tone?: unknown };
-  } catch {
-    return jsonResponse({ error: "invalid_json" }, 400);
-  }
-  if (typeof parsed.summary !== "string" || parsed.summary.trim().length === 0) {
-    return jsonResponse({ error: "summary_required" }, 400);
-  }
-  const system = parsed.tone === "casual" ? FOLLOWUP_SYSTEM_CASUAL : FOLLOWUP_SYSTEM_POLITE;
-  return generateText(env, system, `商談要約:\n\n${parsed.summary.trim()}`, 500);
-}
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -324,9 +296,6 @@ export default {
     }
     if (request.method === "POST" && url.pathname === "/briefing") {
       return handleBriefing(request, env);
-    }
-    if (request.method === "POST" && url.pathname === "/followup") {
-      return handleFollowup(request, env);
     }
     if (request.method !== "POST" || url.pathname !== "/summarize") {
       return jsonResponse({ error: "not_found" }, 404);
