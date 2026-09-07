@@ -17,7 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -125,19 +124,19 @@ private val boardDateFormatter = DateTimeFormatter.ofPattern("M/d")
 /** 内部スクロールで表示する最大件数。これを超える分は「すべて表示」で全件ページへ誘導する。 */
 private const val MAX_VISIBLE = 10
 
-/** 要フォロー1行の説明文(ホーム・全件ページ共通)。 */
+/** ToDo 1行の説明文(ホーム・全件ページ共通)。 */
 internal fun followupSubtitle(item: FollowupItem): String {
     val date = boardDateFormatter.format(
         Instant.ofEpochMilli(item.lastRecordedAt).atZone(ZoneId.systemDefault())
     )
     val phase = item.phase?.label ?: "フェーズ未設定"
     return when (item.reason) {
-        FollowupReason.NEEDS_EMAIL -> "最終 $date・$phase・メールでフォロー"
+        FollowupReason.NEEDS_EMAIL -> "最終 $date・$phase・メール連絡"
         FollowupReason.STALE -> "最終 $date・$phase・${item.daysSince}日経過"
     }
 }
 
-/** ホーム画面の「要フォロー」カード。0件でも表示する。デフォルトで3件ぶんの高さ、内部スクロールで最大10件確認できる。 */
+/** ホーム画面の「ToDo」カード。0件でも表示する。デフォルトで3件ぶんの高さ、内部スクロールで最大10件確認できる。 */
 @Composable
 fun FollowupBoard(
     items: List<FollowupItem>,
@@ -167,7 +166,7 @@ fun FollowupBoard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(Modifier.width(6.dp))
-                    Text("要フォロー", style = MaterialTheme.typography.titleMedium)
+                    Text("ToDo", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.width(6.dp))
                     Text(
                         "${items.size}件",
@@ -192,7 +191,7 @@ fun FollowupBoard(
                         .padding(16.dp)
                 ) {
                     Text(
-                        "フォローが必要な商談はありません。",
+                        "対応が必要な商談はありません。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -230,19 +229,11 @@ fun FollowupBoard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        if (item.reason == FollowupReason.NEEDS_EMAIL) {
-                            TextButton(
-                                onClick = { onMarkFollowedUp(item.meetingId) },
-                                contentPadding = PaddingValues(horizontal = 10.dp)
-                            ) {
-                                Text("フォロー済み", style = MaterialTheme.typography.labelMedium)
-                            }
-                        } else {
-                            Icon(
-                                Icons.Filled.ChevronRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        TextButton(
+                            onClick = { onMarkFollowedUp(item.meetingId) },
+                            contentPadding = PaddingValues(horizontal = 10.dp)
+                        ) {
+                            Text("完了", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                     if (index != visible.lastIndex) {

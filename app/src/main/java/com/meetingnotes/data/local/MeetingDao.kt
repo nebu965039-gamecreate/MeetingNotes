@@ -64,9 +64,6 @@ interface MeetingDao {
     @Query("UPDATE meetings SET followedUpAt = :at WHERE id = :meetingId")
     suspend fun updateFollowedUpAt(meetingId: Long, at: Long?)
 
-    @Query("UPDATE meetings SET followedUpAt = :at WHERE id IN (:meetingIds)")
-    suspend fun updateFollowedUpAtBatch(meetingIds: List<Long>, at: Long)
-
     /** メールフォロー済みの商談一覧(新しくフォローした順)。 */
     @Query(
         """

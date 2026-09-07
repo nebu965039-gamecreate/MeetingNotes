@@ -16,18 +16,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,7 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -61,7 +56,7 @@ fun FollowupListScreen(
     onOpenMeeting: (Long) -> Unit
 ) {
     val viewModel: FollowupListViewModel = viewModel(factory = FollowupListViewModel.factory(repository))
-    val pending by viewModel.followups.collectAsState()
+    val todo by viewModel.followups.collectAsState()
     val done by viewModel.followedUp.collectAsState()
 
     var tab by remember { mutableIntStateOf(0) }
@@ -69,7 +64,7 @@ fun FollowupListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("フォロー") },
+                title = { Text("ToDo") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
@@ -84,27 +79,26 @@ fun FollowupListScreen(
                 Tab(
                     selected = tab == 0,
                     onClick = { tab = 0 },
-                    text = { Text("未フォロー (${pending.size})") }
+                    text = { Text("ToDo (${todo.size})") }
                 )
                 Tab(
                     selected = tab == 1,
                     onClick = { tab = 1 },
-                    text = { Text("フォロー済み (${done.size})") }
+                    text = { Text("完了 (${done.size})") }
                 )
             }
 
             if (tab == 0) {
-                PendingTab(
-                    items = pending,
+                TodoList(
+                    items = todo,
                     onOpen = onOpenMeeting,
-                    onMark = { viewModel.markFollowedUp(it) },
-                    onMarkAll = { viewModel.markAllFollowedUp() }
+                    onComplete = { viewModel.markFollowedUp(it) }
                 )
             } else {
                 DoneList(
                     items = done,
                     onOpen = onOpenMeeting,
-                    onUnmark = { viewModel.unmarkFollowedUp(it) }
+                    onReopen = { viewModel.unmarkFollowedUp(it) }
                 )
             }
         }
@@ -112,74 +106,32 @@ fun FollowupListScreen(
 }
 
 @Composable
-private fun PendingTab(
+private fun TodoList(
     items: List<FollowupItem>,
     onOpen: (Long) -> Unit,
-    onMark: (List<Long>) -> Unit,
-    onMarkAll: () -> Unit
+    onComplete: (Long) -> Unit
 ) {
     if (items.isEmpty()) {
-        EmptyMessage("フォローが必要な商談はありません。")
+        EmptyMessage("対応が必要な商談はありません。")
         return
     }
-
-    // チェック状態(meetingId -> checked)。リスト内容が変わったら整理する。
-    val checked = remember { mutableStateMapOf<Long, Boolean>() }
-    val validIds = items.map { it.meetingId }.toSet()
-    checked.keys.retainAll(validIds)
-    val selectedIds = checked.filterValues { it }.keys.toList()
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(items, key = { it.meetingId }) { item ->
-                FollowupCard(
-                    name = item.client.name,
-                    subtitle = followupSubtitle(item),
-                    phase = item.phase,
-                    onClick = { onOpen(item.meetingId) },
-                    leading = {
-                        Checkbox(
-                            checked = checked[item.meetingId] == true,
-                            onCheckedChange = { checked[item.meetingId] = it }
-                        )
-                    },
-                    trailing = {
-                        Icon(
-                            Icons.Filled.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(items, key = { it.meetingId }) { item ->
+            FollowupCard(
+                name = item.client.name,
+                subtitle = followupSubtitle(item),
+                phase = item.phase,
+                onClick = { onOpen(item.meetingId) },
+                trailing = {
+                    TextButton(onClick = { onComplete(item.meetingId) }) {
+                        Text("完了", style = MaterialTheme.typography.labelLarge)
                     }
-                )
-            }
-        }
-
-        Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = { onMark(selectedIds) },
-                    enabled = selectedIds.isNotEmpty(),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        if (selectedIds.isEmpty()) "選択をフォロー済み"
-                        else "選択${selectedIds.size}件をフォロー済み"
-                    )
                 }
-                TextButton(onClick = onMarkAll) {
-                    Text("すべてフォロー済み")
-                }
-            }
+            )
         }
     }
 }
@@ -188,10 +140,10 @@ private fun PendingTab(
 private fun DoneList(
     items: List<FollowedUpMeeting>,
     onOpen: (Long) -> Unit,
-    onUnmark: (Long) -> Unit
+    onReopen: (Long) -> Unit
 ) {
     if (items.isEmpty()) {
-        EmptyMessage("フォロー済みの商談はまだありません。")
+        EmptyMessage("完了した項目はまだありません。")
         return
     }
     LazyColumn(
@@ -202,12 +154,12 @@ private fun DoneList(
         items(items, key = { it.meetingId }) { item ->
             FollowupCard(
                 name = item.clientName,
-                subtitle = "フォロー ${monthDay(item.followedUpAt)}・${item.title}",
+                subtitle = "完了 ${monthDay(item.followedUpAt)}・${item.title}",
                 phase = DealPhase.fromWire(item.phaseOverride ?: item.dealPhase),
                 onClick = { onOpen(item.meetingId) },
                 trailing = {
-                    TextButton(onClick = { onUnmark(item.meetingId) }) {
-                        Text("未フォローに戻す", style = MaterialTheme.typography.labelLarge)
+                    TextButton(onClick = { onReopen(item.meetingId) }) {
+                        Text("ToDoに戻す", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             )
@@ -221,8 +173,7 @@ private fun FollowupCard(
     subtitle: String,
     phase: DealPhase?,
     onClick: () -> Unit,
-    trailing: @Composable () -> Unit,
-    leading: (@Composable () -> Unit)? = null
+    trailing: @Composable () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -231,14 +182,10 @@ private fun FollowupCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    start = if (leading != null) 4.dp else 16.dp,
-                    top = 8.dp, bottom = 8.dp, end = 8.dp
-                ),
+                .padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            leading?.invoke()
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(

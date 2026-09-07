@@ -73,17 +73,11 @@ class MeetingRepository(
     suspend fun setNextMeeting(meetingId: Long, dateIso: String?, originalText: String? = null) =
         meetingDao.updateNextMeeting(meetingId, dateIso, originalText)
 
-    /** この商談のメールフォローを「済み」にする(要フォローの「メールでフォロー」から除外)。 */
+    /** この商談の ToDo(メール連絡など)を「完了」にする(ホーム/ToDo一覧から除外)。 */
     suspend fun markMeetingFollowedUp(meetingId: Long) =
         meetingDao.updateFollowedUpAt(meetingId, System.currentTimeMillis())
 
-    /** 複数商談をまとめてフォロー済みにする。 */
-    suspend fun markMeetingsFollowedUp(meetingIds: List<Long>) {
-        if (meetingIds.isNotEmpty()) {
-            meetingDao.updateFollowedUpAtBatch(meetingIds, System.currentTimeMillis())
-        }
-    }
-
+    /** 完了を取り消して ToDo に戻す。 */
     suspend fun clearMeetingFollowedUp(meetingId: Long) =
         meetingDao.updateFollowedUpAt(meetingId, null)
 
