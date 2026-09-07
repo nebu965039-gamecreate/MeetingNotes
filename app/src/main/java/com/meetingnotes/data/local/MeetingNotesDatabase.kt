@@ -15,7 +15,7 @@ import androidx.room.TypeConverters
         ClientBriefingEntity::class,
         NotificationLogEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

@@ -111,4 +111,33 @@ class MigrationTest {
             assertTrue(c.getLong(0) == 12345L)
         }
     }
+
+    @Test
+    fun migrate9To10_addsFollowupDraftColumn() {
+        helper.createDatabase(dbName, 9).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL(
+                """
+                INSERT INTO meetings
+                  (clientId, folderId, title, recordedAt, endedAt, transcript, summary,
+                   decisions, concerns, nextMeetingDate, nextMeetingOriginalText, dealPhase,
+                   phaseOverride, followedUpAt)
+                VALUES (1, NULL, '既存商談', 1000, NULL, 't', 's', '[]', '[]', NULL, NULL, NULL, NULL, NULL)
+                """.trimIndent()
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 10, true, MIGRATION_9_10)
+
+        db.query("SELECT followupDraft FROM meetings WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertNull(c.getString(0))
+        }
+        db.execSQL("UPDATE meetings SET followupDraft = 'お世話になっております' WHERE id = 1")
+        db.query("SELECT followupDraft FROM meetings WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getString(0) == "お世話になっております")
+        }
+    }
 }

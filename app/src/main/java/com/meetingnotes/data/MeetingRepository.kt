@@ -142,7 +142,8 @@ class MeetingRepository(
                 concerns = summary.concerns.map { it.content },
                 nextMeetingDate = summary.nextMeeting.date,
                 nextMeetingOriginalText = summary.nextMeeting.originalText,
-                dealPhase = summary.dealPhase?.wireValue
+                dealPhase = summary.dealPhase?.wireValue,
+                followupDraft = summary.followupDraft
             )
         )
         if (summary.todos.isNotEmpty()) {

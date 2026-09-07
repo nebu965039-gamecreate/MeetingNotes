@@ -44,5 +44,7 @@ data class MeetingEntity(
      * この商談についてメールでのフォローアップを済ませた時刻(epoch millis)。
      * null のあいだは「要フォロー」に「メールでフォロー」として出続ける(F1)。
      */
-    val followedUpAt: Long? = null
+    val followedUpAt: Long? = null,
+    /** 要約時に一緒に生成したフォローアップ文面の下書き(F5)。旧データは null。 */
+    val followupDraft: String? = null
 )

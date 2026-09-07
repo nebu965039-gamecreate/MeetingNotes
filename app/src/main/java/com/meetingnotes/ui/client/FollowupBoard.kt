@@ -82,11 +82,12 @@ object FollowupRules {
             val m = byClient[client.id] ?: return@mapNotNull null
             val phase = DealPhase.fromWire(m.phaseOverride ?: m.dealPhase)
             if (phase == DealPhase.WON || phase == DealPhase.LOST) return@mapNotNull null
-            if (hasUpcomingMeeting(m.nextMeetingDate, now)) return@mapNotNull null
             val days = ((now - m.lastRecordedAt) / DAY_MS).toInt()
             val reason = when {
+                // メールフォロー未実施なら、要約完了直後から出す(次回予定の有無は問わない)。
                 m.followedUpAt == null -> FollowupReason.NEEDS_EMAIL
-                days >= THRESHOLD_DAYS -> FollowupReason.STALE
+                // フォロー済みで、次回予定も無いまま日数が経っていれば「放置」。
+                !hasUpcomingMeeting(m.nextMeetingDate, now) && days >= THRESHOLD_DAYS -> FollowupReason.STALE
                 else -> return@mapNotNull null
             }
             FollowupItem(client, m.meetingId, m.lastRecordedAt, days, phase, reason)

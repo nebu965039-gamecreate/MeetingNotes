@@ -74,5 +74,12 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
     }
 }
 
+/** v9 → v10: F5 用に `meetings.followupDraft`(要約時に生成したフォローアップ下書き)を追加。 */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE meetings ADD COLUMN followupDraft TEXT")
+    }
+}
+
 val databaseMigrations: Array<Migration> =
-    arrayOf(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+    arrayOf(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)

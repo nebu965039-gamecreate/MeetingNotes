@@ -266,16 +266,19 @@ fun MeetingDetailScreen(
             }
 
             item {
+                val hasStoredDraft = !current.followupDraft.isNullOrBlank()
                 OutlinedButton(
                     onClick = {
                         showFollowup = true
-                        if (followupState is FollowupState.Idle) viewModel.generateFollowup(casual = false)
+                        if (followupState is FollowupState.Idle && !viewModel.showStoredFollowup()) {
+                            viewModel.generateFollowup(casual = false)
+                        }
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Filled.Drafts, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("フォローアップの下書きを作る")
+                    Text(if (hasStoredDraft) "フォローアップの下書きを見る" else "フォローアップの下書きを作る")
                 }
             }
 
@@ -463,17 +466,19 @@ private fun FollowupDialog(
                         SelectionContainer {
                             Text(state.text, style = MaterialTheme.typography.bodyMedium)
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = !state.casual,
-                                onClick = { if (state.casual) onRegenerate(false) },
-                                label = { Text("丁寧") }
-                            )
-                            FilterChip(
-                                selected = state.casual,
-                                onClick = { if (!state.casual) onRegenerate(true) },
-                                label = { Text("カジュアル") }
-                            )
+                        if (!state.stored) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(
+                                    selected = !state.casual,
+                                    onClick = { if (state.casual) onRegenerate(false) },
+                                    label = { Text("丁寧") }
+                                )
+                                FilterChip(
+                                    selected = state.casual,
+                                    onClick = { if (!state.casual) onRegenerate(true) },
+                                    label = { Text("カジュアル") }
+                                )
+                            }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = { copy(state.text) }) { Text("コピー") }

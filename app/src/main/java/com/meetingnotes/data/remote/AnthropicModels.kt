@@ -46,7 +46,8 @@ data class SummaryDto(
     val nextMeeting: NextMeetingDto? = null,
     val concerns: List<ConcernDto> = emptyList(),
     val summary: String = "",
-    val dealPhase: String? = null
+    val dealPhase: String? = null,
+    val followupDraft: String? = null
 )
 
 @Serializable
@@ -74,5 +75,6 @@ fun SummaryDto.toDomain(): MeetingSummary = MeetingSummary(
     nextMeeting = NextMeeting(nextMeeting?.date, nextMeeting?.originalText),
     concerns = concerns.map { Concern(it.content) },
     summary = summary,
-    dealPhase = DealPhase.fromWire(dealPhase)
+    dealPhase = DealPhase.fromWire(dealPhase),
+    followupDraft = followupDraft?.trim()?.takeIf { it.isNotEmpty() }
 )

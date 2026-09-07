@@ -40,7 +40,7 @@ interface Env extends IntegrityEnv {
 }
 
 const MODEL = "claude-haiku-4-5-20251001";
-const MAX_TOKENS = 2000;
+const MAX_TOKENS = 2400;
 const TEMPERATURE = 0.2;
 const TOOL_NAME = "extract_meeting_summary";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -84,7 +84,13 @@ const SYSTEM_PROMPT = `あなたはフリーランス・個人事業主向けの
    - on_hold: 案件が保留・先送りになった
    - lost: 失注・見送りが確定した
    判断材料が乏しい場合は最も近いものを選ぶ(初期接触なら first_contact、
-   金額の話が出ていれば quoted など)。必ず1つ返す。`;
+   金額の話が出ていれば quoted など)。必ず1つ返す。
+10. 「followupDraft」: この商談直後に相手へ送る、フォローアップのメッセージ下書きを作る。
+    - 構成: お礼 → 決定事項・確認事項の要点 → 次のアクションのお願い
+    - 3〜5文。丁寧だが冗長でない文体(です・ます)
+    - 宛名・署名・件名は入れず、本文のみ
+    - 上で抽出した内容の範囲で書き、要約に無い予定や約束を作らない
+    - 商談として成立していない雑談のみのときは空文字 "" とする`;
 
 // strict: true 対応のため、入れ子オブジェクトにも additionalProperties:false と required を付ける。
 const SUMMARY_TOOL_SCHEMA = {
@@ -145,8 +151,17 @@ const SUMMARY_TOOL_SCHEMA = {
         "lost",
       ],
     },
+    followupDraft: { type: "string" },
   },
-  required: ["decisions", "todos", "nextMeeting", "concerns", "summary", "dealPhase"],
+  required: [
+    "decisions",
+    "todos",
+    "nextMeeting",
+    "concerns",
+    "summary",
+    "dealPhase",
+    "followupDraft",
+  ],
 } as const;
 
 function jsonResponse(body: unknown, status = 200): Response {

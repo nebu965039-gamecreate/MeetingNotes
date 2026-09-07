@@ -75,6 +75,16 @@ import java.time.format.DateTimeFormatter
 
 private val dateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
 
+/** アーカイブ一覧用の簡潔な要約。先頭の1文(最長60字)だけを見せ、見切れを目立たせない。 */
+private fun conciseSummary(summary: String): String {
+    val flat = summary.replace(Regex("\\s+"), " ").trim()
+    if (flat.isEmpty()) return "(要約なし)"
+    val firstSentence = flat.split("。", "\n").firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+    val base = if (firstSentence.isNotEmpty()) firstSentence else flat
+    val trimmed = if (base.length > 60) base.take(60) + "…" else base
+    return if (trimmed.endsWith("…") || trimmed == flat || !flat.contains("。")) trimmed else "$trimmed。"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientDetailScreen(
@@ -619,9 +629,35 @@ private fun MeetingRow(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(16.dp)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(text = meeting.title, style = MaterialTheme.typography.titleMedium)
+                // タイトル欄は視認性のため白系の帯にし、右端にフェーズを枠アイコン風で表示。
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = meeting.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        DealPhaseChip(
+                            phase = meeting.effectivePhase(),
+                            outlined = true,
+                            onClick = onChangePhase
+                        )
+                    }
+                }
                 val recordedAt = Instant.ofEpochMilli(meeting.recordedAt).atZone(ZoneId.systemDefault())
                 Text(text = recordedAt.format(dateFormatter), style = MaterialTheme.typography.bodySmall)
                 if (!matchPreview.isNullOrEmpty()) {
@@ -629,16 +665,18 @@ private fun MeetingRow(
                         text = matchPreview,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 } else {
-                    Text(text = meeting.summary, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                    Text(
+                        text = conciseSummary(meeting.summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
-                DealPhaseChip(
-                    phase = meeting.effectivePhase(),
-                    onClick = onChangePhase,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
             }
 
             Column {

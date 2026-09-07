@@ -60,23 +60,35 @@ class FollowupRulesTest {
     }
 
     @Test
-    fun `client with a future next meeting is not a followup`() {
+    fun `followed up client with a future next meeting is not a followup`() {
         val future = java.time.Instant.ofEpochMilli(now + 10 * day)
             .atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
-        val items = FollowupRules.compute(listOf(client(1)), listOf(latest(1, 30, next = future)), now)
+        val items = FollowupRules.compute(
+            listOf(client(1)),
+            listOf(latest(1, 30, next = future, followedUp = true)),
+            now
+        )
         assertTrue(items.isEmpty())
     }
 
     @Test
-    fun `client with a past next meeting date is still a followup`() {
-        val items = FollowupRules.compute(listOf(client(1)), listOf(latest(1, 40, next = "2000-01-01")), now)
+    fun `not-yet-followed-up meeting still needs email even with a future next meeting`() {
+        val future = java.time.Instant.ofEpochMilli(now + 10 * day)
+            .atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
+        val items = FollowupRules.compute(listOf(client(1)), listOf(latest(1, 1, next = future)), now)
         assertEquals(1, items.size)
+        assertEquals(FollowupReason.NEEDS_EMAIL, items[0].reason)
     }
 
     @Test
-    fun `vague next meeting text counts as undecided`() {
-        val items = FollowupRules.compute(listOf(client(1)), listOf(latest(1, 40, next = "来週あたり")), now)
+    fun `followed up client with a past next meeting date is still stale`() {
+        val items = FollowupRules.compute(
+            listOf(client(1)),
+            listOf(latest(1, 40, next = "2000-01-01", followedUp = true)),
+            now
+        )
         assertEquals(1, items.size)
+        assertEquals(FollowupReason.STALE, items[0].reason)
     }
 
     @Test
@@ -128,12 +140,12 @@ class FollowupRulesTest {
     }
 
     @Test
-    fun `datetime next meeting in the future is respected`() {
+    fun `datetime next meeting in the future is respected for stale check`() {
         val futureDate = java.time.Instant.ofEpochMilli(now + 5 * day)
             .atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
         val items = FollowupRules.compute(
             listOf(client(1)),
-            listOf(latest(1, 30, next = "${futureDate}T14:00")),
+            listOf(latest(1, 30, next = "${futureDate}T14:00", followedUp = true)),
             now
         )
         assertTrue(items.isEmpty())

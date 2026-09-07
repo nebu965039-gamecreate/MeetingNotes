@@ -34,7 +34,8 @@ import java.io.File
 sealed interface FollowupState {
     data object Idle : FollowupState
     data object Loading : FollowupState
-    data class Ready(val text: String, val casual: Boolean) : FollowupState
+    /** [stored] = 要約時に生成済みの下書きをそのまま表示している(トーン再生成不可・API呼び出し無し)。 */
+    data class Ready(val text: String, val casual: Boolean, val stored: Boolean = false) : FollowupState
     data class Error(val message: String) : FollowupState
 }
 
@@ -86,7 +87,15 @@ class MeetingDetailViewModel(
     private val _followupState = MutableStateFlow<FollowupState>(FollowupState.Idle)
     val followupState: StateFlow<FollowupState> = _followupState.asStateFlow()
 
-    /** F5: 商談要約からフォローアップ文面の下書きを生成する。 */
+    /** 要約時に生成済みの下書きがあれば、それを表示用にセットして true。無ければ false。 */
+    fun showStoredFollowup(): Boolean {
+        val stored = meeting.value?.followupDraft?.trim().orEmpty()
+        if (stored.isEmpty()) return false
+        _followupState.value = FollowupState.Ready(stored, casual = false, stored = true)
+        return true
+    }
+
+    /** F5(フォールバック): 要約時に下書きが無い旧データ用。商談要約から都度生成する。 */
     fun generateFollowup(casual: Boolean) {
         val source = buildPlainTextSummary() ?: return
         _followupState.value = FollowupState.Loading
