@@ -632,31 +632,22 @@ private fun MeetingRow(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // タイトル欄は視認性のため白系の帯にし、右端にフェーズを枠アイコン風で表示。
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = meeting.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        DealPhaseChip(
-                            phase = meeting.effectivePhase(),
-                            outlined = true,
-                            onClick = onChangePhase
-                        )
-                    }
+                // タイトル(強調)と、その右端にフェーズタグ。
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = meeting.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    DealPhaseChip(
+                        phase = meeting.effectivePhase(),
+                        onClick = onChangePhase
+                    )
                 }
                 val recordedAt = Instant.ofEpochMilli(meeting.recordedAt).atZone(ZoneId.systemDefault())
                 Text(text = recordedAt.format(dateFormatter), style = MaterialTheme.typography.bodySmall)
