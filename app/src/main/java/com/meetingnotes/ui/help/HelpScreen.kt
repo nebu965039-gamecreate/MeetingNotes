@@ -127,6 +127,18 @@ private val helpTopics = listOf(
         )
     ),
     HelpTopic(
+        Icons.Filled.Mic, AccentGreen, "対面 / リモート会議モード",
+        HelpBody.Bullets(
+            listOf(
+                "録音開始時に「対面」か「リモート会議」を選びます",
+                "対面: 端末内で文字起こし。音声は端末の外に出ません。静かな場所・対面の商談向け",
+                "リモート会議: Web会議やスピーカー越しの相手の声も高精度で文字起こし",
+                "リモート会議は音声を文字起こしのためだけにサーバーで処理し、すぐ削除します(保存しません)",
+                "リモート会議は Pro 機能です。無料の方は月1回、または広告視聴で使えます"
+            )
+        )
+    ),
+    HelpTopic(
         Icons.Filled.FolderOpen, AccentBlue, "整理のしかた",
         HelpBody.Bullets(
             listOf(

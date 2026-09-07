@@ -46,5 +46,7 @@ data class MeetingEntity(
      */
     val followedUpAt: Long? = null,
     /** 要約時に一緒に生成したフォローアップ文面の下書き(F5)。旧データは null。 */
-    val followupDraft: String? = null
+    val followupDraft: String? = null,
+    /** 実施形態(`MeetingType.wireValue`: "in_person" / "remote")。旧データは null。 */
+    val meetingType: String? = null
 )

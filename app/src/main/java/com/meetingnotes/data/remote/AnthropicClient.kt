@@ -39,6 +39,13 @@ class AnthropicClient(
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
+    /** 音声アップロード + Whisper 文字起こしは時間がかかるので長めのタイムアウト。 */
+    private val audioHttpClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(120, TimeUnit.SECONDS)
+        .readTimeout(180, TimeUnit.SECONDS)
+        .build()
+
     suspend fun summarizeMeeting(transcript: String): MeetingSummary = withContext(Dispatchers.IO) {
         if (proxyUrl.isBlank()) {
             throw AnthropicApiException(
@@ -108,6 +115,45 @@ class AnthropicClient(
     /** F5: 要約時に下書きが付かなかった商談向けに、要約テキストから下書きを1回生成する。 */
     suspend fun generateFollowup(summary: String): String =
         postText("$baseUrl/followup", FollowupRequest(summary))
+
+    /** リモート会議モード: 録音音声を Worker(Cloudflare Whisper)へ送って文字起こしする。 */
+    suspend fun transcribeAudio(audio: ByteArray, contentType: String): String =
+        withContext(Dispatchers.IO) {
+            if (proxyUrl.isBlank()) throw AnthropicApiException("要約サーバーのURLが未設定です。")
+            var lastError: Exception? = null
+            for (attempt in 0 until MAX_ATTEMPTS) {
+                try {
+                    val request = Request.Builder()
+                        .url("$baseUrl/transcribe")
+                        .addHeader("x-app-token", appToken)
+                        .post(audio.toRequestBody(contentType.toMediaType()))
+                        .build()
+                    audioHttpClient.newCall(request).execute().use { response ->
+                        val responseBody = response.body.string()
+                        if (response.isSuccessful) {
+                            val text = json.decodeFromString(TextResponse.serializer(), responseBody).text
+                            if (text.isBlank()) throw AnthropicApiException("音声から文字を取り出せませんでした。")
+                            return@withContext text
+                        }
+                        if (response.code == 413) {
+                            throw AnthropicApiException(
+                                "録音が長すぎます。区切りのよいところで一度停止してからお試しください。", 413
+                            )
+                        }
+                        val retryable = response.code == 429 || response.code >= 500
+                        if (!retryable || attempt == MAX_ATTEMPTS - 1) {
+                            throw AnthropicApiException("文字起こしエラー(${response.code}): $responseBody", response.code)
+                        }
+                        lastError = AnthropicApiException("文字起こしエラー(${response.code})", response.code)
+                    }
+                } catch (e: IOException) {
+                    lastError = e
+                    if (attempt == MAX_ATTEMPTS - 1) throw e
+                }
+                kotlinx.coroutines.delay((INITIAL_BACKOFF_MS * 2.0.pow(attempt)).toLong())
+            }
+            throw lastError ?: AnthropicApiException("文字起こしの呼び出しに失敗しました。")
+        }
 
     private suspend inline fun <reified T> postText(url: String, body: T): String =
         withContext(Dispatchers.IO) {

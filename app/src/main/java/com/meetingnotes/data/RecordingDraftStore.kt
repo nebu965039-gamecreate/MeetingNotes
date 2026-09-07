@@ -24,6 +24,8 @@ class RecordingDraftStore(context: Context) {
         /** 0 = 録音中に中断 / >0 = 停止後(編集中)に中断。 */
         val endedAt: Long,
         val updatedAt: Long,
+        /** `MeetingType.wireValue`("in_person" / "remote")。旧下書きは null。 */
+        val meetingType: String? = null,
     )
 
     private val _draft = MutableStateFlow(readFromPrefs())
@@ -37,6 +39,7 @@ class RecordingDraftStore(context: Context) {
             .putLong(KEY_STARTED_AT, draft.startedAt)
             .putLong(KEY_ENDED_AT, draft.endedAt)
             .putLong(KEY_UPDATED_AT, draft.updatedAt)
+            .putString(KEY_MEETING_TYPE, draft.meetingType)
             .apply()
         _draft.value = draft
     }
@@ -55,6 +58,7 @@ class RecordingDraftStore(context: Context) {
             startedAt = prefs.getLong(KEY_STARTED_AT, 0L),
             endedAt = prefs.getLong(KEY_ENDED_AT, 0L),
             updatedAt = prefs.getLong(KEY_UPDATED_AT, 0L),
+            meetingType = prefs.getString(KEY_MEETING_TYPE, null),
         )
     }
 
@@ -65,5 +69,6 @@ class RecordingDraftStore(context: Context) {
         const val KEY_STARTED_AT = "startedAt"
         const val KEY_ENDED_AT = "endedAt"
         const val KEY_UPDATED_AT = "updatedAt"
+        const val KEY_MEETING_TYPE = "meetingType"
     }
 }

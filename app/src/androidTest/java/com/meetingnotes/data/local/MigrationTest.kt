@@ -140,4 +140,38 @@ class MigrationTest {
             assertTrue(c.getString(0) == "お世話になっております")
         }
     }
+
+    @Test
+    fun migrate10To11_addsMeetingTypeAndOnlineCounters() {
+        helper.createDatabase(dbName, 10).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL(
+                """
+                INSERT INTO meetings
+                  (clientId, folderId, title, recordedAt, endedAt, transcript, summary,
+                   decisions, concerns, nextMeetingDate, nextMeetingOriginalText, dealPhase,
+                   phaseOverride, followedUpAt, followupDraft)
+                VALUES (1, NULL, '既存商談', 1000, NULL, 't', 's', '[]', '[]', NULL, NULL, NULL, NULL, NULL, NULL)
+                """.trimIndent()
+            )
+            execSQL(
+                "INSERT INTO user_credits (deviceIdHash, balance, lastResetYearMonth) VALUES ('h', 3, '2026-09')"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 11, true, MIGRATION_10_11)
+
+        db.query("SELECT meetingType FROM meetings WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertNull(c.getString(0))
+        }
+        db.query(
+            "SELECT onlineTranscriptionsUsed, onlineTranscriptionsBonus FROM user_credits WHERE deviceIdHash = 'h'"
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getInt(0) == 0)
+            assertTrue(c.getInt(1) == 0)
+        }
+    }
 }

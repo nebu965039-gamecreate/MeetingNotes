@@ -37,7 +37,13 @@ interface Env extends IntegrityEnv {
   DAILY_REQUEST_CAP?: string;
   STRICT_TOOL?: string;
   RL?: KVNamespace;
+  // リモート会議モードのサーバー文字起こし(Workers AI / Whisper)。
+  AI?: Ai;
 }
+
+/** アップロード音声の上限(バイト)。Opus 24kbps mono ≈ 10.8MB/時。約45分ぶんまで許可。 */
+const MAX_AUDIO_BYTES = 12 * 1024 * 1024;
+const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
 
 const MODEL = "claude-haiku-4-5-20251001";
 const MAX_TOKENS = 2400;
@@ -309,6 +315,59 @@ async function handleFollowup(request: Request, env: Env): Promise<Response> {
   return generateText(env, FOLLOWUP_SYSTEM, `商談要約:\n\n${summary.trim()}`, 500);
 }
 
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function extractWhisperText(result: unknown): string {
+  if (!result || typeof result !== "object") return "";
+  const r = result as Record<string, unknown>;
+  if (typeof r.text === "string") return r.text.trim();
+  const info = r.transcription_info as Record<string, unknown> | undefined;
+  if (info && typeof info.text === "string") return (info.text as string).trim();
+  return "";
+}
+
+/**
+ * リモート会議モード: アップロードされた音声(Opus/Ogg 等)を Workers AI の Whisper で文字起こしする。
+ * body = 音声のバイナリそのもの。返り値 { text }。
+ */
+async function handleTranscribe(request: Request, env: Env): Promise<Response> {
+  const g = await guard(request, env);
+  if (g) return g;
+  if (!env.AI) return jsonResponse({ error: "transcription_unavailable" }, 503);
+
+  const buf = await request.arrayBuffer();
+  if (buf.byteLength === 0) return jsonResponse({ error: "audio_required" }, 400);
+  if (buf.byteLength > MAX_AUDIO_BYTES) {
+    return jsonResponse({ error: "audio_too_large", maxBytes: MAX_AUDIO_BYTES }, 413);
+  }
+
+  const ai = env.AI as unknown as {
+    run: (model: string, input: Record<string, unknown>) => Promise<unknown>;
+  };
+  let result: unknown;
+  try {
+    result = await ai.run(WHISPER_MODEL, {
+      audio: arrayBufferToBase64(buf),
+      task: "transcribe",
+      language: "ja",
+    });
+  } catch (e) {
+    return jsonResponse({ error: "transcription_failed", detail: String(e) }, 502);
+  }
+
+  const text = extractWhisperText(result);
+  if (!text) return jsonResponse({ error: "transcription_empty" }, 502);
+  return jsonResponse({ text });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -321,6 +380,9 @@ export default {
     }
     if (request.method === "POST" && url.pathname === "/followup") {
       return handleFollowup(request, env);
+    }
+    if (request.method === "POST" && url.pathname === "/transcribe") {
+      return handleTranscribe(request, env);
     }
     if (request.method !== "POST" || url.pathname !== "/summarize") {
       return jsonResponse({ error: "not_found" }, 404);

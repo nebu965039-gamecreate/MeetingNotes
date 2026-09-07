@@ -7,5 +7,9 @@ import androidx.room.PrimaryKey
 data class UserCreditsEntity(
     @PrimaryKey val deviceIdHash: String,
     val balance: Int,
-    val lastResetYearMonth: String
+    val lastResetYearMonth: String,
+    /** 今月このデバイスで実行したリモート会議モードの文字起こし回数。 */
+    val onlineTranscriptionsUsed: Int = 0,
+    /** 今月リワード広告で追加解放したリモート会議モードの回数(無料ユーザー用)。 */
+    val onlineTranscriptionsBonus: Int = 0
 )

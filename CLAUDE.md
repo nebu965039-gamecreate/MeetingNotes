@@ -17,7 +17,7 @@ Kotlin 2.4.0 / Jetpack Compose(Material3、BOM 2026.08.00) / Navigation Compose 
 - `app/src/main/java/com/meetingnotes/data/remote/AnthropicClient.kt` — 要約クライアント。APIキーはアプリに持たず、`server/` の中継Worker(`SUMMARY_PROXY_URL`)へ `{transcript}` をPOSTする。Workerが Anthropic のレスポンスをそのまま返すためパース処理(`MessagesResponse`/`SummaryDto`)は不変。プロンプト・toolスキーマ・モデルは **Worker側(`server/src/index.ts`)** にある
 - `server/` — 要約プロキシ(Cloudflare Worker、TypeScript)。デプロイ手順は `server/README.md`。秘密情報(`ANTHROPIC_API_KEY`, `APP_TOKEN`)は `wrangler secret` 管理でリポジトリに入らない
 - `app/src/main/java/com/meetingnotes/data/MeetingRepository.kt` — 全DAOを束ねる単一リポジトリ。新機能を足す時はまずここにメソッドを足す
-- `app/src/main/java/com/meetingnotes/data/local/MeetingNotesDatabase.kt` — Room DB定義。現在 version = 10(v6 = 商談フェーズ列、v7 = `client_briefing` テーブル、v8 = `notification_log` テーブル、v9 = `meetings.followedUpAt` 列(F1 メールフォロー済み時刻)、v10 = `meetings.followupDraft` 列(要約時に生成したフォローアップ下書き)。`feature/solo-crm` ブランチ)
+- `app/src/main/java/com/meetingnotes/data/local/MeetingNotesDatabase.kt` — Room DB定義。現在 version = 11(v6 = 商談フェーズ列、v7 = `client_briefing`、v8 = `notification_log`、v9 = `meetings.followedUpAt`、v10 = `meetings.followupDraft`、v11 = `meetings.meetingType` + `user_credits.onlineTranscriptionsUsed/Bonus`(リモート会議モード)。`feature/solo-crm` ブランチ)
 
 ## アーキテクチャ・設計上の重要事項
 
@@ -124,9 +124,18 @@ MVP相当の機能は一通り実装済み。Google Play Console でのクロー
 - **F7 予定カレンダー + リマインド 完了**(P3 に同梱): `data/model/NextMeetingTime`(ISO 日付/日時の解釈)、`MeetingDao.getNextMeetingCandidates`、`updateNextMeeting`、`observeLatestMeetingPerClient` 射影に `meetingId` 追加。`notification_log` テーブル + `NotificationLogDao` + **DB version 8 + `MIGRATION_7_8`**(`8.json` コミット、`MigrationTest` に 7→8 追加)。`notifications/`(`NotificationHelper` チャンネル `meeting_reminders`、`ReminderPrefs` 既定ON、`MeetingReminderWorker` = WorkManager 12h 周期、当日/前日で未発火のものを通知+ログ、`ReminderScheduler` を `MeetingNotesApp.onCreate` で登録)。`POST_NOTIFICATIONS` 権限。`ui/client/UpcomingBoard`(クライアント一覧の「近日の予定」カード)、`ClientListViewModel.upcoming`。商談詳細の「次回打ち合わせ」に日程の手動設定(`NextMeetingDatePickerDialog`)+「カレンダーに追加」(`util/CalendarIntent`、`ACTION_INSERT` インテント・権限不要)。クライアント一覧 TopAppBar のベルアイコン → `ui/notifications/NotificationScreen`(リマインドのON/OFF+権限リクエスト、予定リスト、通知履歴)、`Routes.NOTIFICATIONS`
 - **Worker デプロイ済み(2026-09-06)**: dealPhase スキーマ(P2)+ `/briefing` `/followup`(P3)を `wrangler deploy` 済み。以降 `server/src/index.ts` を変更したら再デプロイが必要
 - **ホーム画面への集約 完了**(2026-09-05): 上記「アーキテクチャ・設計上の重要事項」の「ホーム画面」項を参照。F1(フォローボード)と F7(予定カレンダー)の UI を `ClientListScreen` から独立した `ui/home/HomeScreen.kt` に統合し、「進行中のフェーズ」ダッシュボード(F3 の集計)を新設。**この変更により P1/F7 完了時点の記述にある `ClientListViewModel.followups`/`.upcoming`、クライアント一覧 TopAppBar のベルアイコン、「クライアント一覧の近日の予定カード」は廃止・移設済み**(履歴として上記は残すが現状と一致しない)。デザイン検討は Artifact「商談メモ ホーム画面デザイン」(`https://claude.ai/code/artifact/f8c9c49e-5532-452c-a2bd-5e97d1ba8752`)
+- **リモート会議モード Phase 1(2026-09-08)**: PC/Web会議で相手の声を拾えない問題への対応。録音開始時に `RecordingModePicker` で「対面」/「リモート会議」を選ぶ(`MeetingType` enum、`data/model`)。
+  - **対面**: 従来の `TranscriptionManager`(オンデバイス、音声は端末外に出ない)。
+  - **リモート会議**: `speech/AudioFileRecorder`(`MediaRecorder` → Opus/Ogg 16kHz 24kbps mono、`AudioSource` は UNPROCESSED→CAMCORDER→MIC)でファイル録音(録音中のライブ文字起こしは無し、音声レベルのみ)。停止 → `RecordingPhase.Transcribing` → `AnthropicClient.transcribeAudio` で Worker `POST /transcribe` へバイナリ送信 → **Cloudflare Workers AI Whisper**(`@cf/openai/whisper-large-v3-turbo`、`wrangler.toml` の `[ai] binding = "AI"`)→ 文字起こし結果を既存の編集フローへ。失敗時は同じファイルで再試行(`retryTranscription`)。
+  - **課金**: `ProAccess.isPro` で分岐。Pro = 月40回(`CreditPolicy.ONLINE_TRANSCRIPTION_PRO_MONTHLY`)、無料 = 月1回 + リワード広告で最大+4回(`user_credits.onlineTranscriptionsUsed/Bonus`、月次リセットは `getOrInitCredits` に同梱)。`MeetingRepository.remainingOnlineTranscriptions/consumeOnlineTranscription/grantOnlineTranscriptionBonus`。消費は文字起こし**成功時**。
+  - **同意**: 初回リモート選択時に `RemoteConsentPrefs`(SharedPreferences)で「音声をサーバー送信」の同意ダイアログ。
+  - `MeetingEntity.meetingType` に記録し、商談詳細のヘッダーとエクスポート(`形式: 対面/リモート会議`)に表示。`RecordingDraftStore.Draft.meetingType` も保存。**DB version 11 + `MIGRATION_10_11`**(`11.json`、`MigrationTest` 10→11)。
+  - 音声上限: `AudioFileRecorder.MAX_DURATION_MS`(45分)で自動停止、Worker `MAX_AUDIO_BYTES`(12MB)。**長時間のチャンク分割は Phase 2**。
+  - **Worker 再デプロイ必要**(`[ai]` バインディング追加 + `/transcribe`)。プライバシーポリシー / データセーフティの更新は Phase 2(未対応)。コスト試算: Whisper $0.0005/音声分(40分商談で ~¥3)。
 
 ### 未完了のタスク(優先度順)
 
+0. **リモート会議モード Phase 2**: (a) プライバシーポリシー(`docs/privacy-policy.*`)とデータセーフティ(`docs/play-data-safety.md`)に「リモート会議モードでは音声を文字起こしのため一時的に処理・保存しない」を追記 (b) 長時間録音のチャンク分割(45分上限の緩和) (c) `ProAccess.isPro` を実購入判定に(Billing 実装後) (d) Whisper の実コスト・レイテンシ・日本語精度の実測。**Worker の `[ai]` バインディングは Cloudflare 側で Workers AI の有効化が必要な場合あり**
 1. **APIキープロキシ フェーズ2 の有効化**(製品版公開前): コードは実装済み(`server/` + アプリ)。ユーザーが GCP/Play Console 設定を行って有効化する段階。(a) KV による全体日次上限 (b) Cloudflare ダッシュボードの IP レート制限 (c) **Play Integrity**(app: `IntegrityTokenProvider`、Worker: `src/integrity.ts`、`PLAY_INTEGRITY_ENABLED` で off/audit/enforce)。手順は `server/README.md` の「フェーズ2」。(d) 端末ごとのクレジット管理をサーバー側へ、は AdMob SSV・プライバシーポリシー更新を伴うため Billing と合わせて別タスク
 2. Google Play Billing Library(定期購入)の実装(Play Console 側のアプリ登録・商品設定が前提)
 3. 不正リセット対策フェーズ2(端末ごとのクレジット管理をサーバー側へ)。上記プロキシ フェーズ2に統合

@@ -81,5 +81,15 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
     }
 }
 
-val databaseMigrations: Array<Migration> =
-    arrayOf(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+/** v10 → v11: リモート会議モード。`meetings.meetingType` と `user_credits` の月次オンライン回数を追加。 */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE meetings ADD COLUMN meetingType TEXT")
+        db.execSQL("ALTER TABLE user_credits ADD COLUMN onlineTranscriptionsUsed INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE user_credits ADD COLUMN onlineTranscriptionsBonus INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+val databaseMigrations: Array<Migration> = arrayOf(
+    MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11
+)

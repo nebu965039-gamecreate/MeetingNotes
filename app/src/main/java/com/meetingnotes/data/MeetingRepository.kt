@@ -136,7 +136,8 @@ class MeetingRepository(
         transcript: String,
         summary: MeetingSummary,
         recordedAt: Long = System.currentTimeMillis(),
-        endedAt: Long? = null
+        endedAt: Long? = null,
+        meetingType: com.meetingnotes.data.model.MeetingType? = null
     ): Long {
         val meetingId = meetingDao.insert(
             MeetingEntity(
@@ -151,7 +152,8 @@ class MeetingRepository(
                 nextMeetingDate = summary.nextMeeting.date,
                 nextMeetingOriginalText = summary.nextMeeting.originalText,
                 dealPhase = summary.dealPhase?.wireValue,
-                followupDraft = summary.followupDraft
+                followupDraft = summary.followupDraft,
+                meetingType = meetingType?.wireValue
             )
         )
         if (summary.todos.isNotEmpty()) {
@@ -188,7 +190,12 @@ class MeetingRepository(
         }
 
         if (CreditPolicy.shouldReset(currentMonth, existing.lastResetYearMonth)) {
-            val reset = existing.copy(balance = CreditPolicy.MONTHLY_FREE_CREDITS, lastResetYearMonth = currentMonth)
+            val reset = existing.copy(
+                balance = CreditPolicy.MONTHLY_FREE_CREDITS,
+                lastResetYearMonth = currentMonth,
+                onlineTranscriptionsUsed = 0,
+                onlineTranscriptionsBonus = 0
+            )
             userCreditsDao.update(reset)
             return reset
         }
@@ -202,6 +209,40 @@ class MeetingRepository(
         if (current.balance <= 0) return false
         userCreditsDao.update(current.copy(balance = current.balance - 1))
         return true
+    }
+
+    // --- リモート会議モード(サーバー文字起こし)の月間上限 ---
+
+    /** その月に残っているリモート会議モードの回数。 */
+    suspend fun remainingOnlineTranscriptions(deviceIdHash: String, isPro: Boolean): Int {
+        val c = getOrInitCredits(deviceIdHash)
+        val allowance = CreditPolicy.onlineTranscriptionAllowance(isPro, c.onlineTranscriptionsBonus)
+        return (allowance - c.onlineTranscriptionsUsed).coerceAtLeast(0)
+    }
+
+    /** リモート会議モードを1回消費する。上限に達していれば false。 */
+    suspend fun consumeOnlineTranscription(deviceIdHash: String, isPro: Boolean): Boolean {
+        val c = getOrInitCredits(deviceIdHash)
+        val allowance = CreditPolicy.onlineTranscriptionAllowance(isPro, c.onlineTranscriptionsBonus)
+        if (c.onlineTranscriptionsUsed >= allowance) return false
+        userCreditsDao.update(c.copy(onlineTranscriptionsUsed = c.onlineTranscriptionsUsed + 1))
+        return true
+    }
+
+    /** 文字起こしに失敗したときの返却。 */
+    suspend fun refundOnlineTranscription(deviceIdHash: String) {
+        val c = getOrInitCredits(deviceIdHash)
+        if (c.onlineTranscriptionsUsed > 0) {
+            userCreditsDao.update(c.copy(onlineTranscriptionsUsed = c.onlineTranscriptionsUsed - 1))
+        }
+    }
+
+    /** リワード広告視聴で無料ユーザーのリモート会議モードを1回追加(上限あり)。 */
+    suspend fun grantOnlineTranscriptionBonus(deviceIdHash: String) {
+        val c = getOrInitCredits(deviceIdHash)
+        if (c.onlineTranscriptionsBonus < CreditPolicy.ONLINE_TRANSCRIPTION_FREE_BONUS_CAP) {
+            userCreditsDao.update(c.copy(onlineTranscriptionsBonus = c.onlineTranscriptionsBonus + 1))
+        }
     }
 
     /** クレジットを1付与する(リワード広告視聴時・要約失敗時の返却)。 */

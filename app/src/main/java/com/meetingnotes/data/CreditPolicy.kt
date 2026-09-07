@@ -10,6 +10,20 @@ import java.time.format.DateTimeFormatter
 object CreditPolicy {
     const val MONTHLY_FREE_CREDITS = 5
 
+    /** リモート会議モード(サーバー文字起こし)の月間上限。 */
+    const val ONLINE_TRANSCRIPTION_PRO_MONTHLY = 40
+
+    /** 無料ユーザーが広告なしで使えるリモート会議モードの月間回数。 */
+    const val ONLINE_TRANSCRIPTION_FREE_MONTHLY = 1
+
+    /** 無料ユーザーがリワード広告で追加できる上限(=無料は最大 1 + これ)。 */
+    const val ONLINE_TRANSCRIPTION_FREE_BONUS_CAP = 4
+
+    /** その月に使えるリモート会議モードの総回数。 */
+    fun onlineTranscriptionAllowance(isPro: Boolean, bonus: Int): Int =
+        if (isPro) ONLINE_TRANSCRIPTION_PRO_MONTHLY
+        else ONLINE_TRANSCRIPTION_FREE_MONTHLY + bonus.coerceAtMost(ONLINE_TRANSCRIPTION_FREE_BONUS_CAP)
+
     private val yearMonthFormatter = DateTimeFormatter.ofPattern("yyyy-MM")
 
     fun currentYearMonth(): String = LocalDate.now().format(yearMonthFormatter)

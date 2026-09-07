@@ -209,11 +209,15 @@ fun MeetingDetailScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
-                            text = "録音: ${startedAt.format(meetingDateTimeFormatter)}" +
-                                (endedAtText?.let { " 〜 $it" } ?: ""),
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        val typeLabel = com.meetingnotes.data.model.MeetingType
+                            .fromWire(current.meetingType)?.label
+                        val recLine = buildString {
+                            append("録音: ")
+                            append(startedAt.format(meetingDateTimeFormatter))
+                            endedAtText?.let { append(" 〜 "); append(it) }
+                            typeLabel?.let { append("　"); append(it) }
+                        }
+                        Text(text = recLine, style = MaterialTheme.typography.bodySmall)
                     }
                     DealPhaseChip(
                         phase = current.effectivePhase(),
