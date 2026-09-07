@@ -31,107 +31,52 @@ class FollowupRulesTest {
     )
 
     @Test
-    fun `just summarized meeting needs an email followup regardless of days`() {
-        val items = FollowupRules.compute(listOf(client(1)), listOf(latest(1, daysAgo = 0)), now)
-        assertEquals(1, items.size)
-        assertEquals(FollowupReason.NEEDS_EMAIL, items[0].reason)
+    fun `a recent, not-yet-completed meeting is a todo`() {
+        val items = FollowupRules.compute(listOf(client(1)), listOf(latest(1, daysAgo = 2)), now)
+        assertEquals(listOf(1L), items.map { it.client.id })
     }
 
     @Test
-    fun `followed up recent client is not a followup`() {
+    fun `completed meeting never appears, even much later`() {
+        // 2日前の商談を「完了」にした。20日後(今)も出ない。
+        val m = latest(1, daysAgo = 20).copy(followedUpAt = now - 18 * day)
+        val items = FollowupRules.compute(listOf(client(1)), listOf(m), now)
+        assertTrue(items.isEmpty())
+    }
+
+    @Test
+    fun `a completed meeting with no next plan does not resurface`() {
         val items = FollowupRules.compute(
             listOf(client(1)),
-            listOf(latest(1, daysAgo = 3, followedUp = true)),
+            listOf(latest(1, daysAgo = 25, next = null, followedUp = true)),
             now
         )
         assertTrue(items.isEmpty())
     }
 
     @Test
-    fun `followed up client with no next meeting becomes stale after threshold`() {
-        val items = FollowupRules.compute(
-            listOf(client(1)),
-            listOf(latest(1, daysAgo = 20, followedUp = true)),
-            now
-        )
-        assertEquals(1, items.size)
-        assertEquals(FollowupReason.STALE, items[0].reason)
-        assertEquals(20, items[0].daysSince)
-    }
-
-    @Test
-    fun `followed up client with a future next meeting is not a followup`() {
-        val future = java.time.Instant.ofEpochMilli(now + 10 * day)
-            .atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
-        val items = FollowupRules.compute(
-            listOf(client(1)),
-            listOf(latest(1, 30, next = future, followedUp = true)),
-            now
-        )
+    fun `meetings older than the recent window are not todos`() {
+        val items = FollowupRules.compute(listOf(client(1)), listOf(latest(1, daysAgo = 40)), now)
         assertTrue(items.isEmpty())
     }
 
     @Test
-    fun `not-yet-followed-up meeting still needs email even with a future next meeting`() {
+    fun `a scheduled next meeting does not remove the todo`() {
+        // 打ち合わせが決まっていても、お礼メール等の連絡は別途必要。
         val future = java.time.Instant.ofEpochMilli(now + 10 * day)
             .atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
-        val items = FollowupRules.compute(listOf(client(1)), listOf(latest(1, 1, next = future)), now)
-        assertEquals(1, items.size)
-        assertEquals(FollowupReason.NEEDS_EMAIL, items[0].reason)
+        val items = FollowupRules.compute(listOf(client(1)), listOf(latest(1, 2, next = future)), now)
+        assertEquals(listOf(1L), items.map { it.client.id })
     }
 
     @Test
-    fun `followed up client with a past next meeting date is still stale`() {
-        val items = FollowupRules.compute(
-            listOf(client(1)),
-            listOf(latest(1, 40, next = "2000-01-01", followedUp = true)),
-            now
-        )
-        assertEquals(1, items.size)
-        assertEquals(FollowupReason.STALE, items[0].reason)
-    }
-
-    @Test
-    fun `client with no meetings is skipped`() {
-        val items = FollowupRules.compute(listOf(client(1), client(2)), listOf(latest(2, 30)), now)
-        assertEquals(listOf(2L), items.map { it.client.id })
-    }
-
-    @Test
-    fun `needs-email items come before stale items`() {
-        val items = FollowupRules.compute(
-            listOf(client(1), client(2)),
-            listOf(
-                latest(1, 40, followedUp = true), // STALE
-                latest(2, 2)                      // NEEDS_EMAIL
-            ),
-            now
-        )
-        assertEquals(listOf(2L, 1L), items.map { it.client.id })
-    }
-
-    @Test
-    fun `stale items are sorted by days elapsed descending`() {
+    fun `won and lost deals are not todos`() {
         val items = FollowupRules.compute(
             listOf(client(1), client(2), client(3)),
             listOf(
-                latest(1, 15, followedUp = true),
-                latest(2, 60, followedUp = true),
-                latest(3, 30, followedUp = true)
-            ),
-            now
-        )
-        assertEquals(listOf(2L, 3L, 1L), items.map { it.client.id })
-    }
-
-    @Test
-    fun `won and lost deals are not followups even when stale`() {
-        val items = FollowupRules.compute(
-            listOf(client(1), client(2), client(3)),
-            listOf(
-                latest(1, 40, phase = "won"),
-                latest(2, 40, phase = "lost"),
-                latest(3, 40, phase = "quoted")
+                latest(1, 3, phase = "won"),
+                latest(2, 3, phase = "lost"),
+                latest(3, 3, phase = "quoted")
             ),
             now
         )
@@ -140,14 +85,18 @@ class FollowupRulesTest {
     }
 
     @Test
-    fun `datetime next meeting in the future is respected for stale check`() {
-        val futureDate = java.time.Instant.ofEpochMilli(now + 5 * day)
-            .atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
+    fun `client with no meetings is skipped`() {
+        val items = FollowupRules.compute(listOf(client(1), client(2)), listOf(latest(2, 5)), now)
+        assertEquals(listOf(2L), items.map { it.client.id })
+    }
+
+    @Test
+    fun `results are sorted newest recording first`() {
         val items = FollowupRules.compute(
-            listOf(client(1)),
-            listOf(latest(1, 30, next = "${futureDate}T14:00", followedUp = true)),
+            listOf(client(1), client(2), client(3)),
+            listOf(latest(1, 1), latest(2, 20), latest(3, 8)),
             now
         )
-        assertTrue(items.isEmpty())
+        assertEquals(listOf(1L, 3L, 2L), items.map { it.client.id })
     }
 }

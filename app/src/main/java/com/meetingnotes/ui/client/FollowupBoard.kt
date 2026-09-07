@@ -36,40 +36,31 @@ import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.ClientLatestMeeting
 import com.meetingnotes.data.model.DealPhase
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/** 要フォローに出る理由。 */
-enum class FollowupReason {
-    /** 要約は完了したが、まだメールでのフォローアップをしていない。 */
-    NEEDS_EMAIL,
-
-    /** メールフォロー済み(または対象外)だが、次回予定が無いまま日数が経っている。 */
-    STALE
-}
-
-/** フォローボードの1行。 */
+/** ToDo(要フォロー)の1行。 */
 data class FollowupItem(
     val client: ClientEntity,
     val meetingId: Long,
     val lastRecordedAt: Long,
-    val daysSince: Int,
-    val phase: DealPhase?,
-    val reason: FollowupReason
+    val phase: DealPhase?
 )
 
 /**
- * 「次の一手が必要な案件」を判定するロジック(F1)。純粋関数で単体テスト可能にしている。AI は使わない。
+ * 「メール連絡などの対応がまだの商談」を出すロジック(F1)。純粋関数で単体テスト可能。AI は使わない。
  *
- * 各クライアントの最新商談を見て、成約/失注でも今後の予定も無いものが対象:
- *  - `followedUpAt` が未設定 → [FollowupReason.NEEDS_EMAIL](要約完了直後から、メールフォローするまで出続ける)
- *  - フォロー済みでも最終商談から [THRESHOLD_DAYS] 日以上経過 → [FollowupReason.STALE]
+ * 対象 = 各クライアントの最新商談で、以下をすべて満たすもの:
+ *  - `followedUpAt` が未設定(「完了」を押したら二度と出ない)
+ *  - 成約・失注ではない
+ *  - 最終商談から [RECENT_WINDOW_DAYS] 日以内(古い商談は初回導入時に大量表示されないよう対象外)
+ *
+ * 次回予定の有無は問わない(打ち合わせが決まっていても、お礼メール等の連絡は別途必要なため)。
  */
 object FollowupRules {
 
-    /** メールフォロー後、次回予定が無いまま「放置」とみなすまでの日数。 */
-    const val THRESHOLD_DAYS = 14
+    /** 要約直後の商談を ToDo に出す対象期間(日)。これより古い商談は出さない。 */
+    const val RECENT_WINDOW_DAYS = 30
 
     fun compute(
         clients: List<ClientEntity>,
@@ -77,46 +68,18 @@ object FollowupRules {
         now: Long = System.currentTimeMillis()
     ): List<FollowupItem> {
         val byClient = latest.associateBy { it.clientId }
+        val cutoff = now - RECENT_WINDOW_DAYS * DAY_MS
         return clients.mapNotNull { client ->
             val m = byClient[client.id] ?: return@mapNotNull null
+            if (m.followedUpAt != null) return@mapNotNull null
+            if (m.lastRecordedAt < cutoff) return@mapNotNull null
             val phase = DealPhase.fromWire(m.phaseOverride ?: m.dealPhase)
             if (phase == DealPhase.WON || phase == DealPhase.LOST) return@mapNotNull null
-            val days = ((now - m.lastRecordedAt) / DAY_MS).toInt()
-            val reason = when {
-                // メールフォロー未実施なら、要約完了直後から出す(次回予定の有無は問わない)。
-                m.followedUpAt == null -> FollowupReason.NEEDS_EMAIL
-                // フォロー済みで、次回予定も無いまま日数が経っていれば「放置」。
-                !hasUpcomingMeeting(m.nextMeetingDate, now) && days >= THRESHOLD_DAYS -> FollowupReason.STALE
-                else -> return@mapNotNull null
-            }
-            FollowupItem(client, m.meetingId, m.lastRecordedAt, days, phase, reason)
-        }.sortedWith(
-            // 未フォロー(要約直後)を上に、その中では新しい商談から。放置は日数の多い順。
-            compareBy<FollowupItem> { it.reason != FollowupReason.NEEDS_EMAIL }
-                .thenByDescending {
-                    if (it.reason == FollowupReason.NEEDS_EMAIL) it.lastRecordedAt else it.daysSince.toLong()
-                }
-        )
-    }
-
-    /** `nextMeetingDate` が「今日以降の ISO 日付」なら予定あり=フォロー不要。 */
-    private fun hasUpcomingMeeting(nextMeetingDate: String?, now: Long): Boolean {
-        val match = ISO_DATE.find(nextMeetingDate?.trim().orEmpty()) ?: return false
-        return try {
-            val date = LocalDate.of(
-                match.groupValues[1].toInt(),
-                match.groupValues[2].toInt(),
-                match.groupValues[3].toInt()
-            )
-            val today = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate()
-            !date.isBefore(today)
-        } catch (e: RuntimeException) {
-            false
-        }
+            FollowupItem(client, m.meetingId, m.lastRecordedAt, phase)
+        }.sortedByDescending { it.lastRecordedAt }
     }
 
     private const val DAY_MS = 86_400_000L
-    private val ISO_DATE = Regex("""^(\d{4})-(\d{2})-(\d{2})""")
 }
 
 private val boardDateFormatter = DateTimeFormatter.ofPattern("M/d")
@@ -130,10 +93,7 @@ internal fun followupSubtitle(item: FollowupItem): String {
         Instant.ofEpochMilli(item.lastRecordedAt).atZone(ZoneId.systemDefault())
     )
     val phase = item.phase?.label ?: "フェーズ未設定"
-    return when (item.reason) {
-        FollowupReason.NEEDS_EMAIL -> "最終 $date・$phase・メール連絡"
-        FollowupReason.STALE -> "最終 $date・$phase・${item.daysSince}日経過"
-    }
+    return "最終 $date・$phase・メール連絡"
 }
 
 /** ホーム画面の「ToDo」カード。0件でも表示する。デフォルトで3件ぶんの高さ、内部スクロールで最大10件確認できる。 */
