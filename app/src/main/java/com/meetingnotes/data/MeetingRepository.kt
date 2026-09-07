@@ -80,6 +80,9 @@ class MeetingRepository(
     suspend fun clearMeetingFollowedUp(meetingId: Long) =
         meetingDao.updateFollowedUpAt(meetingId, null)
 
+    fun observeFollowedUpMeetings(): Flow<List<com.meetingnotes.data.local.FollowedUpMeeting>> =
+        meetingDao.observeFollowedUpMeetings()
+
     // --- F7: 予定・リマインド ---
 
     suspend fun getNextMeetingCandidates(): List<NextMeetingCandidate> = meetingDao.getNextMeetingCandidates()

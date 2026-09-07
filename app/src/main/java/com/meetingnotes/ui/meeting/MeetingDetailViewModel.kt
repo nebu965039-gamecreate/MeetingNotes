@@ -33,6 +33,8 @@ import java.io.File
 
 sealed interface FollowupState {
     data object Idle : FollowupState
+    /** 要約時の下書きが無い(旧データ / Worker未更新)。ユーザーが明示的に生成を選べる。 */
+    data object NoStoredDraft : FollowupState
     data object Loading : FollowupState
     /** [stored] = 要約時に生成済みの下書きをそのまま表示している(トーン再生成不可・API呼び出し無し)。 */
     data class Ready(val text: String, val casual: Boolean, val stored: Boolean = false) : FollowupState
@@ -87,13 +89,17 @@ class MeetingDetailViewModel(
     private val _followupState = MutableStateFlow<FollowupState>(FollowupState.Idle)
     val followupState: StateFlow<FollowupState> = _followupState.asStateFlow()
 
-    /** 要約時に生成済みの下書きがあれば、それを表示用にセットして true。無ければ false。 */
-    fun showStoredFollowup(): Boolean {
+    /** 商談詳細で「フォローアップの下書き」を開いたとき。保存済みなら即表示、無ければ生成を促す状態に。 */
+    fun openFollowup() {
+        if (_followupState.value != FollowupState.Idle) return
         val stored = meeting.value?.followupDraft?.trim().orEmpty()
-        if (stored.isEmpty()) return false
-        _followupState.value = FollowupState.Ready(stored, casual = false, stored = true)
-        return true
+        _followupState.value =
+            if (stored.isNotEmpty()) FollowupState.Ready(stored, casual = false, stored = true)
+            else FollowupState.NoStoredDraft
     }
+
+    /** 要約時に下書きがあるか(ボタン文言の出し分け用)。 */
+    fun hasStoredFollowup(): Boolean = !meeting.value?.followupDraft.isNullOrBlank()
 
     /** F5(フォールバック): 要約時に下書きが無い旧データ用。商談要約から都度生成する。 */
     fun generateFollowup(casual: Boolean) {

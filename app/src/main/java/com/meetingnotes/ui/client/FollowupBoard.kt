@@ -154,20 +154,34 @@ fun FollowupBoard(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Filled.NotificationsActive,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text("要フォロー", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.width(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Filled.NotificationsActive,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("要フォロー", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "${items.size}件",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Text(
-                    "${items.size}件",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    "すべて表示",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    textDecoration = TextDecoration.Underline,
+                    modifier = Modifier.clickable(onClick = onShowAll)
                 )
             }
             if (items.isEmpty()) {
@@ -194,7 +208,6 @@ fun FollowupBoard(
                     .padding(horizontal = 14.dp)
             ) {
                 val visible = items.take(MAX_VISIBLE)
-                val hasMore = items.size > MAX_VISIBLE
                 visible.forEachIndexed { index, item ->
                     Row(
                         modifier = Modifier
@@ -232,25 +245,8 @@ fun FollowupBoard(
                             )
                         }
                     }
-                    if (index != visible.lastIndex || hasMore) {
+                    if (index != visible.lastIndex) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.08f))
-                    }
-                }
-                if (hasMore) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onShowAll)
-                            .padding(vertical = 11.dp),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            "すべて表示",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            textDecoration = TextDecoration.Underline
-                        )
                     }
                 }
             }

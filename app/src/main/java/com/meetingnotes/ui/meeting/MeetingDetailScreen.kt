@@ -270,9 +270,7 @@ fun MeetingDetailScreen(
                 OutlinedButton(
                     onClick = {
                         showFollowup = true
-                        if (followupState is FollowupState.Idle && !viewModel.showStoredFollowup()) {
-                            viewModel.generateFollowup(casual = false)
-                        }
+                        viewModel.openFollowup()
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -456,6 +454,16 @@ private fun FollowupDialog(
                             CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(10.dp))
                             Text("下書きを作成しています…", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    is FollowupState.NoStoredDraft -> {
+                        Text(
+                            "この商談は要約時に下書きが作成されていません" +
+                                "(以前に録音した商談、またはサーバー未更新の場合)。",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Button(onClick = { onRegenerate(false) }, modifier = Modifier.fillMaxWidth()) {
+                            Text("今から生成する(AIを1回使用)")
                         }
                     }
                     is FollowupState.Error -> {

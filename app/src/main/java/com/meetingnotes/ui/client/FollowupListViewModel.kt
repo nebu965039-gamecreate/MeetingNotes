@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.data.local.FollowedUpMeeting
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -18,8 +19,17 @@ class FollowupListViewModel(private val repository: MeetingRepository) : ViewMod
             FollowupRules.compute(clients, latest)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val followedUp: StateFlow<List<FollowedUpMeeting>> =
+        repository.observeFollowedUpMeetings()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun markFollowedUp(meetingId: Long) {
         viewModelScope.launch { repository.markMeetingFollowedUp(meetingId) }
+    }
+
+    /** フォロー済みを取り消して「未フォロー」に戻す。 */
+    fun unmarkFollowedUp(meetingId: Long) {
+        viewModelScope.launch { repository.clearMeetingFollowedUp(meetingId) }
     }
 
     companion object {

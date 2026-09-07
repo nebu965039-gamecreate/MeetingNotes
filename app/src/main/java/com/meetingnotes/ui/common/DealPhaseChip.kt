@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.model.DealPhase
+import com.meetingnotes.ui.theme.PhaseTagColors
 
 /** 表示に使う実効フェーズ = ユーザー上書き ?: AI 推定。 */
 fun MeetingEntity.effectivePhase(): DealPhase? =
@@ -34,27 +35,18 @@ fun DealPhaseChip(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
-    val isSet = phase != null
-    val container =
-        if (isSet) MaterialTheme.colorScheme.secondaryContainer
-        else MaterialTheme.colorScheme.surfaceVariant
-    val content =
-        if (isSet) MaterialTheme.colorScheme.onSecondaryContainer
-        else MaterialTheme.colorScheme.onSurfaceVariant
-    val border =
-        if (isSet) MaterialTheme.colorScheme.outline
-        else MaterialTheme.colorScheme.outlineVariant
+    val colors = PhaseTagColors.of(phase)
 
     Surface(
         shape = RoundedCornerShape(6.dp),
-        color = container,
-        border = BorderStroke(1.dp, border),
+        color = colors.container,
+        border = BorderStroke(1.dp, colors.content.copy(alpha = 0.35f)),
         modifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier
     ) {
         Text(
             text = phase?.label ?: "フェーズ未設定",
             style = MaterialTheme.typography.labelMedium,
-            color = content,
+            color = colors.content,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
         )
     }

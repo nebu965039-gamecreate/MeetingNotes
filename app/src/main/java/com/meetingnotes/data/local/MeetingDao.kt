@@ -63,4 +63,18 @@ interface MeetingDao {
 
     @Query("UPDATE meetings SET followedUpAt = :at WHERE id = :meetingId")
     suspend fun updateFollowedUpAt(meetingId: Long, at: Long?)
+
+    /** メールフォロー済みの商談一覧(新しくフォローした順)。 */
+    @Query(
+        """
+        SELECT m.id AS meetingId, m.clientId AS clientId, c.name AS clientName,
+               m.title AS title, m.recordedAt AS recordedAt, m.followedUpAt AS followedUpAt,
+               m.dealPhase AS dealPhase, m.phaseOverride AS phaseOverride
+        FROM meetings m
+        INNER JOIN clients c ON c.id = m.clientId
+        WHERE m.followedUpAt IS NOT NULL
+        ORDER BY m.followedUpAt DESC
+        """
+    )
+    fun observeFollowedUpMeetings(): Flow<List<FollowedUpMeeting>>
 }
