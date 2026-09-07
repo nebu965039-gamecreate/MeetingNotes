@@ -144,8 +144,8 @@ fun HomeScreen(
                 )
             }
 
-            item(key = "phase_tracker") {
-                PhaseTrackerSection(counts = phaseCounts)
+            item(key = "upcoming_board") {
+                UpcomingBoard(items = upcoming, onOpenClient = onOpenClient, onShowAll = onOpenSchedule)
             }
 
             item(key = "followup_board") {
@@ -157,8 +157,8 @@ fun HomeScreen(
                 )
             }
 
-            item(key = "upcoming_board") {
-                UpcomingBoard(items = upcoming, onOpenClient = onOpenClient, onShowAll = onOpenSchedule)
+            item(key = "phase_tracker") {
+                PhaseTrackerSection(counts = phaseCounts)
             }
         }
     }

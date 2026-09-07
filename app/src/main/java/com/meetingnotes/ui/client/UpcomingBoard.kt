@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meetingnotes.data.local.ClientEntity
@@ -71,7 +72,7 @@ object UpcomingRules {
 
 private const val PREVIEW_COUNT = 3
 
-/** ホーム画面の「次回の予定」カード。0件でも表示する。行タップでクライアント画面へ。 */
+/** ホーム画面の「直近の予定」カード。0件でも表示する。行タップでクライアント画面へ。 */
 @Composable
 fun UpcomingBoard(
     items: List<UpcomingItem>,
@@ -100,7 +101,7 @@ fun UpcomingBoard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(Modifier.width(6.dp))
-                    Text("次回の予定", style = MaterialTheme.typography.titleMedium)
+                    Text("直近の予定", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.width(6.dp))
                     Text(
                         "全${items.size}件",
@@ -113,6 +114,7 @@ fun UpcomingBoard(
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
+                    textDecoration = TextDecoration.Underline,
                     modifier = Modifier.clickable(onClick = onShowAll)
                 )
             }

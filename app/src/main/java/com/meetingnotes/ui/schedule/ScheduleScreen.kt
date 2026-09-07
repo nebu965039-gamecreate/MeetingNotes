@@ -132,7 +132,7 @@ fun ScheduleScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp),
             contentPadding = PaddingValues(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item(key = "calendar") {
                 MonthCalendar(
@@ -242,11 +242,11 @@ private fun ScheduleRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     relativeDateTimeLabel(item.start, item.allDay),
                     style = MaterialTheme.typography.bodySmall,
@@ -254,7 +254,7 @@ private fun ScheduleRow(
                 )
                 Text(
                     item.client.name,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -264,7 +264,7 @@ private fun ScheduleRow(
                     Spacer(Modifier.width(4.dp))
                 }
                 Box {
-                    IconButton(onClick = { menuExpanded = true }) {
+                    IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Filled.MoreVert, contentDescription = "メニュー")
                     }
                     DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
@@ -302,7 +302,7 @@ private fun MonthCalendar(
     val holidays = remember(month) { JapaneseHolidays.holidaysInMonth(month.year, month.monthValue) }
 
     Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -353,7 +353,7 @@ private fun MonthCalendar(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .aspectRatio(1f),
+                                .aspectRatio(1.4f),
                             contentAlignment = Alignment.Center
                         ) {
                             if (dayNum in 1..daysInMonth) {
@@ -378,7 +378,7 @@ private fun MonthCalendar(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(28.dp)
+                                            .size(24.dp)
                                             .then(
                                                 if (isSelected) {
                                                     Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
