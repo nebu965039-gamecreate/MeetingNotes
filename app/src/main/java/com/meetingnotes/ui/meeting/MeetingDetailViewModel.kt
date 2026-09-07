@@ -8,6 +8,9 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
+import android.app.Activity
+import com.meetingnotes.ads.RewardedAdController
+import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.remote.AnthropicClient
 import com.meetingnotes.export.CsvExporter
@@ -53,6 +56,11 @@ class MeetingDetailViewModel(
 ) : AndroidViewModel(application) {
 
     private val anthropicClient = AnthropicClient()
+    private val rewardedAdController = RewardedAdController(application).apply { load() }
+
+    /** 後追い下書き生成に広告視聴が必要か(無料ユーザーのみ)。 */
+    fun followupNeedsAd(): Boolean = !ProAccess.isPro && meeting.value?.followupDraft.isNullOrBlank()
+    val isRewardedAdLoaded get() = rewardedAdController.isLoaded
 
     val meeting: StateFlow<MeetingEntity?> = repository.observeMeeting(meetingId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -100,6 +108,12 @@ class MeetingDetailViewModel(
         val stored = meeting.value?.followupDraft?.trim().orEmpty()
         _followupState.value =
             if (stored.isNotEmpty()) FollowupState.Ready(stored) else FollowupState.Empty
+    }
+
+    /** 無料ユーザー: リワード広告を見てから後追い下書きを生成する。 */
+    fun watchAdThenGenerateFollowup(activity: Activity) {
+        if (_followupState.value == FollowupState.Loading) return
+        rewardedAdController.show(activity) { generateFollowup() }
     }
 
     /** 下書きが無い商談で「作成する」を押したとき。1回だけ生成して DB に保存する。 */

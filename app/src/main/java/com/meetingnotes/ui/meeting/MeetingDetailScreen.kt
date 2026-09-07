@@ -118,6 +118,7 @@ fun MeetingDetailScreen(
     onMeetingDeleted: () -> Unit
 ) {
     val context = LocalContext.current
+    val activity = androidx.activity.compose.LocalActivity.current as android.app.Activity
     val application = context.applicationContext as Application
     val viewModel: MeetingDetailViewModel = viewModel(
         factory = MeetingDetailViewModel.factory(application, repository, meetingId)
@@ -416,9 +417,16 @@ fun MeetingDetailScreen(
     }
 
     if (showFollowup) {
+        val needsAd = viewModel.followupNeedsAd()
+        val adLoaded by viewModel.isRewardedAdLoaded.collectAsState()
         FollowupDialog(
             state = followupState,
-            onGenerate = { viewModel.generateFollowup() },
+            generateNeedsAd = needsAd,
+            adLoaded = adLoaded,
+            onGenerate = {
+                if (needsAd) viewModel.watchAdThenGenerateFollowup(activity)
+                else viewModel.generateFollowup()
+            },
             onShare = { text ->
                 ShareFileHelper.sharePlainText(context, text, "フォローアップを共有")
             },
@@ -433,6 +441,8 @@ fun MeetingDetailScreen(
 @Composable
 private fun FollowupDialog(
     state: FollowupState,
+    generateNeedsAd: Boolean,
+    adLoaded: Boolean,
     onGenerate: () -> Unit,
     onShare: (String) -> Unit,
     onDismiss: () -> Unit
@@ -467,8 +477,18 @@ private fun FollowupDialog(
                                 "1回だけ作成できます。作成後は再作成できません。",
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        Button(onClick = onGenerate, modifier = Modifier.fillMaxWidth()) {
-                            Text("下書きを作成する")
+                        Button(
+                            onClick = onGenerate,
+                            enabled = !generateNeedsAd || adLoaded,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                when {
+                                    !generateNeedsAd -> "下書きを作成する"
+                                    adLoaded -> "広告を見て下書きを作成"
+                                    else -> "広告を準備中..."
+                                }
+                            )
                         }
                     }
                     is FollowupState.Error -> {
