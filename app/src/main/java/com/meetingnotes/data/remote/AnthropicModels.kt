@@ -70,11 +70,13 @@ data class NextMeetingDto(
 data class ConcernDto(val content: String)
 
 fun SummaryDto.toDomain(): MeetingSummary = MeetingSummary(
-    decisions = decisions.map { Decision(it.content) },
-    todos = todos.map { TodoItem(it.task, it.assignee, it.deadline) },
+    decisions = decisions.map { Decision(it.content.stripLlmControlTokens()) },
+    todos = todos.map {
+        TodoItem(it.task.stripLlmControlTokens(), it.assignee.stripLlmControlTokens(), it.deadline.stripLlmControlTokens())
+    },
     nextMeeting = NextMeeting(nextMeeting?.date, nextMeeting?.originalText),
-    concerns = concerns.map { Concern(it.content) },
-    summary = summary,
+    concerns = concerns.map { Concern(it.content.stripLlmControlTokens()) },
+    summary = summary.stripLlmControlTokens(),
     dealPhase = DealPhase.fromWire(dealPhase),
-    followupDraft = followupDraft?.trim()?.takeIf { it.isNotEmpty() }
+    followupDraft = followupDraft?.stripLlmControlTokens()?.takeIf { it.isNotEmpty() }
 )

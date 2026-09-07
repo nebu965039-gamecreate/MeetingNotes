@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.data.local.MeetingEntity
@@ -47,17 +49,24 @@ fun DealPhaseChip(
     }
     val colors = PhaseTagColors.of(phase, darkTheme)
 
+    // ラベル長がバラつく(「提案」〜「初回接触」)ので幅を揃え、折り返さないようにする。
+    val base = Modifier.widthIn(min = 84.dp)
     Surface(
         shape = RoundedCornerShape(6.dp),
         color = colors.container,
         border = BorderStroke(1.dp, colors.content.copy(alpha = 0.35f)),
-        modifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier
+        modifier = if (onClick != null) base.then(modifier).clickable(onClick = onClick) else base.then(modifier)
     ) {
         Text(
-            text = phase?.label ?: "フェーズ未設定",
+            text = phase?.label ?: "未設定",
             style = MaterialTheme.typography.labelMedium,
             color = colors.content,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+            maxLines = 1,
+            softWrap = false,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 3.dp)
         )
     }
 }

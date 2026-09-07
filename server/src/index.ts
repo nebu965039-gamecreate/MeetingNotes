@@ -175,6 +175,17 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** モデル出力に紛れ込む関数呼び出しタグ(<parameter> 等)を取り除く。 */
+function stripControlTags(text: string): string {
+  return text
+    .replace(
+      /<\/?\s*(antml[:\s]*)?(function_calls|invoke|parameter|function_results|thinking)[^>\n]*>?/gi,
+      ""
+    )
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 /** KV による「全体で1日あたり N 回」の上限(RL バインディング設定時のみ)。 */
 async function underDailyCap(env: Env): Promise<boolean> {
   if (!env.RL) return true;
@@ -256,11 +267,13 @@ async function generateText(
     if (upstream.ok) {
       try {
         const parsed = JSON.parse(raw) as { content?: Array<{ type: string; text?: string }> };
-        const text = (parsed.content ?? [])
-          .filter((b) => b.type === "text" && typeof b.text === "string")
-          .map((b) => b.text)
-          .join("")
-          .trim();
+        const text = stripControlTags(
+          (parsed.content ?? [])
+            .filter((b) => b.type === "text" && typeof b.text === "string")
+            .map((b) => b.text)
+            .join("")
+            .trim()
+        );
         return jsonResponse({ text });
       } catch {
         return jsonResponse({ error: "parse_failed" }, 502);

@@ -201,24 +201,27 @@ fun MeetingDetailScreen(
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "No. ${meetingNo(current.recordedAt)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        val typeLabel = com.meetingnotes.data.model.MeetingType
-                            .fromWire(current.meetingType)?.label
-                        val recLine = buildString {
-                            append("録音: ")
-                            append(startedAt.format(meetingDateTimeFormatter))
-                            endedAtText?.let { append(" 〜 "); append(it) }
-                            typeLabel?.let { append("　"); append(it) }
+                        Text(
+                            text = "録音: ${startedAt.format(meetingDateTimeFormatter)}" +
+                                (endedAtText?.let { " 〜 $it" } ?: ""),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        com.meetingnotes.data.model.MeetingType.fromWire(current.meetingType)?.let {
+                            Text(
+                                text = it.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                        Text(text = recLine, style = MaterialTheme.typography.bodySmall)
                     }
                     DealPhaseChip(
                         phase = current.effectivePhase(),

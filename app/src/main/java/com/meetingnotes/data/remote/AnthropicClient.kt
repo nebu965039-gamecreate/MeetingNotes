@@ -131,7 +131,8 @@ class AnthropicClient(
                     audioHttpClient.newCall(request).execute().use { response ->
                         val responseBody = response.body.string()
                         if (response.isSuccessful) {
-                            val text = json.decodeFromString(TextResponse.serializer(), responseBody).text
+                            val text = json.decodeFromString(TextResponse.serializer(), responseBody)
+                                .text.stripLlmControlTokens()
                             if (text.isBlank()) throw AnthropicApiException("音声から文字を取り出せませんでした。")
                             return@withContext text
                         }
@@ -171,7 +172,8 @@ class AnthropicClient(
                     httpClient.newCall(request).execute().use { response ->
                         val responseBody = response.body.string()
                         if (response.isSuccessful) {
-                            val text = json.decodeFromString(TextResponse.serializer(), responseBody).text
+                            val text = json.decodeFromString(TextResponse.serializer(), responseBody)
+                                .text.stripLlmControlTokens()
                             if (text.isBlank()) throw AnthropicApiException("生成結果が空でした。")
                             return@withContext text
                         }
