@@ -81,6 +81,10 @@ class MeetingRepository(
     suspend fun clearMeetingFollowedUp(meetingId: Long) =
         meetingDao.updateFollowedUpAt(meetingId, null)
 
+    /** 要約時に付かなかった商談の、後追い生成したフォローアップ下書きを保存する(1回のみ想定)。 */
+    suspend fun setMeetingFollowupDraft(meetingId: Long, draft: String) =
+        meetingDao.updateFollowupDraft(meetingId, draft)
+
     fun observeFollowedUpMeetings(): Flow<List<com.meetingnotes.data.local.FollowedUpMeeting>> =
         meetingDao.observeFollowedUpMeetings()
 

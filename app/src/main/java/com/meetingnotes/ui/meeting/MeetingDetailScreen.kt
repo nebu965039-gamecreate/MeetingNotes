@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -274,7 +275,7 @@ fun MeetingDetailScreen(
                 ) {
                     Icon(Icons.Filled.Drafts, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("フォローアップの下書きを見る")
+                    Text("フォローアップの下書き")
                 }
             }
 
@@ -413,6 +414,7 @@ fun MeetingDetailScreen(
     if (showFollowup) {
         FollowupDialog(
             state = followupState,
+            onGenerate = { viewModel.generateFollowup() },
             onShare = { text ->
                 ShareFileHelper.sharePlainText(context, text, "フォローアップを共有")
             },
@@ -427,6 +429,7 @@ fun MeetingDetailScreen(
 @Composable
 private fun FollowupDialog(
     state: FollowupState,
+    onGenerate: () -> Unit,
     onShare: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -446,13 +449,27 @@ private fun FollowupDialog(
             ) {
                 when (state) {
                     FollowupState.Idle -> Unit
+                    FollowupState.Loading -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Text("下書きを作成しています…", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
                     FollowupState.Empty -> {
                         Text(
-                            "この商談には下書きがありません。" +
-                                "フォローアップの下書きは要約時に自動生成されます" +
-                                "(以前に録音した商談、またはサーバー更新前の商談には付きません)。",
+                            "この商談には下書きがありません" +
+                                "(以前に録音した商談、またはサーバー更新前の商談)。" +
+                                "1回だけ作成できます。作成後は再作成できません。",
                             style = MaterialTheme.typography.bodyMedium
                         )
+                        Button(onClick = onGenerate, modifier = Modifier.fillMaxWidth()) {
+                            Text("下書きを作成する")
+                        }
+                    }
+                    is FollowupState.Error -> {
+                        Text(state.message, color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = onGenerate) { Text("再試行") }
                     }
                     is FollowupState.Ready -> {
                         Text(

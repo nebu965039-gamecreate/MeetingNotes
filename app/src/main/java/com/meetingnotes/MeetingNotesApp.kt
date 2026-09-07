@@ -14,6 +14,8 @@ import com.meetingnotes.data.remote.IntegrityTokenProvider
 import com.meetingnotes.notifications.NotificationHelper
 import com.meetingnotes.notifications.NotificationSeenState
 import com.meetingnotes.notifications.ReminderScheduler
+import com.meetingnotes.speech.restoreLeftoverMediaVolume
+import com.meetingnotes.util.DiagnosticsLog
 import com.meetingnotes.ui.theme.ThemeMode
 import com.meetingnotes.ui.theme.ThemePrefs
 
@@ -62,6 +64,11 @@ class MeetingNotesApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        DiagnosticsLog.init(this)
+
+        // 前回の録音中にプロセスが落ちてメディア音量が 0 のままなら戻す。
+        restoreLeftoverMediaVolume(this)
 
         // 実機テスターにテスト広告を配信する端末を登録(エミュレータは登録不要)。
         // release ビルドでも本番広告に実トラフィックを出さずに動作確認できる。

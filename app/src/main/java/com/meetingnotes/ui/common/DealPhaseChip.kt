@@ -2,6 +2,7 @@ package com.meetingnotes.ui.common
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,10 +17,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.ui.theme.PhaseTagColors
+import com.meetingnotes.ui.theme.ThemeMode
 
 /** 表示に使う実効フェーズ = ユーザー上書き ?: AI 推定。 */
 fun MeetingEntity.effectivePhase(): DealPhase? =
@@ -35,7 +39,13 @@ fun DealPhaseChip(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
-    val colors = PhaseTagColors.of(phase)
+    val app = LocalContext.current.applicationContext as MeetingNotesApp
+    val darkTheme = when (app.themeModeState.value) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+    val colors = PhaseTagColors.of(phase, darkTheme)
 
     Surface(
         shape = RoundedCornerShape(6.dp),

@@ -17,6 +17,7 @@ import com.meetingnotes.speech.TranscriptionEvent
 import com.meetingnotes.speech.TranscriptionManager
 import com.meetingnotes.util.DeviceIdentifier
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -270,11 +271,14 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
                 return@launch
             }
 
-            // 要約の待ち時間にインタースティシャル広告を挟む(ロード済みかつ頻度キャップ内のときのみ)。
-            // 広告表示中に裏で要約が進み、閉じたときには結果が出ている、という流れを狙う。
-            interstitialAdController.tryShow(activity)
+            val summaryJob = async { runCatching { anthropicClient.summarizeMeeting(transcript) } }
 
-            runCatching { anthropicClient.summarizeMeeting(transcript) }
+            // 待ち時間にインタースティシャル広告を挟む。ただし要約が短時間で終わる場合
+            // (結果が出た後に広告)は不快なので、少し待って まだ処理中のときだけ表示する。
+            delay(AD_DELAY_MS)
+            if (!summaryJob.isCompleted) interstitialAdController.tryShow(activity)
+
+            summaryJob.await()
                 .onSuccess { _summaryState.value = SummaryUiState.Success(it) }
                 .onFailure {
                     repository.grantCredit(deviceIdHash)
@@ -324,6 +328,8 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         title: String,
         onSaved: (clientId: Long) -> Unit
     ) {
+        // 保存できる状態(要約成功)でなければクライアントを作らない(空クライアントの残留防止)。
+        if (_summaryState.value !is SummaryUiState.Success) return
         viewModelScope.launch {
             val newId = repository.addClient(name.trim(), groupId)
             if (persistMeeting(newId, title)) onSaved(newId)
@@ -340,5 +346,8 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
     companion object {
         private const val COUNTDOWN_START = 3
         private const val STOPPING_TRANSITION_MS = 700L
+
+        /** 要約がこの時間で終わらないときだけインタースティシャル広告を出す。 */
+        private const val AD_DELAY_MS = 1200L
     }
 }

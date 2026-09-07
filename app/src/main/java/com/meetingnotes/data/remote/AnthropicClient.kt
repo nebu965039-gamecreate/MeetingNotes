@@ -105,6 +105,10 @@ class AnthropicClient(
     suspend fun generateBriefing(summaries: List<String>): String =
         postText("$baseUrl/briefing", BriefingRequest(summaries))
 
+    /** F5: 要約時に下書きが付かなかった商談向けに、要約テキストから下書きを1回生成する。 */
+    suspend fun generateFollowup(summary: String): String =
+        postText("$baseUrl/followup", FollowupRequest(summary))
+
     private suspend inline fun <reified T> postText(url: String, body: T): String =
         withContext(Dispatchers.IO) {
             if (proxyUrl.isBlank()) throw AnthropicApiException("要約サーバーのURLが未設定です。")

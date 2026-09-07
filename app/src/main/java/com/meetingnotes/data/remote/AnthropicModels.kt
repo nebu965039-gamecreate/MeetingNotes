@@ -19,7 +19,11 @@ data class SummarizeRequest(
 @Serializable
 data class BriefingRequest(val summaries: List<String>)
 
-/** briefing のレスポンス。 */
+/** F5 フォローアップ下書き(要約時に付かなかった商談向けの後追い生成、1回のみ)。 */
+@Serializable
+data class FollowupRequest(val summary: String)
+
+/** briefing / followup のレスポンス。 */
 @Serializable
 data class TextResponse(val text: String = "")
 
