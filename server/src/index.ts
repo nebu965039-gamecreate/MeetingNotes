@@ -37,10 +37,16 @@ interface Env extends IntegrityEnv {
   DAILY_REQUEST_CAP?: string;
   STRICT_TOOL?: string;
   RL?: KVNamespace;
+  // リモート会議モードのサーバー文字起こし(Workers AI / Whisper)。
+  AI?: Ai;
 }
 
+/** アップロード音声の上限(バイト)。Opus 24kbps mono ≈ 10.8MB/時。約45分ぶんまで許可。 */
+const MAX_AUDIO_BYTES = 12 * 1024 * 1024;
+const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
+
 const MODEL = "claude-haiku-4-5-20251001";
-const MAX_TOKENS = 2000;
+const MAX_TOKENS = 2400;
 const TEMPERATURE = 0.2;
 const TOOL_NAME = "extract_meeting_summary";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -56,6 +62,9 @@ const SYSTEM_PROMPT = `あなたはフリーランス・個人事業主向けの
 2. 「ToDo」: 誰が(担当者)、何を、いつまでに行うかが
    話されているものを抽出する。担当者や期限が不明な場合は
    「担当者: 未定」「期限: 未定」と明記する。
+   さらに、期限が具体的な日付に解決できる場合のみ、メッセージ冒頭の「現在の日付」を基準に
+   ISO 8601(YYYY-MM-DD)で deadlineDate に入れる。
+   「未定」「なるべく早く」など日付にできないものは deadlineDate を null にする。
 3. 「次回打ち合わせ」: 日時が明言されている場合のみ抽出する。
    曖昧な表現(例:「また来週あたり」)は
    originalText にそのまま記録し、date は null とする。
@@ -73,7 +82,26 @@ const SYSTEM_PROMPT = `あなたはフリーランス・個人事業主向けの
    語尾は付けない。)
 8. 「次回打ち合わせ」の date は、メッセージ冒頭で与えられる「現在の日付」を基準に
    ISO 8601(YYYY-MM-DD、時刻が明言されていれば YYYY-MM-DDTHH:MM)で解決する。
-   年をまたぐ相対表現は現在の日付から最も近い将来の日付を採る。`;
+   年をまたぐ相対表現は現在の日付から最も近い将来の日付を採る。
+9. 「dealPhase」: この商談が営業プロセスのどの段階かを、話の内容から1つ推定する。
+   - first_contact: 初回の顔合わせ・挨拶が中心
+   - hearing: 相手の課題・要望・状況をヒアリングしている段階
+   - proposal: こちらから提案・提示を行っている段階
+   - quoted: 金額・見積もりを提示済みで、その反応や条件を話している段階
+   - considering: 提案後、相手が社内検討・比較検討している段階
+   - won: 発注・契約・成約が確定した
+   - on_hold: 案件が保留・先送りになった
+   - lost: 失注・見送りが確定した
+   判断材料が乏しい場合は最も近いものを選ぶ(初期接触なら first_contact、
+   金額の話が出ていれば quoted など)。必ず1つ返す。
+10. 「followupDraft」: この商談直後に相手へ送る、フォローアップのメッセージ下書きを作る。
+    - 構成: お礼 → 決定事項・確認事項の要点 → 次のアクションのお願い
+    - 「次のアクションのお願い」では、上で抽出した ToDo のうち相手側の担当・期限があるものを
+      自然な依頼文として織り込む(例:「〇〇の件、△日までにご確認いただけますと幸いです」)
+    - 3〜5文。丁寧だが冗長でない文体(です・ます)
+    - 宛名・署名・件名は入れず、本文のみ
+    - 上で抽出した内容の範囲で書き、要約に無い予定や約束を作らない
+    - 商談として成立していない雑談のみのときは空文字 "" とする`;
 
 // strict: true 対応のため、入れ子オブジェクトにも additionalProperties:false と required を付ける。
 const SUMMARY_TOOL_SCHEMA = {
@@ -98,8 +126,9 @@ const SUMMARY_TOOL_SCHEMA = {
           task: { type: "string" },
           assignee: { type: "string" },
           deadline: { type: "string" },
+          deadlineDate: { type: ["string", "null"] },
         },
-        required: ["task", "assignee", "deadline"],
+        required: ["task", "assignee", "deadline", "deadlineDate"],
       },
     },
     nextMeeting: {
@@ -121,8 +150,24 @@ const SUMMARY_TOOL_SCHEMA = {
       },
     },
     summary: { type: "string" },
+    dealPhase: {
+      type: "string",
+      enum: [
+        "first_contact",
+        "hearing",
+        "proposal",
+        "quoted",
+        "considering",
+        "won",
+        "on_hold",
+        "lost",
+      ],
+    },
+    followupDraft: { type: "string" },
   },
-  required: ["decisions", "todos", "nextMeeting", "concerns", "summary"],
+  // followupDraft は「無くてもよい」情報。長い商談で切り詰められて欠落しても
+  // 要約全体を失敗させたくないため required に入れない(アプリは null を許容)。
+  required: ["decisions", "todos", "nextMeeting", "concerns", "summary", "dealPhase"],
 } as const;
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -133,6 +178,17 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** モデル出力に紛れ込む関数呼び出しタグ(<parameter> 等)を取り除く。 */
+function stripControlTags(text: string): string {
+  return text
+    .replace(
+      /<\/?\s*(antml[:\s]*)?(function_calls|invoke|parameter|function_results|thinking)[^>\n]*>?/gi,
+      ""
+    )
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 /** KV による「全体で1日あたり N 回」の上限(RL バインディング設定時のみ)。 */
 async function underDailyCap(env: Env): Promise<boolean> {
@@ -146,12 +202,204 @@ async function underDailyCap(env: Env): Promise<boolean> {
   return true;
 }
 
+/** briefing / followup 用の短いテキスト生成(tool_use なしのプレーン補完)。 */
+const BRIEFING_SYSTEM = `あなたはフリーランス・個人事業主の商談準備を手伝うアシスタントです。
+渡された「過去の商談要約」(古い順)を読み、そのクライアントとの
+「ここまでの流れ」を2〜4文でまとめてください。
+- 体言止め中心の簡潔な記録調(「〜で合意」「〜への懸念」など)
+- 提案→検討→保留 のような流れの推移がわかるように
+- 過去要約に無い情報を推測で足さない
+- 前置きや見出しを付けず、本文だけを返す`;
+
+const FOLLOWUP_SYSTEM = `あなたはフリーランス・個人事業主のフォローアップ文面を作成するアシスタントです。
+渡された商談要約をもとに、商談直後に相手へ送るメッセージの下書きを1本作ってください。
+- 構成: お礼 → 決定事項・確認事項の要点 → 次のアクションのお願い
+- 「次のアクションのお願い」では、ToDo のうち相手側の担当・期限があるものを
+  自然な依頼文として織り込む(例:「〇〇の件、△日までにご確認いただけますと幸いです」)
+- 3〜5文。丁寧だが冗長でない文体(です・ます)
+- 宛名・署名・件名は入れず、本文のみ
+- 要約に無い予定や約束を作らない`;
+
+/** 認証と日次上限。OKなら null、NGなら返すべき Response。 */
+async function guard(request: Request, env: Env): Promise<Response | null> {
+  if (!env.APP_TOKEN || request.headers.get("x-app-token") !== env.APP_TOKEN) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.ANTHROPIC_API_KEY) {
+    return jsonResponse({ error: "server_misconfigured" }, 500);
+  }
+  if (!(await underDailyCap(env))) {
+    return jsonResponse({ error: "daily_cap_reached" }, 429);
+  }
+  return null;
+}
+
+/** tool を使わない短文生成を Anthropic に投げ、{ text } で返す。 */
+async function generateText(
+  env: Env,
+  system: string,
+  userContent: string,
+  maxTokens: number
+): Promise<Response> {
+  const body = JSON.stringify({
+    model: MODEL,
+    max_tokens: maxTokens,
+    temperature: 0.3,
+    system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+    messages: [{ role: "user", content: userContent }],
+  });
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    let upstream: Response;
+    try {
+      upstream = await fetch(ANTHROPIC_URL, {
+        method: "POST",
+        headers: {
+          "x-api-key": env.ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body,
+      });
+    } catch {
+      if (attempt === MAX_ATTEMPTS - 1) return jsonResponse({ error: "upstream_fetch_failed" }, 502);
+      await sleep(INITIAL_BACKOFF_MS * 2 ** attempt);
+      continue;
+    }
+
+    const raw = await upstream.text();
+    if (upstream.ok) {
+      try {
+        const parsed = JSON.parse(raw) as { content?: Array<{ type: string; text?: string }> };
+        const text = stripControlTags(
+          (parsed.content ?? [])
+            .filter((b) => b.type === "text" && typeof b.text === "string")
+            .map((b) => b.text)
+            .join("")
+            .trim()
+        );
+        return jsonResponse({ text });
+      } catch {
+        return jsonResponse({ error: "parse_failed" }, 502);
+      }
+    }
+    const retryable = upstream.status === 429 || upstream.status >= 500;
+    if (!retryable || attempt === MAX_ATTEMPTS - 1) {
+      return jsonResponse({ error: "upstream_error", status: upstream.status }, upstream.status);
+    }
+    await sleep(INITIAL_BACKOFF_MS * 2 ** attempt);
+  }
+  return jsonResponse({ error: "upstream_unavailable" }, 502);
+}
+
+async function handleBriefing(request: Request, env: Env): Promise<Response> {
+  const g = await guard(request, env);
+  if (g) return g;
+  let summaries: unknown;
+  try {
+    summaries = ((await request.json()) as { summaries?: unknown }).summaries;
+  } catch {
+    return jsonResponse({ error: "invalid_json" }, 400);
+  }
+  if (!Array.isArray(summaries) || summaries.length === 0) {
+    return jsonResponse({ error: "summaries_required" }, 400);
+  }
+  const list = summaries
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .slice(-8)
+    .map((s, i) => `【商談${i + 1}】\n${s.trim()}`)
+    .join("\n\n");
+  if (list.length === 0) return jsonResponse({ error: "summaries_required" }, 400);
+  return generateText(env, BRIEFING_SYSTEM, `過去の商談要約(古い順):\n\n${list}`, 400);
+}
+
+/**
+ * 要約時に下書きが付かなかった商談用に、後から1回だけ生成する。
+ * body: { summary: string }(要約のプレーンテキスト。文字起こしより短くトークン節約)。
+ */
+async function handleFollowup(request: Request, env: Env): Promise<Response> {
+  const g = await guard(request, env);
+  if (g) return g;
+  let summary: unknown;
+  try {
+    summary = ((await request.json()) as { summary?: unknown }).summary;
+  } catch {
+    return jsonResponse({ error: "invalid_json" }, 400);
+  }
+  if (typeof summary !== "string" || summary.trim().length === 0) {
+    return jsonResponse({ error: "summary_required" }, 400);
+  }
+  return generateText(env, FOLLOWUP_SYSTEM, `商談要約:\n\n${summary.trim()}`, 500);
+}
+
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function extractWhisperText(result: unknown): string {
+  if (!result || typeof result !== "object") return "";
+  const r = result as Record<string, unknown>;
+  if (typeof r.text === "string") return r.text.trim();
+  const info = r.transcription_info as Record<string, unknown> | undefined;
+  if (info && typeof info.text === "string") return (info.text as string).trim();
+  return "";
+}
+
+/**
+ * リモート会議モード: アップロードされた音声(Opus/Ogg 等)を Workers AI の Whisper で文字起こしする。
+ * body = 音声のバイナリそのもの。返り値 { text }。
+ */
+async function handleTranscribe(request: Request, env: Env): Promise<Response> {
+  const g = await guard(request, env);
+  if (g) return g;
+  if (!env.AI) return jsonResponse({ error: "transcription_unavailable" }, 503);
+
+  const buf = await request.arrayBuffer();
+  if (buf.byteLength === 0) return jsonResponse({ error: "audio_required" }, 400);
+  if (buf.byteLength > MAX_AUDIO_BYTES) {
+    return jsonResponse({ error: "audio_too_large", maxBytes: MAX_AUDIO_BYTES }, 413);
+  }
+
+  const ai = env.AI as unknown as {
+    run: (model: string, input: Record<string, unknown>) => Promise<unknown>;
+  };
+  let result: unknown;
+  try {
+    result = await ai.run(WHISPER_MODEL, {
+      audio: arrayBufferToBase64(buf),
+      task: "transcribe",
+      language: "ja",
+    });
+  } catch (e) {
+    return jsonResponse({ error: "transcription_failed", detail: String(e) }, 502);
+  }
+
+  const text = extractWhisperText(result);
+  if (!text) return jsonResponse({ error: "transcription_empty" }, 502);
+  return jsonResponse({ text });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     if (request.method === "GET" && url.pathname === "/") {
       return jsonResponse({ ok: true, service: "meetingnotes-summary-proxy" });
+    }
+    if (request.method === "POST" && url.pathname === "/briefing") {
+      return handleBriefing(request, env);
+    }
+    if (request.method === "POST" && url.pathname === "/followup") {
+      return handleFollowup(request, env);
+    }
+    if (request.method === "POST" && url.pathname === "/transcribe") {
+      return handleTranscribe(request, env);
     }
     if (request.method !== "POST" || url.pathname !== "/summarize") {
       return jsonResponse({ error: "not_found" }, 404);

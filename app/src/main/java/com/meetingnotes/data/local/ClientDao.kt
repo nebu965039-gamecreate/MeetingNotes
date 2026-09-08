@@ -22,6 +22,9 @@ interface ClientDao {
     @Query("UPDATE clients SET name = :name WHERE id = :clientId")
     suspend fun rename(clientId: Long, name: String)
 
+    @Query("UPDATE clients SET name = :name, email = :email, phone = :phone, memo = :memo WHERE id = :clientId")
+    suspend fun updateInfo(clientId: Long, name: String, email: String?, phone: String?, memo: String?)
+
     @Query("UPDATE clients SET groupId = :groupId WHERE id = :clientId")
     suspend fun updateGroup(clientId: Long, groupId: Long?)
 

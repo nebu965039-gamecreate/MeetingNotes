@@ -35,3 +35,7 @@ STRICT_TOOL = "true"
 [[kv_namespaces]]
 binding = "RL"
 id = "de61a873c6624c6aad891172e9ed4b45"
+
+# リモート会議モードのサーバー文字起こし(Cloudflare Workers AI / Whisper)。
+[ai]
+binding = "AI"

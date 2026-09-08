@@ -7,14 +7,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -36,9 +40,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import com.meetingnotes.ads.BannerAdView
+import com.meetingnotes.data.local.ClientEntity
+import com.meetingnotes.data.local.ClientGroupEntity
 import com.meetingnotes.data.model.MeetingSummary
 import com.meetingnotes.ui.MeetingViewModel
 import com.meetingnotes.ui.SummaryUiState
+import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.meetingSummarySections
 import com.meetingnotes.ui.common.nextMeetingSection
 
@@ -46,11 +53,14 @@ import com.meetingnotes.ui.common.nextMeetingSection
 @Composable
 fun ResultScreen(
     viewModel: MeetingViewModel,
-    onSaved: () -> Unit,
+    onSaved: (clientId: Long) -> Unit,
     onBack: () -> Unit
 ) {
     val state by viewModel.summaryState.collectAsState()
+    val clients by viewModel.clients.collectAsState()
+    val groups by viewModel.clientGroups.collectAsState()
     val activity = LocalActivity.current as Activity
+    val needsClient = !viewModel.isClientAssigned()
 
     Scaffold(
         topBar = {
@@ -92,7 +102,16 @@ fun ResultScreen(
                 is SummaryUiState.Success -> SummaryContent(
                     summary = current.summary,
                     defaultTitle = viewModel.defaultMeetingTitle(),
-                    onSave = { title -> viewModel.saveMeeting(title, onSaved) }
+                    needsClient = needsClient,
+                    clients = clients,
+                    groups = groups,
+                    onSaveAssigned = { title -> viewModel.saveMeeting(title, onSaved) },
+                    onSaveToExisting = { clientId, title ->
+                        viewModel.saveMeetingToClient(clientId, title, onSaved)
+                    },
+                    onSaveToNew = { name, groupId, title ->
+                        viewModel.saveMeetingToNewClient(name, groupId, title, onSaved)
+                    }
                 )
             }
         }
@@ -132,8 +151,29 @@ private fun SummarizingContent() {
 }
 
 @Composable
-private fun SummaryContent(summary: MeetingSummary, defaultTitle: String, onSave: (String) -> Unit) {
+private fun SummaryContent(
+    summary: MeetingSummary,
+    defaultTitle: String,
+    needsClient: Boolean,
+    clients: List<ClientEntity>,
+    groups: List<ClientGroupEntity>,
+    onSaveAssigned: (String) -> Unit,
+    onSaveToExisting: (Long, String) -> Unit,
+    onSaveToNew: (String, Long?, String) -> Unit
+) {
     var title by remember { mutableStateOf(defaultTitle) }
+
+    // 直接録音フローのみ: 保存先クライアントを選ぶ(既存 or 新規)。
+    var newClientMode by remember(clients) { mutableStateOf(clients.isEmpty()) }
+    var selectedClientId by remember(clients) { mutableLongStateOf(clients.firstOrNull()?.id ?: -1L) }
+    var newClientName by remember { mutableStateOf("") }
+    var newClientGroupId by remember { mutableStateOf<Long?>(null) }
+
+    val saveEnabled = when {
+        !needsClient -> true
+        newClientMode -> newClientName.isNotBlank()
+        else -> selectedClientId >= 0
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
@@ -146,6 +186,53 @@ private fun SummaryContent(summary: MeetingSummary, defaultTitle: String, onSave
                 label = { Text("タイトル") },
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+
+        if (needsClient) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("保存先クライアント", style = MaterialTheme.typography.titleMedium)
+                    Row(
+                        modifier = Modifier.selectableGroup(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = !newClientMode,
+                            onClick = { newClientMode = false },
+                            label = { Text("既存から選ぶ") },
+                            enabled = clients.isNotEmpty()
+                        )
+                        FilterChip(
+                            selected = newClientMode,
+                            onClick = { newClientMode = true },
+                            label = { Text("新規登録") }
+                        )
+                    }
+                    if (newClientMode) {
+                        OutlinedTextField(
+                            value = newClientName,
+                            onValueChange = { newClientName = it },
+                            label = { Text("クライアント名") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        LabeledDropdownField(
+                            label = "グループ",
+                            options = listOf<Pair<Long?, String>>(null to "未分類") + groups.map { it.id to it.name },
+                            selected = newClientGroupId,
+                            onSelect = { newClientGroupId = it },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        LabeledDropdownField(
+                            label = "クライアント",
+                            options = clients.map { it.id to it.name },
+                            selected = selectedClientId,
+                            onSelect = { selectedClientId = it },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
         }
 
         meetingSummarySections(
@@ -166,8 +253,18 @@ private fun SummaryContent(summary: MeetingSummary, defaultTitle: String, onSave
         nextMeetingSection(summary.nextMeeting.date ?: summary.nextMeeting.originalText ?: "(未定)")
 
         item {
-            Button(onClick = { onSave(title) }, modifier = Modifier.fillMaxWidth()) {
-                Text("保存してクライアント画面に戻る")
+            Button(
+                onClick = {
+                    when {
+                        !needsClient -> onSaveAssigned(title)
+                        newClientMode -> onSaveToNew(newClientName, newClientGroupId, title)
+                        else -> onSaveToExisting(selectedClientId, title)
+                    }
+                },
+                enabled = saveEnabled,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("保存してクライアント画面へ")
             }
         }
     }

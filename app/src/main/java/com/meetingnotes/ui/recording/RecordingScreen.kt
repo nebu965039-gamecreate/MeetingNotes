@@ -10,6 +10,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -49,9 +51,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import com.meetingnotes.data.remote.AnthropicClient
 import com.meetingnotes.ui.MeetingViewModel
 import com.meetingnotes.ui.RecordingPhase
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,35 +89,56 @@ fun RecordingScreen(
     val audioLevel by viewModel.audioLevel.collectAsState()
     val editableTranscript by viewModel.editableTranscript.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val transcribeError by viewModel.transcribeError.collectAsState()
     val creditBalance by viewModel.creditBalance.collectAsState()
     val isRewardedAdLoaded by viewModel.isRewardedAdLoaded.collectAsState()
     val recordingElapsedMs by viewModel.recordingElapsedMs.collectAsState()
     val activity = LocalActivity.current as Activity
+    val scope = rememberCoroutineScope()
 
     var permissionDenied by remember { mutableStateOf(false) }
     var flowStarted by remember { mutableStateOf(false) }
     var showDraftDialog by remember { mutableStateOf(false) }
     var showStopConfirm by remember { mutableStateOf(false) }
+    var showModePicker by remember { mutableStateOf(false) }
+    var showRemoteConsent by remember { mutableStateOf(false) }
+    var showRemoteLimit by remember { mutableStateOf(false) }
+    var remoteRemaining by remember { mutableIntStateOf(0) }
+    var pendingMode by remember { mutableStateOf(com.meetingnotes.data.model.MeetingType.IN_PERSON) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
             permissionDenied = false
-            viewModel.beginRecordingFlow(clientId)
+            viewModel.beginRecordingFlow(clientId, pendingMode)
         } else {
             permissionDenied = true
         }
     }
 
-    val startFreshRecording: () -> Unit = {
+    val startWithMode: (com.meetingnotes.data.model.MeetingType) -> Unit = { type ->
+        pendingMode = type
+        flowStarted = true
+        showModePicker = false
         val hasPermission = ContextCompat.checkSelfPermission(
             activity, Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
         if (hasPermission) {
-            viewModel.beginRecordingFlow(clientId)
+            viewModel.beginRecordingFlow(clientId, type)
         } else {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    val onChooseRemote: () -> Unit = {
+        scope.launch {
+            remoteRemaining = viewModel.remainingRemoteTranscriptions()
+            when {
+                remoteRemaining <= 0 -> showRemoteLimit = true
+                !RemoteConsentPrefs.hasConsented(activity) -> showRemoteConsent = true
+                else -> startWithMode(com.meetingnotes.data.model.MeetingType.REMOTE)
+            }
         }
     }
 
@@ -121,8 +147,7 @@ fun RecordingScreen(
         if (viewModel.pendingDraftForClient(clientId)) {
             showDraftDialog = true
         } else {
-            flowStarted = true
-            startFreshRecording()
+            showModePicker = true
         }
     }
 
@@ -133,9 +158,12 @@ fun RecordingScreen(
 
     val isActivelyRecording = phase == RecordingPhase.Countdown ||
         phase == RecordingPhase.Recording ||
-        phase == RecordingPhase.Stopping
+        phase == RecordingPhase.Stopping ||
+        phase == RecordingPhase.Transcribing
 
-    BackHandler(enabled = isActivelyRecording && !showDraftDialog) { showStopConfirm = true }
+    BackHandler(
+        enabled = isActivelyRecording && !showDraftDialog && !showModePicker
+    ) { showStopConfirm = true }
 
     Scaffold(
         topBar = {
@@ -186,6 +214,15 @@ fun RecordingScreen(
                     .padding(padding)
             )
 
+            RecordingPhase.Transcribing -> TranscribingContent(
+                error = transcribeError,
+                onRetry = { viewModel.retryTranscription() },
+                onCancel = handleCancel,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            )
+
             RecordingPhase.Editing -> EditingContent(
                 editableTranscript = editableTranscript,
                 errorMessage = errorMessage,
@@ -222,9 +259,8 @@ fun RecordingScreen(
             dismissButton = {
                 TextButton(onClick = {
                     showDraftDialog = false
-                    flowStarted = true
                     viewModel.discardDraft()
-                    startFreshRecording()
+                    showModePicker = true
                 }) { Text("破棄して新しく録音") }
             }
         )
@@ -234,7 +270,7 @@ fun RecordingScreen(
         AlertDialog(
             onDismissRequest = { showStopConfirm = false },
             title = { Text("録音を中止しますか?") },
-            text = { Text("ここまでの文字起こしは下書きとして保存され、あとで一覧から再開できます。") },
+            text = { Text("ここまでの内容は破棄されます。") },
             confirmButton = {
                 TextButton(onClick = {
                     showStopConfirm = false
@@ -245,6 +281,132 @@ fun RecordingScreen(
                 TextButton(onClick = { showStopConfirm = false }) { Text("録音を続ける") }
             }
         )
+    }
+
+    if (showModePicker) {
+        RecordingModePicker(
+            onInPerson = { startWithMode(com.meetingnotes.data.model.MeetingType.IN_PERSON) },
+            onRemote = onChooseRemote,
+            onDismiss = { showModePicker = false; handleCancel() }
+        )
+    }
+
+    if (showRemoteConsent) {
+        AlertDialog(
+            onDismissRequest = { showRemoteConsent = false },
+            title = { Text("リモート会議モードについて") },
+            text = {
+                Text(
+                    "このモードでは、録音した音声を文字起こしのためだけに Cloudflare のサーバーへ送信します。" +
+                        "文字起こし後すぐに削除し、保存はしません。\n\n" +
+                        "対面の商談では、音声が端末の外に出ない通常モードをおすすめします。"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    RemoteConsentPrefs.setConsented(activity)
+                    showRemoteConsent = false
+                    startWithMode(com.meetingnotes.data.model.MeetingType.REMOTE)
+                }) { Text("同意して続ける") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoteConsent = false }) { Text("やめる") }
+            }
+        )
+    }
+
+    if (showRemoteLimit) {
+        val isPro = viewModel.isProUser()
+        AlertDialog(
+            onDismissRequest = { showRemoteLimit = false },
+            title = { Text("リモート会議モードの上限") },
+            text = {
+                Text(
+                    if (isPro) "今月のリモート会議モードの上限に達しました。来月またご利用いただけます。"
+                    else "今月の無料のリモート会議モードを使い切りました。" +
+                        "広告を見ると今月あと1回使えます（Pro なら月40回まで）。"
+                )
+            },
+            confirmButton = {
+                if (!isPro) {
+                    TextButton(
+                        enabled = isRewardedAdLoaded,
+                        onClick = {
+                            showRemoteLimit = false
+                            viewModel.watchAdForRemoteTranscription(activity) {
+                                startWithMode(com.meetingnotes.data.model.MeetingType.REMOTE)
+                            }
+                        }
+                    ) { Text(if (isRewardedAdLoaded) "広告を見て使う" else "広告を準備中...") }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoteLimit = false; handleCancel() }) { Text("閉じる") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun RecordingModePicker(
+    onInPerson: () -> Unit,
+    onRemote: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("この商談は？") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("対面: 端末内で文字起こし（音声は端末外に出ません）", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "リモート会議: スピーカー越しの相手の声も高精度で文字起こし（Pro / 無料は月1回）",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onRemote) { Text("リモート会議") }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onInPerson) { Text("対面で録音") }
+        }
+    )
+}
+
+@Composable
+private fun TranscribingContent(
+    error: String?,
+    onRetry: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (error == null) {
+            CircularProgressIndicator()
+            Spacer(Modifier.height(16.dp))
+            Text("文字起こし中...", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "録音した音声をサーバーで文字起こししています。しばらくお待ちください。",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        } else {
+            Text(
+                error,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("再試行") }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("中止する") }
+        }
     }
 }
 
@@ -310,9 +472,9 @@ private fun RecordingContent(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(24.dp),
+        modifier = modifier.padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
             text = "録音中... ${formatElapsed(elapsedMs)}",
@@ -342,10 +504,19 @@ private fun RecordingContent(
             )
         }
 
+        // 文字起こしは残りの高さいっぱいに広げ、はみ出したぶんは内部スクロールで見る。
+        // 新しい行が来るたび自動で最下部へ追従させる(停止ボタンは常に画面下部に残る)。
+        val transcriptScroll = rememberScrollState()
+        LaunchedEffect(liveTranscript) {
+            transcriptScroll.animateScrollTo(transcriptScroll.maxValue)
+        }
         Text(
             text = liveTranscript.ifBlank { "(話し始めると文字起こしが表示されます)" },
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(transcriptScroll)
         )
 
         SlideToStop(onStop = onStop)

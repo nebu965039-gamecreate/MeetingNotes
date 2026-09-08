@@ -7,14 +7,21 @@ import androidx.lifecycle.viewModelScope
 import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.ads.InterstitialAdController
 import com.meetingnotes.ads.RewardedAdController
+import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.data.RecordingDraftStore
+import com.meetingnotes.data.local.ClientEntity
+import com.meetingnotes.data.local.ClientGroupEntity
 import com.meetingnotes.data.model.MeetingSummary
+import com.meetingnotes.data.model.MeetingType
 import com.meetingnotes.data.remote.AnthropicClient
+import com.meetingnotes.speech.AudioFileRecorder
 import com.meetingnotes.speech.TranscriptPreprocessor
 import com.meetingnotes.speech.TranscriptionEvent
 import com.meetingnotes.speech.TranscriptionManager
 import com.meetingnotes.util.DeviceIdentifier
+import java.io.File
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -33,11 +40,12 @@ sealed interface SummaryUiState {
     data class Error(val message: String) : SummaryUiState
 }
 
-enum class RecordingPhase { Countdown, Recording, Stopping, Editing }
+enum class RecordingPhase { Countdown, Recording, Stopping, Transcribing, Editing }
 
 class MeetingViewModel(application: Application) : AndroidViewModel(application) {
 
     private val transcriptionManager = TranscriptionManager(application)
+    private val audioFileRecorder = AudioFileRecorder(application)
     private val transcriptPreprocessor = TranscriptPreprocessor()
     private val anthropicClient = AnthropicClient(
         integrityProvider = (application as MeetingNotesApp).integrityTokenProvider
@@ -56,9 +64,22 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
     private var countdownJob: Job? = null
     private var transcriptionEventsJob: Job? = null
     private var elapsedTickerJob: Job? = null
+    private var audioLevelJob: Job? = null
+
+    /** この録音の実施形態。REMOTE のときはサーバー文字起こしを使う。 */
+    private var meetingType: MeetingType = MeetingType.IN_PERSON
+
+    /** REMOTE 録音の音声ファイル。文字起こし成功後、保存完了で削除する。 */
+    private var recordedAudioFile: File? = null
 
     val liveTranscript: StateFlow<String> = transcriptionManager.transcript
-    val audioLevel: StateFlow<Float> = transcriptionManager.audioLevel
+
+    private val _audioLevel = MutableStateFlow(0f)
+    val audioLevel: StateFlow<Float> = _audioLevel.asStateFlow()
+
+    private val _transcribeError = MutableStateFlow<String?>(null)
+    /** リモート会議モードの文字起こしエラー(Transcribing フェーズで表示)。 */
+    val transcribeError: StateFlow<String?> = _transcribeError.asStateFlow()
 
     private val _recordingPhase = MutableStateFlow(RecordingPhase.Countdown)
     val recordingPhase: StateFlow<RecordingPhase> = _recordingPhase.asStateFlow()
@@ -85,6 +106,15 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
 
     val isRewardedAdLoaded: StateFlow<Boolean> = rewardedAdController.isLoaded
 
+    /** TOPから直接録音した場合、保存時にクライアントを選ぶ必要がある(clientId 未割り当て)。 */
+    fun isClientAssigned(): Boolean = clientId >= 0
+
+    val clients: StateFlow<List<ClientEntity>> = repository.observeClients()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val clientGroups: StateFlow<List<ClientGroupEntity>> = repository.observeClientGroups()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         viewModelScope.launch { repository.getOrInitCredits(deviceIdHash) }
         rewardedAdController.load()
@@ -93,10 +123,30 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
 
     fun isTranscriptionSupported(): Boolean = transcriptionManager.isSupported()
 
+    fun currentMeetingType(): MeetingType = meetingType
+
+    /** その月に残っているリモート会議モードの回数。 */
+    suspend fun remainingRemoteTranscriptions(): Int =
+        repository.remainingOnlineTranscriptions(deviceIdHash, ProAccess.isPro)
+
+    fun isProUser(): Boolean = ProAccess.isPro
+
+    /** 無料ユーザーがリワード広告を見てリモート会議モードを1回追加する。 */
+    fun watchAdForRemoteTranscription(activity: Activity, onGranted: () -> Unit) {
+        rewardedAdController.show(activity) {
+            viewModelScope.launch {
+                repository.grantOnlineTranscriptionBonus(deviceIdHash)
+                onGranted()
+            }
+        }
+    }
+
     /** 録音開始ボタン押下時に呼ぶ。3秒のカウントダウンを挟んでから実際の録音を開始する。 */
-    fun beginRecordingFlow(clientId: Long) {
+    fun beginRecordingFlow(clientId: Long, meetingType: MeetingType = MeetingType.IN_PERSON) {
         this.clientId = clientId
+        this.meetingType = meetingType
         _errorMessage.value = null
+        _transcribeError.value = null
         _recordingPhase.value = RecordingPhase.Countdown
         _countdownSeconds.value = COUNTDOWN_START
 
@@ -114,7 +164,22 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         recordingStartedAt = System.currentTimeMillis()
         _errorMessage.value = null
         _recordingElapsedMs.value = 0L
-        transcriptionManager.start()
+        _audioLevel.value = 0f
+
+        val remote = meetingType == MeetingType.REMOTE
+        if (remote) {
+            if (!audioFileRecorder.start()) {
+                _errorMessage.value = "録音を開始できませんでした。マイクの許可を確認してください。"
+            }
+        } else {
+            transcriptionManager.start()
+        }
+
+        audioLevelJob?.cancel()
+        audioLevelJob = viewModelScope.launch {
+            val src = if (remote) audioFileRecorder.audioLevel else transcriptionManager.audioLevel
+            src.collect { _audioLevel.value = it }
+        }
 
         elapsedTickerJob?.cancel()
         elapsedTickerJob = viewModelScope.launch {
@@ -122,23 +187,36 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
             while (true) {
                 delay(1000)
                 _recordingElapsedMs.value = System.currentTimeMillis() - recordingStartedAt
-                // 数秒おきに文字起こしを下書き保存(プロセス終了時の保険)。
-                if (++tick % 5 == 0) persistDraft(endedAt = 0L)
-            }
-        }
-
-        transcriptionEventsJob?.cancel()
-        transcriptionEventsJob = viewModelScope.launch {
-            transcriptionManager.events.collect { event ->
-                when (event) {
-                    is TranscriptionEvent.Unsupported ->
-                        _errorMessage.value = "この端末はオンデバイス音声認識に対応していません。"
-                    is TranscriptionEvent.Error ->
-                        _errorMessage.value = event.message
-                    null -> Unit
+                // 対面モードは文字起こしを下書き保存(プロセス終了時の保険)。
+                if (!remote && ++tick % 5 == 0) persistDraft(endedAt = 0L)
+                // リモートは長時間で自動停止(サーバー上限対策)。
+                if (remote && _recordingElapsedMs.value >= AudioFileRecorder.MAX_DURATION_MS) {
+                    requestStopRecording()
+                    break
                 }
             }
         }
+
+        if (!remote) {
+            transcriptionEventsJob?.cancel()
+            transcriptionEventsJob = viewModelScope.launch {
+                transcriptionManager.events.collect { event ->
+                    when (event) {
+                        is TranscriptionEvent.Unsupported ->
+                            _errorMessage.value = "この端末はオンデバイス音声認識に対応していません。"
+                        is TranscriptionEvent.Error ->
+                            _errorMessage.value = event.message
+                        null -> Unit
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        // 万一録音中に破棄されても、ミュートしたストリームを確実に戻す。
+        transcriptionManager.stop()
+        audioFileRecorder.cancel()
     }
 
     /** カウントダウン中・録音中を問わず、画面を離脱する際に呼ぶ。進行中の処理を安全に後始末する。 */
@@ -151,32 +229,76 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         transcriptionEventsJob = null
         elapsedTickerJob?.cancel()
         elapsedTickerJob = null
+        audioLevelJob?.cancel()
+        audioLevelJob = null
         transcriptionManager.stop()
+        audioFileRecorder.cancel()
+        recordedAudioFile?.delete()
+        recordedAudioFile = null
         _recordingPhase.value = RecordingPhase.Countdown
     }
 
-    /** 停止ボタン押下時に呼ぶ。「停止中...」を一瞬挟んでから編集画面用の状態にする。 */
+    /** 停止ボタン押下時に呼ぶ。 */
     fun requestStopRecording() {
         if (_recordingPhase.value != RecordingPhase.Recording) return
-        _recordingPhase.value = RecordingPhase.Stopping
-        viewModelScope.launch {
-            delay(STOPPING_TRANSITION_MS)
-            finalizeStop()
+        recordingEndedAt = System.currentTimeMillis()
+        elapsedTickerJob?.cancel(); elapsedTickerJob = null
+        audioLevelJob?.cancel(); audioLevelJob = null
+        _audioLevel.value = 0f
+
+        if (meetingType == MeetingType.REMOTE) {
+            _recordingPhase.value = RecordingPhase.Transcribing
+            recordedAudioFile = audioFileRecorder.stopAndGetFile()
+            transcribeRecordedAudio()
+        } else {
+            _recordingPhase.value = RecordingPhase.Stopping
+            viewModelScope.launch {
+                delay(STOPPING_TRANSITION_MS)
+                finalizeInPersonStop()
+            }
         }
     }
 
-    private fun finalizeStop() {
-        recordingEndedAt = System.currentTimeMillis()
+    private fun finalizeInPersonStop() {
         transcriptionEventsJob?.cancel()
         transcriptionEventsJob = null
-        elapsedTickerJob?.cancel()
-        elapsedTickerJob = null
         transcriptionManager.stop()
         val preprocessed = transcriptPreprocessor.preprocess(liveTranscript.value)
         originalTranscript = preprocessed
         _editableTranscript.value = preprocessed
         _recordingPhase.value = RecordingPhase.Editing
         persistDraft(endedAt = recordingEndedAt)
+    }
+
+    /** リモート会議モード: 録音ファイルをサーバーへ送って文字起こしする。 */
+    private fun transcribeRecordedAudio() {
+        val file = recordedAudioFile
+        if (file == null || !file.exists() || file.length() == 0L) {
+            _transcribeError.value = "録音の保存に失敗しました。もう一度録音してください。"
+            return
+        }
+        _transcribeError.value = null
+        viewModelScope.launch {
+            runCatching {
+                val bytes = file.readBytes()
+                anthropicClient.transcribeAudio(bytes, AudioFileRecorder.MIME_TYPE)
+            }.onSuccess { text ->
+                repository.consumeOnlineTranscription(deviceIdHash, ProAccess.isPro)
+                val preprocessed = transcriptPreprocessor.preprocess(text)
+                originalTranscript = preprocessed
+                _editableTranscript.value = preprocessed
+                _recordingPhase.value = RecordingPhase.Editing
+                persistDraft(endedAt = recordingEndedAt)
+            }.onFailure {
+                _transcribeError.value = it.message ?: "文字起こしに失敗しました。"
+            }
+        }
+    }
+
+    /** Transcribing フェーズでの再試行(同じ録音ファイルをもう一度送る)。 */
+    fun retryTranscription() {
+        if (_recordingPhase.value != RecordingPhase.Transcribing) return
+        transcribeRecordedAudio()
     }
 
     fun updateEditableTranscript(text: String) {
@@ -191,7 +313,7 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         } else {
             liveTranscript.value
         }
-        if (text.isBlank() || clientId < 0) return
+        if (text.isBlank()) return
         draftStore.save(
             RecordingDraftStore.Draft(
                 clientId = clientId,
@@ -199,6 +321,7 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
                 startedAt = recordingStartedAt,
                 endedAt = endedAt,
                 updatedAt = System.currentTimeMillis(),
+                meetingType = meetingType.wireValue,
             )
         )
     }
@@ -210,6 +333,7 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
     fun restoreDraft(): Boolean {
         val draft = draftStore.draft.value ?: return false
         clientId = draft.clientId
+        meetingType = MeetingType.fromWire(draft.meetingType) ?: MeetingType.IN_PERSON
         recordingStartedAt = draft.startedAt
         recordingEndedAt = if (draft.endedAt > 0) draft.endedAt else System.currentTimeMillis()
         originalTranscript = draft.transcript
@@ -254,11 +378,14 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
                 return@launch
             }
 
-            // 要約の待ち時間にインタースティシャル広告を挟む(ロード済みかつ頻度キャップ内のときのみ)。
-            // 広告表示中に裏で要約が進み、閉じたときには結果が出ている、という流れを狙う。
-            interstitialAdController.tryShow(activity)
+            val summaryJob = async { runCatching { anthropicClient.summarizeMeeting(transcript) } }
 
-            runCatching { anthropicClient.summarizeMeeting(transcript) }
+            // 待ち時間にインタースティシャル広告を挟む。ただし要約が短時間で終わる場合
+            // (結果が出た後に広告)は不快なので、少し待って まだ処理中のときだけ表示する。
+            delay(AD_DELAY_MS)
+            if (!summaryJob.isCompleted) interstitialAdController.tryShow(activity)
+
+            summaryJob.await()
                 .onSuccess { _summaryState.value = SummaryUiState.Success(it) }
                 .onFailure {
                     repository.grantCredit(deviceIdHash)
@@ -270,22 +397,52 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
     fun defaultMeetingTitle(): String =
         "${LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}の議事録"
 
-    fun saveMeeting(title: String, onSaved: () -> Unit) {
+    /** 要約結果を指定クライアントに保存する共通処理。保存できたら true。 */
+    private suspend fun persistMeeting(targetClientId: Long, title: String): Boolean {
         val state = _summaryState.value
-        if (state !is SummaryUiState.Success) return
-        val transcript = _editableTranscript.value
-        val finalTitle = title.ifBlank { defaultMeetingTitle() }
+        if (state !is SummaryUiState.Success) return false
+        repository.saveMeeting(
+            clientId = targetClientId,
+            title = title.ifBlank { defaultMeetingTitle() },
+            transcript = _editableTranscript.value,
+            summary = state.summary,
+            recordedAt = recordingStartedAt,
+            endedAt = recordingEndedAt,
+            meetingType = meetingType
+        )
+        draftStore.clear()
+        recordedAudioFile?.delete()
+        recordedAudioFile = null
+        return true
+    }
+
+    /** クライアントが確定している通常フロー(クライアント画面から録音)での保存。 */
+    fun saveMeeting(title: String, onSaved: (clientId: Long) -> Unit) {
+        if (clientId < 0) return
         viewModelScope.launch {
-            repository.saveMeeting(
-                clientId = clientId,
-                title = finalTitle,
-                transcript = transcript,
-                summary = state.summary,
-                recordedAt = recordingStartedAt,
-                endedAt = recordingEndedAt
-            )
-            draftStore.clear()
-            onSaved()
+            if (persistMeeting(clientId, title)) onSaved(clientId)
+        }
+    }
+
+    /** TOPから直接録音した場合に、保存時に選んだ既存クライアントへ保存する。 */
+    fun saveMeetingToClient(targetClientId: Long, title: String, onSaved: (clientId: Long) -> Unit) {
+        viewModelScope.launch {
+            if (persistMeeting(targetClientId, title)) onSaved(targetClientId)
+        }
+    }
+
+    /** TOPから直接録音した場合に、保存時に新規クライアントを作成してそこへ保存する。 */
+    fun saveMeetingToNewClient(
+        name: String,
+        groupId: Long?,
+        title: String,
+        onSaved: (clientId: Long) -> Unit
+    ) {
+        // 保存できる状態(要約成功)でなければクライアントを作らない(空クライアントの残留防止)。
+        if (_summaryState.value !is SummaryUiState.Success) return
+        viewModelScope.launch {
+            val newId = repository.addClient(name.trim(), groupId)
+            if (persistMeeting(newId, title)) onSaved(newId)
         }
     }
 
@@ -293,11 +450,18 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         _editableTranscript.value = ""
         _summaryState.value = SummaryUiState.Idle
         _errorMessage.value = null
+        _transcribeError.value = null
         _recordingPhase.value = RecordingPhase.Countdown
+        meetingType = MeetingType.IN_PERSON
+        recordedAudioFile?.delete()
+        recordedAudioFile = null
     }
 
     companion object {
         private const val COUNTDOWN_START = 3
         private const val STOPPING_TRANSITION_MS = 700L
+
+        /** 要約がこの時間で終わらないときだけインタースティシャル広告を出す。 */
+        private const val AD_DELAY_MS = 1200L
     }
 }

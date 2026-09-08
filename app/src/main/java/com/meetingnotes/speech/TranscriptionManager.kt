@@ -2,12 +2,15 @@ package com.meetingnotes.speech
 
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
 import android.os.Bundle
+import androidx.core.content.edit
 import android.os.Handler
 import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import com.meetingnotes.util.DiagnosticsLog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +19,27 @@ import java.util.Locale
 sealed interface TranscriptionEvent {
     data object Unsupported : TranscriptionEvent
     data class Error(val message: String) : TranscriptionEvent
+}
+
+private const val MUTE_PREFS = "audio_mute"
+private const val KEY_SAVED_MUSIC_VOLUME = "saved_music_volume"
+
+/**
+ * 前回の録音中にプロセスが落ちてメディア音量が 0 のまま残っていたら元に戻す。
+ * `MeetingNotesApp.onCreate` から呼ぶ。
+ */
+fun restoreLeftoverMediaVolume(context: Context) {
+    val prefs = context.getSharedPreferences(MUTE_PREFS, Context.MODE_PRIVATE)
+    if (!prefs.contains(KEY_SAVED_MUSIC_VOLUME)) return
+    val saved = prefs.getInt(KEY_SAVED_MUSIC_VOLUME, -1)
+    val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    runCatching {
+        am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0)
+        if (saved >= 0 && am.getStreamVolume(AudioManager.STREAM_MUSIC) == 0) {
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, saved, 0)
+        }
+    }
+    prefs.edit { remove(KEY_SAVED_MUSIC_VOLUME) }
 }
 
 /**
@@ -33,6 +57,14 @@ class TranscriptionManager(private val context: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
 
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+    /** 認識セッションの開始/終了音を消しているあいだ true。 */
+    private var beepsMuted = false
+
+    /** muteBeeps() 実行前のメディア音量。stop() で元に戻す。 */
+    private var savedMusicVolume: Int? = null
+
     /** ユーザーが録音中とみなしている間 true。stop() で false。 */
     private var isListening = false
 
@@ -45,6 +77,11 @@ class TranscriptionManager(private val context: Context) {
     /** 復帰可能な実エラーの連続回数。onReadyForSpeech / 有効な onResults でリセット。 */
     private var consecutiveErrors = 0
 
+    // --- 診断用(DiagnosticsLog へ集計を書き出す) ---
+    private var sessionStartedAtMs = 0L
+    private var restartCount = 0
+    private val errorCountByCode = HashMap<Int, Int>()
+
     private val _transcript = MutableStateFlow("")
     val transcript: StateFlow<String> = _transcript.asStateFlow()
 
@@ -56,6 +93,13 @@ class TranscriptionManager(private val context: Context) {
     val audioLevel: StateFlow<Float> = _audioLevel.asStateFlow()
 
     private val committedSegments = mutableListOf<String>()
+
+    /** 現在のセッションの途中経過(未確定)。onResults で committedSegments に移す。 */
+    private var currentPartial: String = ""
+
+    private fun rebuildTranscript() {
+        _transcript.value = committedSegments.joinToString(separator = "") + currentPartial
+    }
 
     fun isSupported(): Boolean = SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
 
@@ -70,22 +114,81 @@ class TranscriptionManager(private val context: Context) {
         _audioLevel.value = 0f
         _events.value = null
         committedSegments.clear()
+        currentPartial = ""
         consecutiveErrors = 0
         recreateOnNextStart = false
         sessionActive = false
         isListening = true
 
+        sessionStartedAtMs = System.currentTimeMillis()
+        restartCount = 0
+        errorCountByCode.clear()
+
+        // SpeechRecognizer は発話の区切りごとにセッションを開始/終了する。多くの端末
+        // (特に OPPO/ColorOS)はそのたびに効果音を鳴らすため、録音中は該当ストリームをミュートする。
+        muteBeeps()
         createRecognizer()
         scheduleSessionStart()
     }
 
     fun stop() {
+        val wasListening = isListening
         isListening = false
         sessionActive = false
         mainHandler.removeCallbacksAndMessages(null)
         recognizer?.destroy()
         recognizer = null
         _audioLevel.value = 0f
+        unmuteBeeps()
+        if (wasListening) logSession("stopped")
+    }
+
+    /** 1回の録音の結果を診断ログに1行で残す(外部送信なし)。 */
+    private fun logSession(outcome: String) {
+        if (sessionStartedAtMs == 0L) return
+        val durationSec = (System.currentTimeMillis() - sessionStartedAtMs) / 1000
+        val chars = _transcript.value.length
+        val errors = if (errorCountByCode.isEmpty()) "none"
+        else errorCountByCode.entries.sortedByDescending { it.value }
+            .joinToString(",") { "code${it.key}x${it.value}" }
+        DiagnosticsLog.append(
+            "rec $outcome: ${durationSec}s, ${chars}chars, restarts=$restartCount, errors=$errors"
+        )
+        sessionStartedAtMs = 0L
+    }
+
+    /** 録音中だけ、認識開始/終了音が乗りやすいストリームを黙らせる。 */
+    private fun muteBeeps() {
+        if (beepsMuted) return
+        beepsMuted = true
+        // adjustStreamVolume(MUTE): SYSTEM/NOTIFICATION は DND 権限が無いと無視されるが MUSIC には効く。
+        BEEP_STREAMS.forEach { stream ->
+            runCatching { audioManager.adjustStreamVolume(stream, AudioManager.ADJUST_MUTE, 0) }
+        }
+        // メディア音量そのものを 0 に落として確実に消す(元の音量は覚えておいて stop で戻す)。
+        // 録音中にプロセスが落ちても次回起動時に戻せるよう、元の音量を端末にも記録しておく。
+        runCatching {
+            val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            savedMusicVolume = current
+            context.getSharedPreferences(MUTE_PREFS, Context.MODE_PRIVATE)
+                .edit { putInt(KEY_SAVED_MUSIC_VOLUME, current) }
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
+        }
+    }
+
+    private fun unmuteBeeps() {
+        if (!beepsMuted) return
+        beepsMuted = false
+        BEEP_STREAMS.forEach { stream ->
+            runCatching { audioManager.adjustStreamVolume(stream, AudioManager.ADJUST_UNMUTE, 0) }
+        }
+        val restore = savedMusicVolume
+        if (restore != null) {
+            runCatching { audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, restore, 0) }
+            savedMusicVolume = null
+        }
+        context.getSharedPreferences(MUTE_PREFS, Context.MODE_PRIVATE)
+            .edit { remove(KEY_SAVED_MUSIC_VOLUME) }
     }
 
     private fun createRecognizer() {
@@ -101,6 +204,14 @@ class TranscriptionManager(private val context: Context) {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.JAPAN.toLanguageTag())
             putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            // 沈黙で毎回セッションが切れると、そのたびに認識開始音が鳴り再開処理も不安定になる。
+            // 無音許容時間を長めに指定して、1セッションを会議の間できるだけ継続させる
+            // (端末側が無視することもあるが、対応端末では効果音・再開回数が大きく減る)。
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SILENCE_TOLERANCE_MS)
+            putExtra(
+                RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
+                SILENCE_TOLERANCE_MS
+            )
         }
 
     /** 直前のセッションが確実に終了してから startListening するため、必ずこの経路を通す。 */
@@ -117,6 +228,7 @@ class TranscriptionManager(private val context: Context) {
             recreateOnNextStart = false
         }
         val r = recognizer ?: return@Runnable
+        restartCount++
         sessionActive = true
         try {
             r.startListening(recognizerIntent())
@@ -144,6 +256,8 @@ class TranscriptionManager(private val context: Context) {
         mainHandler.removeCallbacksAndMessages(null)
         recognizer?.destroy()
         recognizer = null
+        unmuteBeeps()
+        logSession("aborted ($message)")
         _events.value = TranscriptionEvent.Error(message)
     }
 
@@ -165,6 +279,10 @@ class TranscriptionManager(private val context: Context) {
 
         override fun onError(error: Int) {
             sessionActive = false
+            errorCountByCode[error] = (errorCountByCode[error] ?: 0) + 1
+            // 未確定分は破棄(次セッションで取り直す)。確定済みだけ残す。
+            currentPartial = ""
+            rebuildTranscript()
             if (!isListening) return
 
             when (error) {
@@ -194,21 +312,41 @@ class TranscriptionManager(private val context: Context) {
                 ?.firstOrNull()
             if (!text.isNullOrBlank()) {
                 committedSegments.add(text)
-                _transcript.value = committedSegments.joinToString(separator = "")
                 consecutiveErrors = 0
             }
+            currentPartial = ""
+            rebuildTranscript()
             scheduleSessionStart()
         }
 
-        override fun onPartialResults(partialResults: Bundle?) = Unit
+        override fun onPartialResults(partialResults: Bundle?) {
+            val partial = partialResults
+                ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                ?.firstOrNull()
+            if (!partial.isNullOrBlank()) {
+                currentPartial = partial
+                rebuildTranscript()
+            }
+        }
+
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
     }
 
     private companion object {
         /** セッション間の待機。前セッションのteardownと重ならないようにする。 */
-        const val RESTART_DELAY_MS = 80L
+        const val RESTART_DELAY_MS = 120L
 
         /** 実エラーがこの回数を超えて連続したら録音を打ち切る。 */
         const val MAX_CONSECUTIVE_ERRORS = 5
+
+        /** この長さの無音ではセッションを終わらせないよう認識器に要求する(会議の間・沈黙対策)。 */
+        const val SILENCE_TOLERANCE_MS = 20_000
+
+        /** 認識セッションの開始/終了音が乗りやすいストリーム。録音中だけミュートする。 */
+        val BEEP_STREAMS = intArrayOf(
+            AudioManager.STREAM_MUSIC,
+            AudioManager.STREAM_SYSTEM,
+            AudioManager.STREAM_NOTIFICATION
+        )
     }
 }

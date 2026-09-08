@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -21,18 +23,20 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.People
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,17 +46,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.ClientGroupEntity
 import com.meetingnotes.ui.common.ConfirmDialog
+import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.TextInputDialog
 import com.meetingnotes.ui.theme.CreateActionBlue
 import com.meetingnotes.ui.theme.OnCreateActionBlue
@@ -62,15 +65,12 @@ import com.meetingnotes.ui.theme.OnCreateActionBlue
 fun ClientListScreen(
     repository: MeetingRepository,
     onClientSelected: (Long) -> Unit,
-    onRecoverDraft: (Long) -> Unit,
-    onHelp: () -> Unit
+    onBack: () -> Unit
 ) {
     val viewModel: ClientListViewModel = viewModel(factory = ClientListViewModel.factory(repository))
     val clients by viewModel.clients.collectAsState()
     val groups by viewModel.groups.collectAsState()
 
-    val app = LocalContext.current.applicationContext as MeetingNotesApp
-    val draft by app.recordingDraftStore.draft.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var showAddGroupDialog by remember { mutableStateOf(false) }
     var clientToRename by remember { mutableStateOf<ClientEntity?>(null) }
@@ -85,11 +85,26 @@ fun ClientListScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "クライアント一覧",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.People, contentDescription = null)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "クライアント一覧",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
+                    }
                 },
                 actions = {
                     IconButton(onClick = { showAddGroupDialog = true }) {
@@ -98,9 +113,6 @@ fun ClientListScreen(
                             contentDescription = "グループを作成",
                             tint = CreateActionBlue
                         )
-                    }
-                    IconButton(onClick = onHelp) {
-                        Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "使い方・ヘルプ")
                     }
                 }
             )
@@ -121,16 +133,6 @@ fun ClientListScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            draft?.let { d ->
-                DraftRecoveryCard(
-                    endedAt = d.endedAt,
-                    updatedAt = d.updatedAt,
-                    onOpen = { onRecoverDraft(d.clientId) },
-                    onDiscard = { app.recordingDraftStore.clear() },
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-
             if (clients.isEmpty()) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text("右下の + からクライアントを追加してください。")
@@ -198,13 +200,11 @@ fun ClientListScreen(
     }
 
     if (showAddDialog) {
-        TextInputDialog(
-            title = "クライアントを追加",
-            label = "クライアント名",
-            confirmLabel = "追加",
+        AddClientDialog(
+            groups = groups,
             onDismiss = { showAddDialog = false },
-            onConfirm = { name ->
-                viewModel.addClient(name)
+            onConfirm = { name, groupId ->
+                viewModel.addClient(name, groupId)
                 showAddDialog = false
             }
         )
@@ -285,39 +285,6 @@ fun ClientListScreen(
                 groupToDelete = null
             }
         )
-    }
-}
-
-/** 前回の録音〜要約が途中で終わっている場合に一覧の先頭に出す復元カード。 */
-@Composable
-private fun DraftRecoveryCard(
-    endedAt: Long,
-    updatedAt: Long,
-    onOpen: () -> Unit,
-    onDiscard: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val whenText = java.time.Instant.ofEpochMilli(if (updatedAt > 0) updatedAt else endedAt)
-        .atZone(java.time.ZoneId.systemDefault())
-        .format(java.time.format.DateTimeFormatter.ofPattern("M/d HH:mm"))
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text("未完了の商談メモがあります", style = MaterialTheme.typography.titleSmall)
-            Text(
-                "$whenText の録音。文字起こしが保存されています。",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onDiscard) { Text("破棄") }
-                TextButton(onClick = onOpen) { Text("開いて続ける") }
-            }
-        }
     }
 }
 
@@ -485,6 +452,48 @@ private fun ClientRow(
     }
 }
 
+/** クライアントを追加するダイアログ。所属グループはセレクトボックスで選ぶ(既定は未分類)。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddClientDialog(
+    groups: List<ClientGroupEntity>,
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, groupId: Long?) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var groupId by remember { mutableStateOf<Long?>(null) }
+    val options = listOf<Pair<Long?, String>>(null to "未分類") + groups.map { it.id to it.name }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("クライアントを追加") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("クライアント名") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                LabeledDropdownField(
+                    label = "グループ",
+                    options = options,
+                    selected = groupId,
+                    onSelect = { groupId = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name, groupId) }) { Text("追加") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("キャンセル") }
+        }
+    )
+}
+
+/** クライアントの所属グループを変更するダイアログ。セレクトボックスで選び「変更」で確定する。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GroupPickerDialog(
@@ -493,41 +502,26 @@ private fun GroupPickerDialog(
     onDismiss: () -> Unit,
     onSelect: (Long?) -> Unit
 ) {
+    var pending by remember { mutableStateOf(currentGroupId) }
+    val options = listOf<Pair<Long?, String>>(null to "未分類") + groups.map { it.id to it.name }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("グループに移動") },
         text = {
-            Column {
-                GroupOptionRow(
-                    label = "未分類",
-                    selected = currentGroupId == null,
-                    onClick = { onSelect(null) }
-                )
-                groups.forEach { group ->
-                    GroupOptionRow(
-                        label = group.name,
-                        selected = currentGroupId == group.id,
-                        onClick = { onSelect(group.id) }
-                    )
-                }
-            }
+            LabeledDropdownField(
+                label = "グループ",
+                options = options,
+                selected = pending,
+                onSelect = { pending = it },
+                modifier = Modifier.fillMaxWidth()
+            )
         },
-        confirmButton = {},
+        confirmButton = {
+            TextButton(onClick = { onSelect(pending) }) { Text("変更") }
+        },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("キャンセル") }
         }
     )
-}
-
-@Composable
-private fun GroupOptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(selected = selected, onClick = onClick)
-        Text(label)
-    }
 }

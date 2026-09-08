@@ -9,11 +9,13 @@ import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.FolderEntity
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
+import com.meetingnotes.data.model.DealPhase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -29,6 +31,14 @@ class ClientDetailViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val todos: StateFlow<List<TodoEntity>> = repository.observeTodosByClient(clientId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** このクライアントの未完了 ToDo(期限のあるものを先に、近い順)。 */
+    val openTodos: StateFlow<List<TodoEntity>> = todos
+        .map { list ->
+            list.filter { !it.isDone }
+                .sortedWith(compareBy({ it.dueDate == null }, { it.dueDate ?: "" }))
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val folders: StateFlow<List<FolderEntity>> = repository.observeFolders(clientId)
@@ -63,6 +73,10 @@ class ClientDetailViewModel(
         viewModelScope.launch { repository.renameClient(clientId, name) }
     }
 
+    fun completeTodo(todoId: Long) {
+        viewModelScope.launch { repository.setTodoDone(todoId, true) }
+    }
+
     fun deleteClient(onDeleted: () -> Unit) {
         viewModelScope.launch {
             repository.deleteClient(clientId)
@@ -94,6 +108,10 @@ class ClientDetailViewModel(
 
     fun moveMeetingToFolder(meetingId: Long, folderId: Long?) {
         viewModelScope.launch { repository.moveMeetingToFolder(meetingId, folderId) }
+    }
+
+    fun setMeetingPhase(meetingId: Long, phase: DealPhase) {
+        viewModelScope.launch { repository.setMeetingPhaseOverride(meetingId, phase) }
     }
 
     fun deleteMeeting(meetingId: Long) {

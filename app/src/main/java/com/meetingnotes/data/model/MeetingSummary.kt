@@ -7,7 +7,9 @@ data class Decision(
 data class TodoItem(
     val task: String,
     val assignee: String,
-    val deadline: String
+    val deadline: String,
+    /** AI が解決した ISO 日付(yyyy-MM-dd)。無ければ null(アプリ側で再解決を試みる)。 */
+    val deadlineDate: String? = null
 )
 
 data class NextMeeting(
@@ -24,5 +26,8 @@ data class MeetingSummary(
     val todos: List<TodoItem>,
     val nextMeeting: NextMeeting,
     val concerns: List<Concern>,
-    val summary: String
+    val summary: String,
+    val dealPhase: DealPhase? = null,
+    /** 要約と同時に生成した、商談直後に相手へ送るフォローアップ文面の下書き(丁寧体)。 */
+    val followupDraft: String? = null
 )

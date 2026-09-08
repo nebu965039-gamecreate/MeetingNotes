@@ -1,6 +1,7 @@
 package com.meetingnotes.data.remote
 
 import com.meetingnotes.data.model.Concern
+import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.Decision
 import com.meetingnotes.data.model.MeetingSummary
 import com.meetingnotes.data.model.NextMeeting
@@ -13,6 +14,18 @@ import kotlinx.serialization.json.JsonElement
 data class SummarizeRequest(
     val transcript: String
 )
+
+/** F2 ブリーフィング(過去要約 → ここまでの流れ)。 */
+@Serializable
+data class BriefingRequest(val summaries: List<String>)
+
+/** F5 フォローアップ下書き(要約時に付かなかった商談向けの後追い生成、1回のみ)。 */
+@Serializable
+data class FollowupRequest(val summary: String)
+
+/** briefing / followup のレスポンス。 */
+@Serializable
+data class TextResponse(val text: String = "")
 
 @Serializable
 data class MessagesResponse(
@@ -32,7 +45,9 @@ data class SummaryDto(
     val todos: List<TodoDto> = emptyList(),
     val nextMeeting: NextMeetingDto? = null,
     val concerns: List<ConcernDto> = emptyList(),
-    val summary: String = ""
+    val summary: String = "",
+    val dealPhase: String? = null,
+    val followupDraft: String? = null
 )
 
 @Serializable
@@ -42,7 +57,8 @@ data class DecisionDto(val content: String)
 data class TodoDto(
     val task: String,
     val assignee: String = "未定",
-    val deadline: String = "未定"
+    val deadline: String = "未定",
+    val deadlineDate: String? = null
 )
 
 @Serializable
@@ -55,9 +71,18 @@ data class NextMeetingDto(
 data class ConcernDto(val content: String)
 
 fun SummaryDto.toDomain(): MeetingSummary = MeetingSummary(
-    decisions = decisions.map { Decision(it.content) },
-    todos = todos.map { TodoItem(it.task, it.assignee, it.deadline) },
+    decisions = decisions.map { Decision(it.content.stripLlmControlTokens()) },
+    todos = todos.map {
+        TodoItem(
+            it.task.stripLlmControlTokens(),
+            it.assignee.stripLlmControlTokens(),
+            it.deadline.stripLlmControlTokens(),
+            it.deadlineDate?.takeIf { d -> d.matches(Regex("""\d{4}-\d{2}-\d{2}""")) }
+        )
+    },
     nextMeeting = NextMeeting(nextMeeting?.date, nextMeeting?.originalText),
-    concerns = concerns.map { Concern(it.content) },
-    summary = summary
+    concerns = concerns.map { Concern(it.content.stripLlmControlTokens()) },
+    summary = summary.stripLlmControlTokens(),
+    dealPhase = DealPhase.fromWire(dealPhase),
+    followupDraft = followupDraft?.stripLlmControlTokens()?.takeIf { it.isNotEmpty() }
 )

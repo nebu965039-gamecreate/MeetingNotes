@@ -1,6 +1,7 @@
 package com.meetingnotes.data.local
 
 import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
  * Room スキーマの正式なマイグレーション。
@@ -23,4 +24,111 @@ import androidx.room.migration.Migration
  *   }
  *   val databaseMigrations: Array<Migration> = arrayOf(MIGRATION_5_6)
  */
-val databaseMigrations: Array<Migration> = emptyArray()
+/** v5 → v6: 商談フェーズ(F3)。`meetings` に AI 推定値とユーザー上書き値の2列を追加。 */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE meetings ADD COLUMN dealPhase TEXT")
+        db.execSQL("ALTER TABLE meetings ADD COLUMN phaseOverride TEXT")
+    }
+}
+
+/** v6 → v7: F2 用の `client_briefing` テーブルを追加。 */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `client_briefing` (" +
+                "`clientId` INTEGER NOT NULL, `flowText` TEXT NOT NULL, " +
+                "`generatedAt` INTEGER NOT NULL, `sourceMeetingCount` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`clientId`), " +
+                "FOREIGN KEY(`clientId`) REFERENCES `clients`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_client_briefing_clientId` " +
+                "ON `client_briefing` (`clientId`)"
+        )
+    }
+}
+
+/** v7 → v8: F7 リマインド通知の履歴テーブル。 */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `notification_log` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`meetingId` INTEGER NOT NULL, `clientId` INTEGER NOT NULL, " +
+                "`title` TEXT NOT NULL, `body` TEXT NOT NULL, " +
+                "`scheduledFor` TEXT NOT NULL, `firedAt` INTEGER NOT NULL )"
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_notification_log_meetingId_scheduledFor` " +
+                "ON `notification_log` (`meetingId`, `scheduledFor`)"
+        )
+    }
+}
+
+/** v8 → v9: F1 用に `meetings.followedUpAt`(メールフォロー済み時刻)を追加。 */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE meetings ADD COLUMN followedUpAt INTEGER")
+    }
+}
+
+/** v9 → v10: F5 用に `meetings.followupDraft`(要約時に生成したフォローアップ下書き)を追加。 */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE meetings ADD COLUMN followupDraft TEXT")
+    }
+}
+
+/** v10 → v11: リモート会議モード。`meetings.meetingType` と `user_credits` の月次オンライン回数を追加。 */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE meetings ADD COLUMN meetingType TEXT")
+        db.execSQL("ALTER TABLE user_credits ADD COLUMN onlineTranscriptionsUsed INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE user_credits ADD COLUMN onlineTranscriptionsBonus INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** v11 → v12: ToDo 期限の日付解決(`todos.dueDate`)と顧客の連絡先(`clients.email` / `clients.phone`)。 */
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE todos ADD COLUMN dueDate TEXT")
+        db.execSQL("ALTER TABLE clients ADD COLUMN email TEXT")
+        db.execSQL("ALTER TABLE clients ADD COLUMN phone TEXT")
+    }
+}
+
+/** v12 → v13: クライアントの担当者(先方窓口)テーブル。 */
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `client_contacts` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`clientId` INTEGER NOT NULL, `name` TEXT NOT NULL, `note` TEXT, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`clientId`) REFERENCES `clients`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_client_contacts_clientId` ON `client_contacts` (`clientId`)")
+    }
+}
+
+/** v13 → v14: 担当者ごとのメール・電話。 */
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE client_contacts ADD COLUMN email TEXT")
+        db.execSQL("ALTER TABLE client_contacts ADD COLUMN phone TEXT")
+    }
+}
+
+/** v14 → v15: 要約完了時に自動起票する「フォローアップメール」ToDo の識別フラグ。 */
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE todos ADD COLUMN isFollowupEmail INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+val databaseMigrations: Array<Migration> = arrayOf(
+    MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15
+)

@@ -40,6 +40,14 @@ npx wrangler deploy
 出力される URL(例 `https://meetingnotes-summary-proxy.<subdomain>.workers.dev`)の末尾に
 `/summarize` を付けたものが要約エンドポイント。
 
+エンドポイント一覧: `/summarize`(要約)、`/briefing`(前回のおさらい)、`/followup`(下書き後追い生成)、
+`/transcribe`(リモート会議モードの音声文字起こし = Cloudflare Workers AI Whisper)。
+
+**リモート会議モードについて**: `/transcribe` は `wrangler.toml` の `[ai] binding = "AI"` を使う。
+デプロイ前に Cloudflare ダッシュボードで **Workers AI が有効**になっていること。
+コスト目安は Whisper `$0.0005/音声分`(40分の商談で約 ¥3)。`src/index.ts` の `MAX_AUDIO_BYTES`(12MB)で
+アップロードサイズを制限している。
+
 ## アプリ側の設定
 
 プロジェクトルートの `local.properties` に追記:

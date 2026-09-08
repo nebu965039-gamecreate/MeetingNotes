@@ -4,6 +4,7 @@ import com.meetingnotes.BuildConfig
 import com.meetingnotes.data.model.MeetingSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import okhttp3.MediaType.Companion.toMediaType
@@ -29,10 +30,20 @@ class AnthropicClient(
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val jsonMediaType = "application/json".toMediaType()
 
+    /** proxyUrl は `.../summarize`。他エンドポイントはベースから組み立てる。 */
+    private val baseUrl: String = proxyUrl.removeSuffix("/summarize").removeSuffix("/")
+
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    /** 音声アップロード + Whisper 文字起こしは時間がかかるので長めのタイムアウト。 */
+    private val audioHttpClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(120, TimeUnit.SECONDS)
+        .readTimeout(180, TimeUnit.SECONDS)
         .build()
 
     suspend fun summarizeMeeting(transcript: String): MeetingSummary = withContext(Dispatchers.IO) {
@@ -96,6 +107,90 @@ class AnthropicClient(
 
         throw lastError ?: AnthropicApiException("要約APIの呼び出しに失敗しました。")
     }
+
+    /** F2: 過去の商談要約から「ここまでの流れ」を生成する。 */
+    suspend fun generateBriefing(summaries: List<String>): String =
+        postText("$baseUrl/briefing", BriefingRequest(summaries))
+
+    /** F5: 要約時に下書きが付かなかった商談向けに、要約テキストから下書きを1回生成する。 */
+    suspend fun generateFollowup(summary: String): String =
+        postText("$baseUrl/followup", FollowupRequest(summary))
+
+    /** リモート会議モード: 録音音声を Worker(Cloudflare Whisper)へ送って文字起こしする。 */
+    suspend fun transcribeAudio(audio: ByteArray, contentType: String): String =
+        withContext(Dispatchers.IO) {
+            if (proxyUrl.isBlank()) throw AnthropicApiException("要約サーバーのURLが未設定です。")
+            var lastError: Exception? = null
+            for (attempt in 0 until MAX_ATTEMPTS) {
+                try {
+                    val request = Request.Builder()
+                        .url("$baseUrl/transcribe")
+                        .addHeader("x-app-token", appToken)
+                        .post(audio.toRequestBody(contentType.toMediaType()))
+                        .build()
+                    audioHttpClient.newCall(request).execute().use { response ->
+                        val responseBody = response.body.string()
+                        if (response.isSuccessful) {
+                            val text = json.decodeFromString(TextResponse.serializer(), responseBody)
+                                .text.stripLlmControlTokens()
+                            if (text.isBlank()) throw AnthropicApiException("音声から文字を取り出せませんでした。")
+                            return@withContext text
+                        }
+                        if (response.code == 413) {
+                            throw AnthropicApiException(
+                                "録音が長すぎます。区切りのよいところで一度停止してからお試しください。", 413
+                            )
+                        }
+                        val retryable = response.code == 429 || response.code >= 500
+                        if (!retryable || attempt == MAX_ATTEMPTS - 1) {
+                            throw AnthropicApiException("文字起こしエラー(${response.code}): $responseBody", response.code)
+                        }
+                        lastError = AnthropicApiException("文字起こしエラー(${response.code})", response.code)
+                    }
+                } catch (e: IOException) {
+                    lastError = e
+                    if (attempt == MAX_ATTEMPTS - 1) throw e
+                }
+                kotlinx.coroutines.delay((INITIAL_BACKOFF_MS * 2.0.pow(attempt)).toLong())
+            }
+            throw lastError ?: AnthropicApiException("文字起こしの呼び出しに失敗しました。")
+        }
+
+    private suspend inline fun <reified T> postText(url: String, body: T): String =
+        withContext(Dispatchers.IO) {
+            if (proxyUrl.isBlank()) throw AnthropicApiException("要約サーバーのURLが未設定です。")
+            val bodyJson = json.encodeToString(serializer<T>(), body)
+            var lastError: Exception? = null
+            for (attempt in 0 until MAX_ATTEMPTS) {
+                try {
+                    val request = Request.Builder()
+                        .url(url)
+                        .addHeader("x-app-token", appToken)
+                        .addHeader("content-type", "application/json")
+                        .post(bodyJson.toRequestBody(jsonMediaType))
+                        .build()
+                    httpClient.newCall(request).execute().use { response ->
+                        val responseBody = response.body.string()
+                        if (response.isSuccessful) {
+                            val text = json.decodeFromString(TextResponse.serializer(), responseBody)
+                                .text.stripLlmControlTokens()
+                            if (text.isBlank()) throw AnthropicApiException("生成結果が空でした。")
+                            return@withContext text
+                        }
+                        val retryable = response.code == 429 || response.code >= 500
+                        if (!retryable || attempt == MAX_ATTEMPTS - 1) {
+                            throw AnthropicApiException("生成APIエラー(${response.code})", response.code)
+                        }
+                        lastError = AnthropicApiException("生成APIエラー(${response.code})", response.code)
+                    }
+                } catch (e: IOException) {
+                    lastError = e
+                    if (attempt == MAX_ATTEMPTS - 1) throw e
+                }
+                kotlinx.coroutines.delay((INITIAL_BACKOFF_MS * 2.0.pow(attempt)).toLong())
+            }
+            throw lastError ?: AnthropicApiException("生成APIの呼び出しに失敗しました。")
+        }
 
     private fun parseSummary(responseBody: String): MeetingSummary {
         val response = json.decodeFromString(MessagesResponse.serializer(), responseBody)

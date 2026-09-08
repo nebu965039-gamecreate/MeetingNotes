@@ -126,6 +126,53 @@ Send feedback to contact.manaapps@gmail.com — bug reports, rough edges, anythi
 
 ---
 
+## クローズドテスト 6回目 (versionName 0.1.9 / versionCode 10)
+
+「記録するアプリ」から「一人商談をやりきる支援アプリ」へ、機能を大きく追加した版です。
+
+### Play Console 貼り付け用(約480字)
+
+```
+テスターの皆さま、今回は大きめのアップデートです。
+
+【新しいホーム画面】
+・開くと「直近の予定」「やること(期限あり)」「ToDo」「進行中のフェーズ」を一覧できます
+
+【商談のフォロー支援】
+・商談フェーズ(初回接触〜提案〜成約/失注)をAIが自動判定。手動でも変更できます
+・2回目以降の録音前に「前回のおさらい」を表示
+・要約と同時に「お礼・フォローアップメールの下書き」を自動生成
+・要約のToDoに期限を設定し、期限が近いものを通知
+
+【予定・リマインド】
+・月カレンダーの予定表を追加。打ち合わせ・ToDo期限の当日/前日に通知
+
+【リモート会議モード】
+・Web会議などスピーカー越しの相手の声を高精度で文字起こし(無料は月1回、Pro相当で月40回)
+・このときのみ音声を文字起こし用に送信します(保存なし)。プライバシーポリシーを更新しました
+
+【その他】
+・クライアント情報にステータス・担当者(複数)・メール/電話・備考を追加
+・ダークテーマ対応、設定画面を追加
+
+不具合は contact.manaapps@gmail.com へ(操作手順・端末名を添えてください)。
+```
+
+### この版に含まれる主な変更(社内メモ)
+
+- ホーム画面新設(`ui/home/`): フォローボード(F1)/予定(F7)/フェーズ集計(F3)/やること(期限あり)を集約
+- 商談フェーズ(F3、DB v6)、前回のおさらい(F2、`/briefing`、DB v7)、フォローアップ下書き(F5、`/followup`、要約時生成 + 後追い1回)
+- 予定カレンダー + リマインド(F7、`notification_log` DB v8、WorkManager 12h)
+- F1「ToDo」= 未完了ToDoのあるクライアント。要約完了時に「お礼・フォローアップメール」ToDoを自動起票(DB v15)。ボードの完了とメールToDoのチェックを同期
+- リモート会議モード(`MeetingType`、`AudioFileRecorder` → Worker `/transcribe` → Cloudflare Workers AI Whisper、DB v10/v11、`user_credits` にオンライン回数)
+- Tier 1 CRM: ToDo期限の日付解決(`TodoDueDate`、Worker `deadlineDate`)、顧客メール/電話(DB v12)、担当者テーブル(DB v13/v14)、顧客横断ToDo
+- クライアント情報を閲覧(`ClientInfoScreen`)/編集(`ClientEditScreen`)に分離
+- ダークテーマ(`ThemeMode` LIGHT/DARK/SYSTEM)、設定画面(`ui/settings/`)、フェーズタグ配色(`PhaseTagColors`)
+- LLM制御タグ除去(`LlmTextSanitizer` + Worker `stripControlTags`)、診断ログ(`DiagnosticsLog`)、CI(GitHub Actions)
+- DB マイグレーション v5→v15(各1段、`MigrationTest` / `MigrationIntegrityTest`)
+
+---
+
 ## 次回以降のリリース用テンプレート
 
 ### 軽微な修正のみ

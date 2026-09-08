@@ -17,14 +17,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Drafts
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +42,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -52,8 +58,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import com.meetingnotes.ads.BannerAdFormat
 import com.meetingnotes.ads.BannerAdView
@@ -74,19 +84,30 @@ import com.meetingnotes.export.WatermarkPosition
 import com.meetingnotes.export.WordExporter
 import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.ui.common.ConfirmDialog
+import com.meetingnotes.ui.common.DealPhaseChip
+import com.meetingnotes.ui.common.DealPhasePickerDialog
 import com.meetingnotes.ui.common.ProGate
 import com.meetingnotes.ui.common.ProPaywallDialog
 import com.meetingnotes.ui.common.TextInputDialog
+import com.meetingnotes.ui.common.effectivePhase
 import com.meetingnotes.ui.theme.OnProGold
 import com.meetingnotes.ui.theme.ProGold
+import com.meetingnotes.ui.common.NextMeetingDateTimeDialog
 import com.meetingnotes.ui.common.meetingSummarySections
-import com.meetingnotes.ui.common.nextMeetingSection
+import com.meetingnotes.data.model.NextMeetingTime
+import com.meetingnotes.util.CalendarIntent
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private val meetingDateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
+
+/** 商談の管理番号。録音開始日時を並べた数字(例: 202609071200)。保存はせず recordedAt から都度生成する。 */
+private val meetingNoFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmm")
+
+private fun meetingNo(recordedAt: Long): String =
+    Instant.ofEpochMilli(recordedAt).atZone(ZoneId.systemDefault()).format(meetingNoFormatter)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,15 +118,21 @@ fun MeetingDetailScreen(
     onMeetingDeleted: () -> Unit
 ) {
     val context = LocalContext.current
+    val activity = androidx.activity.compose.LocalActivity.current as android.app.Activity
     val application = context.applicationContext as Application
     val viewModel: MeetingDetailViewModel = viewModel(
         factory = MeetingDetailViewModel.factory(application, repository, meetingId)
     )
     val meeting by viewModel.meeting.collectAsState()
     val todos by viewModel.todos.collectAsState()
+    val followupState by viewModel.followupState.collectAsState()
+    val clientName by viewModel.clientName.collectAsState()
+    var showFollowup by remember { mutableStateOf(false) }
+    var showNextMeetingPicker by remember { mutableStateOf(false) }
     var exportAction by remember { mutableStateOf<ExportAction?>(null) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showPhasePicker by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     var pendingSaveFile by remember { mutableStateOf<File?>(null) }
 
@@ -172,11 +199,35 @@ fun MeetingDetailScreen(
                     Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())
                         .format(DateTimeFormatter.ofPattern("HH:mm"))
                 }
-                Text(
-                    text = "録音: ${startedAt.format(meetingDateTimeFormatter)}" +
-                        (endedAtText?.let { " 〜 $it" } ?: ""),
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "No. ${meetingNo(current.recordedAt)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "録音: ${startedAt.format(meetingDateTimeFormatter)}" +
+                                (endedAtText?.let { " 〜 $it" } ?: ""),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        com.meetingnotes.data.model.MeetingType.fromWire(current.meetingType)?.let {
+                            Text(
+                                text = it.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    DealPhaseChip(
+                        phase = current.effectivePhase(),
+                        onClick = { showPhasePicker = true }
+                    )
+                }
             }
 
             meetingSummarySections(
@@ -194,7 +245,47 @@ fun MeetingDetailScreen(
                 }
             }
 
-            nextMeetingSection(current.nextMeetingDate ?: current.nextMeetingOriginalText ?: "(未定)")
+            item {
+                val parsed = NextMeetingTime.parse(current.nextMeetingDate)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("次回打ち合わせ", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        current.nextMeetingDate
+                            ?: current.nextMeetingOriginalText
+                            ?: "(未定)"
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { showNextMeetingPicker = true }) {
+                            Text(if (parsed != null) "日程を変更" else "日程を設定")
+                        }
+                        if (parsed != null) {
+                            TextButton(onClick = {
+                                CalendarIntent.add(
+                                    context = context,
+                                    title = "${clientName ?: ""}との打ち合わせ".trim().ifEmpty { current.title },
+                                    start = parsed.start,
+                                    allDay = parsed.allDay,
+                                    description = "商談メモ「${current.title}」の次回打ち合わせ"
+                                )
+                            }) { Text("カレンダーに追加") }
+                        }
+                    }
+                }
+            }
+
+            item {
+                OutlinedButton(
+                    onClick = {
+                        showFollowup = true
+                        viewModel.openFollowup()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Filled.Drafts, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("フォローアップの下書き")
+                }
+            }
 
             item {
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -242,12 +333,15 @@ fun MeetingDetailScreen(
             action = action,
             icsAvailable = IcsExporter.hasUsableDate(meeting?.nextMeetingDate),
             onDismiss = { exportAction = null },
-            onExport = { format, watermark ->
+            onExport = { format, watermark, password ->
                 exportAction = null
                 when (format) {
-                    ExportFormat.PDF -> viewModel.exportPdf(watermark) {
-                        deliver(it, PdfExporter.MIME_TYPE, "商談メモをPDFで共有")
-                    }
+                    ExportFormat.PDF -> viewModel.exportPdf(
+                        watermark = watermark,
+                        password = password,
+                        onReady = { deliver(it, PdfExporter.MIME_TYPE, "商談メモをPDFで共有") },
+                        onError = { message -> Toast.makeText(context, message, Toast.LENGTH_LONG).show() }
+                    )
                     ExportFormat.WORD -> viewModel.exportWord {
                         deliver(it, WordExporter.MIME_TYPE, "商談メモをWordで共有")
                     }
@@ -289,6 +383,30 @@ fun MeetingDetailScreen(
         )
     }
 
+    if (showNextMeetingPicker) {
+        val parsedNext = NextMeetingTime.parse(meeting?.nextMeetingDate)
+        NextMeetingDateTimeDialog(
+            initial = parsedNext?.start,
+            initialHasTime = parsedNext?.allDay == false,
+            onDismiss = { showNextMeetingPicker = false },
+            onConfirm = { dateTime, hasTime ->
+                viewModel.setNextMeetingDate(NextMeetingTime.toIso(dateTime, includeTime = hasTime))
+                showNextMeetingPicker = false
+            }
+        )
+    }
+
+    if (showPhasePicker) {
+        DealPhasePickerDialog(
+            current = meeting?.effectivePhase(),
+            onDismiss = { showPhasePicker = false },
+            onSelect = { phase ->
+                viewModel.setPhase(phase)
+                showPhasePicker = false
+            }
+        )
+    }
+
     if (showDeleteDialog) {
         ConfirmDialog(
             title = "商談を削除",
@@ -300,6 +418,105 @@ fun MeetingDetailScreen(
             }
         )
     }
+
+    if (showFollowup) {
+        val needsAd = viewModel.followupNeedsAd()
+        val adLoaded by viewModel.isRewardedAdLoaded.collectAsState()
+        FollowupDialog(
+            state = followupState,
+            generateNeedsAd = needsAd,
+            adLoaded = adLoaded,
+            onGenerate = {
+                if (needsAd) viewModel.watchAdThenGenerateFollowup(activity)
+                else viewModel.generateFollowup()
+            },
+            onShare = { text ->
+                ShareFileHelper.sharePlainText(context, text, "フォローアップを共有")
+            },
+            onDismiss = {
+                showFollowup = false
+                viewModel.clearFollowup()
+            }
+        )
+    }
+}
+
+@Composable
+private fun FollowupDialog(
+    state: FollowupState,
+    generateNeedsAd: Boolean,
+    adLoaded: Boolean,
+    onGenerate: () -> Unit,
+    onShare: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    fun copy(text: String) {
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText("フォローアップ", text))
+        Toast.makeText(context, "コピーしました", Toast.LENGTH_SHORT).show()
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("フォローアップの下書き") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                when (state) {
+                    FollowupState.Idle -> Unit
+                    FollowupState.Loading -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Text("下書きを作成しています…", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    FollowupState.Empty -> {
+                        Text(
+                            "この商談には下書きがありません" +
+                                "(以前に録音した商談、またはサーバー更新前の商談)。" +
+                                "1回だけ作成できます。作成後は再作成できません。",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Button(
+                            onClick = onGenerate,
+                            enabled = !generateNeedsAd || adLoaded,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                when {
+                                    !generateNeedsAd -> "下書きを作成する"
+                                    adLoaded -> "広告を見て下書きを作成"
+                                    else -> "広告を準備中..."
+                                }
+                            )
+                        }
+                    }
+                    is FollowupState.Error -> {
+                        Text(state.message, color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = onGenerate) { Text("再試行") }
+                    }
+                    is FollowupState.Ready -> {
+                        Text(
+                            "商談内容から自動生成した下書きです。必要に応じて編集してお使いください。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        SelectionContainer {
+                            Text(state.text, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { copy(state.text) }) { Text("コピー") }
+                            TextButton(onClick = { onShare(state.text) }) { Text("共有") }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("閉じる") } }
+    )
 }
 
 private enum class ExportAction { SHARE, SAVE }
@@ -335,7 +552,7 @@ private fun ExportOptionsDialog(
     action: ExportAction,
     icsAvailable: Boolean,
     onDismiss: () -> Unit,
-    onExport: (ExportFormat, Watermark?) -> Unit
+    onExport: (ExportFormat, Watermark?, String?) -> Unit
 ) {
     val groups = if (icsAvailable) formatGroups else formatGroups.filter { it.items.none { i -> i.first == ExportFormat.ICS } }
     var format by remember { mutableStateOf(ExportFormat.PDF) }
@@ -344,6 +561,8 @@ private fun ExportOptionsDialog(
     var watermarkText by remember { mutableStateOf("SAMPLE") }
     var position by remember { mutableStateOf(WatermarkPosition.CENTER) }
     var positionMenuExpanded by remember { mutableStateOf(false) }
+    var passwordEnabled by remember { mutableStateOf(false) }
+    var password by remember { mutableStateOf("") }
 
     // Pro 未加入で透かしを外せない場合は常に透かしあり。それ以外はトグルに従う。
     val watermarkForced = format == ExportFormat.PDF && ProAccess.shouldLock
@@ -361,6 +580,11 @@ private fun ExportOptionsDialog(
         if (watermarkActive)
             Watermark(text = watermarkText.ifBlank { "SAMPLE" }, position = position)
         else null
+
+    // パスワード保護は Pro 限定。未加入では設定できない(常に null)。
+    val passwordActive = format == ExportFormat.PDF && passwordEnabled && !ProAccess.shouldLock
+    fun currentPassword(): String? = if (passwordActive && password.isNotBlank()) password else null
+    val canExport = !passwordActive || password.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -513,10 +737,58 @@ private fun ExportOptionsDialog(
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
+
+                if (format == ExportFormat.PDF) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    ProGate(
+                        locked = ProAccess.shouldLock,
+                        onLockedTap = { paywallFeature = "PDFのパスワード保護" },
+                        modifier = if (ProAccess.shouldLock) {
+                            Modifier.fillMaxWidth().padding(top = 12.dp)
+                        } else {
+                            Modifier.fillMaxWidth()
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("パスワードを設定する")
+                            Switch(
+                                checked = passwordEnabled && !ProAccess.shouldLock,
+                                enabled = !ProAccess.shouldLock,
+                                onCheckedChange = { passwordEnabled = it }
+                            )
+                        }
+                    }
+
+                    if (passwordActive) {
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("パスワード") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            supportingText = if (password.isBlank()) {
+                                { Text("パスワードを入力してください") }
+                            } else null,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            "このパスワードを知っている人だけがPDFを開けます。アプリ側には保存されないため、共有先に別途伝えてください。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onExport(format, currentWatermark()) }) {
+            TextButton(
+                onClick = { onExport(format, currentWatermark(), currentPassword()) },
+                enabled = canExport
+            ) {
                 Text(if (action == ExportAction.SHARE) "共有する" else "保存する")
             }
         },
@@ -574,9 +846,20 @@ private fun WatermarkPositionPreview(position: WatermarkPosition, modifier: Modi
 private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(checked = todo.isDone, onCheckedChange = { onToggle() })
-        Text(
-            text = "${todo.task}(担当: ${todo.assignee} / 期限: ${todo.deadline})",
-            textDecoration = if (todo.isDone) TextDecoration.LineThrough else TextDecoration.None
-        )
+        Column {
+            Text(
+                text = todo.task,
+                textDecoration = if (todo.isDone) TextDecoration.LineThrough else TextDecoration.None
+            )
+            val dueText = todo.dueDate
+                ?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+                ?.let { "${it.monthValue}/${it.dayOfMonth}" }
+            Text(
+                text = "担当: ${todo.assignee} / 期限: ${todo.deadline}" +
+                    (dueText?.let { "（$it）" } ?: ""),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

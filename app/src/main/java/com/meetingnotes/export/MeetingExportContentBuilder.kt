@@ -22,6 +22,9 @@ object MeetingExportContentBuilder {
                 "日時: ${recordedAt.format(dateFormatter)}" + (endedAtText?.let { " 〜 $it" } ?: "")
             )
         )
+        com.meetingnotes.data.model.MeetingType.fromWire(meeting.meetingType)?.let {
+            add(ExportBlock.Paragraph("形式: ${it.label}"))
+        }
 
         add(ExportBlock.Heading("サマリー"))
         add(ExportBlock.Paragraph(meeting.summary))

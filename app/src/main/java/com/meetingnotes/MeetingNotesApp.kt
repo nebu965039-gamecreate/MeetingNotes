@@ -1,6 +1,8 @@
 package com.meetingnotes
 
 import android.app.Application
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.room.Room
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
@@ -9,6 +11,13 @@ import com.meetingnotes.data.RecordingDraftStore
 import com.meetingnotes.data.local.MeetingNotesDatabase
 import com.meetingnotes.data.local.databaseMigrations
 import com.meetingnotes.data.remote.IntegrityTokenProvider
+import com.meetingnotes.notifications.NotificationHelper
+import com.meetingnotes.notifications.NotificationSeenState
+import com.meetingnotes.notifications.ReminderScheduler
+import com.meetingnotes.speech.restoreLeftoverMediaVolume
+import com.meetingnotes.util.DiagnosticsLog
+import com.meetingnotes.ui.theme.ThemeMode
+import com.meetingnotes.ui.theme.ThemePrefs
 
 class MeetingNotesApp : Application() {
 
@@ -30,6 +39,16 @@ class MeetingNotesApp : Application() {
         RecordingDraftStore(this)
     }
 
+    private val themePrefs: ThemePrefs by lazy { ThemePrefs(this) }
+
+    /** アプリ全体のテーマ(ライト/ダーク/端末設定)。Compose の状態として持ちどの画面からでも即時反映する。 */
+    val themeModeState: MutableState<ThemeMode> by lazy { mutableStateOf(themePrefs.mode) }
+
+    fun setThemeMode(mode: ThemeMode) {
+        themePrefs.mode = mode
+        themeModeState.value = mode
+    }
+
     val repository: MeetingRepository by lazy {
         MeetingRepository(
             database.clientDao(),
@@ -37,12 +56,20 @@ class MeetingNotesApp : Application() {
             database.todoDao(),
             database.userCreditsDao(),
             database.folderDao(),
-            database.clientGroupDao()
+            database.clientGroupDao(),
+            database.clientBriefingDao(),
+            database.notificationLogDao(),
+            database.clientContactDao()
         )
     }
 
     override fun onCreate() {
         super.onCreate()
+
+        DiagnosticsLog.init(this)
+
+        // 前回の録音中にプロセスが落ちてメディア音量が 0 のままなら戻す。
+        restoreLeftoverMediaVolume(this)
 
         // 実機テスターにテスト広告を配信する端末を登録(エミュレータは登録不要)。
         // release ビルドでも本番広告に実トラフィックを出さずに動作確認できる。
@@ -57,5 +84,10 @@ class MeetingNotesApp : Application() {
         }
 
         MobileAds.initialize(this) {}
+
+        // F7: 次回打ち合わせのリマインドチェック(周期ジョブ)。
+        NotificationHelper.ensureChannel(this)
+        ReminderScheduler.schedule(this)
+        NotificationSeenState.init(this)
     }
 }

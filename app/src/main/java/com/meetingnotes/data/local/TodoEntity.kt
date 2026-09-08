@@ -22,6 +22,15 @@ data class TodoEntity(
     val meetingId: Long,
     val task: String,
     val assignee: String,
+    /** AI が抽出した期限の原文(例: "金曜日まで")。表示用。 */
     val deadline: String,
-    val isDone: Boolean = false
+    /** [deadline] を解決した ISO 日付(yyyy-MM-dd)。解決できなければ null。ホーム・通知・カレンダーで使う。 */
+    val dueDate: String? = null,
+    val isDone: Boolean = false,
+    /**
+     * 要約完了時にアプリが自動起票する「お礼・フォローアップのメールを送る」ToDo なら true。
+     * このフラグの ToDo を完了/未完了にすると、対応する商談の `meetings.followedUpAt` が同期され、
+     * ホーム/一覧の「ToDo」ボード(F1)から出し入れされる。
+     */
+    val isFollowupEmail: Boolean = false
 )

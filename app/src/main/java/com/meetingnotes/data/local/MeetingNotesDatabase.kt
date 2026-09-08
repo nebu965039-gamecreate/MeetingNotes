@@ -11,9 +11,12 @@ import androidx.room.TypeConverters
         TodoEntity::class,
         UserCreditsEntity::class,
         FolderEntity::class,
-        ClientGroupEntity::class
+        ClientGroupEntity::class,
+        ClientBriefingEntity::class,
+        NotificationLogEntity::class,
+        ClientContactEntity::class
     ],
-    version = 5,
+    version = 15,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -24,4 +27,7 @@ abstract class MeetingNotesDatabase : RoomDatabase() {
     abstract fun userCreditsDao(): UserCreditsDao
     abstract fun folderDao(): FolderDao
     abstract fun clientGroupDao(): ClientGroupDao
+    abstract fun clientBriefingDao(): ClientBriefingDao
+    abstract fun notificationLogDao(): NotificationLogDao
+    abstract fun clientContactDao(): ClientContactDao
 }

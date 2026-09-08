@@ -35,5 +35,18 @@ data class MeetingEntity(
     val decisions: List<String>,
     val concerns: List<String>,
     val nextMeetingDate: String?,
-    val nextMeetingOriginalText: String?
+    val nextMeetingOriginalText: String?,
+    /** AI が推定した商談フェーズ(`DealPhase.wireValue`)。 */
+    val dealPhase: String? = null,
+    /** ユーザーが上書きしたフェーズ。表示は phaseOverride ?: dealPhase。 */
+    val phaseOverride: String? = null,
+    /**
+     * この商談についてメールでのフォローアップを済ませた時刻(epoch millis)。
+     * null のあいだは「要フォロー」に「メールでフォロー」として出続ける(F1)。
+     */
+    val followedUpAt: Long? = null,
+    /** 要約時に一緒に生成したフォローアップ文面の下書き(F5)。旧データは null。 */
+    val followupDraft: String? = null,
+    /** 実施形態(`MeetingType.wireValue`: "in_person" / "remote")。旧データは null。 */
+    val meetingType: String? = null
 )
