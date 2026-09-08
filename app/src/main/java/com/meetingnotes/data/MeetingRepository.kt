@@ -109,13 +109,21 @@ class MeetingRepository(
     suspend fun setNextMeeting(meetingId: Long, dateIso: String?, originalText: String? = null) =
         meetingDao.updateNextMeeting(meetingId, dateIso, originalText)
 
-    /** この商談の ToDo(メール連絡など)を「完了」にする(ホーム/ToDo一覧から除外)。 */
-    suspend fun markMeetingFollowedUp(meetingId: Long) =
+    /**
+     * この商談のフォロー(お礼・確認メール)を「完了」にする(ホーム/ToDo一覧のボードから除外)。
+     * 自動起票された「フォローアップメール」ToDo があればそれもチェック済みにして、
+     * クライアントの ToDo リストと状態を揃える。
+     */
+    suspend fun markMeetingFollowedUp(meetingId: Long) {
+        todoDao.followupEmailTodoId(meetingId)?.let { todoDao.setDone(it, true) }
         meetingDao.updateFollowedUpAt(meetingId, System.currentTimeMillis())
+    }
 
-    /** 完了を取り消して ToDo に戻す。 */
-    suspend fun clearMeetingFollowedUp(meetingId: Long) =
+    /** 完了を取り消して ToDo に戻す(フォローアップメール ToDo も未完了へ)。 */
+    suspend fun clearMeetingFollowedUp(meetingId: Long) {
+        todoDao.followupEmailTodoId(meetingId)?.let { todoDao.setDone(it, false) }
         meetingDao.updateFollowedUpAt(meetingId, null)
+    }
 
     /** 要約時に付かなかった商談の、後追い生成したフォローアップ下書きを保存する(1回のみ想定)。 */
     suspend fun setMeetingFollowupDraft(meetingId: Long, draft: String) =
@@ -165,7 +173,14 @@ class MeetingRepository(
     suspend fun getMeetingsChrono(clientId: Long): List<MeetingEntity> =
         meetingDao.getByClientChrono(clientId)
 
-    suspend fun setTodoDone(todoId: Long, isDone: Boolean) = todoDao.setDone(todoId, isDone)
+    suspend fun setTodoDone(todoId: Long, isDone: Boolean) {
+        todoDao.setDone(todoId, isDone)
+        // 「フォローアップメール」ToDo のチェックは F1 ボードの完了状態(followedUpAt)と同期する。
+        val todo = todoDao.getById(todoId)
+        if (todo?.isFollowupEmail == true) {
+            meetingDao.updateFollowedUpAt(todo.meetingId, if (isDone) System.currentTimeMillis() else null)
+        }
+    }
 
     fun observeFolders(clientId: Long): Flow<List<FolderEntity>> = folderDao.observeByClient(clientId)
 
@@ -202,21 +217,43 @@ class MeetingRepository(
                 meetingType = meetingType?.wireValue
             )
         )
-        if (summary.todos.isNotEmpty()) {
-            todoDao.insertAll(
-                summary.todos.map {
-                    TodoEntity(
-                        meetingId = meetingId,
-                        task = it.task,
-                        assignee = it.assignee,
-                        deadline = it.deadline,
-                        dueDate = it.deadlineDate
-                            ?: com.meetingnotes.data.model.TodoDueDate.parse(it.deadline)
-                    )
-                }
+        val todos = summary.todos.map {
+            TodoEntity(
+                meetingId = meetingId,
+                task = it.task,
+                assignee = it.assignee,
+                deadline = it.deadline,
+                dueDate = it.deadlineDate
+                    ?: com.meetingnotes.data.model.TodoDueDate.parse(it.deadline)
             )
-        }
+        } + followupEmailTodo(meetingId, recordedAt)
+        todoDao.insertAll(todos)
         return meetingId
+    }
+
+    /**
+     * 要約完了時に必ず1件だけ自動起票する「お礼・フォローアップのメールを送る」ToDo。
+     * 期限は録音日の翌日。完了/未完了は `meetings.followedUpAt` と同期される([setTodoDone])。
+     */
+    private fun followupEmailTodo(meetingId: Long, recordedAt: Long): TodoEntity {
+        val due = java.time.Instant.ofEpochMilli(recordedAt)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalDate()
+            .plusDays(1)
+        return TodoEntity(
+            meetingId = meetingId,
+            task = FOLLOWUP_EMAIL_TASK,
+            assignee = FOLLOWUP_EMAIL_ASSIGNEE,
+            deadline = "翌日",
+            dueDate = due.toString(),
+            isFollowupEmail = true
+        )
+    }
+
+    companion object {
+        /** 自動起票するフォローアップメール ToDo のタスク文言。 */
+        const val FOLLOWUP_EMAIL_TASK = "お礼・フォローアップのメールを送る"
+        const val FOLLOWUP_EMAIL_ASSIGNEE = "自分"
     }
 
     fun observeCredits(deviceIdHash: String): Flow<UserCreditsEntity?> =

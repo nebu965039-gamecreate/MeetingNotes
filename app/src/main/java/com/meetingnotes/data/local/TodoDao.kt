@@ -22,6 +22,13 @@ interface TodoDao {
     @Query("UPDATE todos SET isDone = :isDone WHERE id = :todoId")
     suspend fun setDone(todoId: Long, isDone: Boolean)
 
+    @Query("SELECT * FROM todos WHERE id = :todoId")
+    suspend fun getById(todoId: Long): TodoEntity?
+
+    /** この商談の「フォローアップメール」ToDo の id(完了・未完了は問わない。なければ null)。F1 ボードの完了/取消の導線用。 */
+    @Query("SELECT id FROM todos WHERE meetingId = :meetingId AND isFollowupEmail = 1 ORDER BY id ASC LIMIT 1")
+    suspend fun followupEmailTodoId(meetingId: Long): Long?
+
     /** 期限が解決できている未完了 ToDo(ホーム「期限のあるToDo」・カレンダー・リマインド用)。 */
     @Query(
         """

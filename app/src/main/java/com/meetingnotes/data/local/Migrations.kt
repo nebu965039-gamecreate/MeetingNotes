@@ -121,7 +121,14 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
     }
 }
 
+/** v14 → v15: 要約完了時に自動起票する「フォローアップメール」ToDo の識別フラグ。 */
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE todos ADD COLUMN isFollowupEmail INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 val databaseMigrations: Array<Migration> = arrayOf(
     MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14
+    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15
 )

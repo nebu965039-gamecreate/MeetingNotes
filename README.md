@@ -20,7 +20,7 @@
 - **アクションタイル**: 録音を始める / クライアント一覧 / 予定表 / 通知
 - **直近の予定**: 次回打ち合わせが近い商談のプレビュー
 - **やること（期限あり）**: 期限切れ・今日・3日以内の未完了ToDo（AI が抽出した期限を日付に解決）。チェックで完了、期限当日は通知
-- **ToDo**: 対応が必要な商談（要約完了後まだメール連絡していない、または14日以上動いていない案件）。各行「完了」ボタン
+- **ToDo**: 対応が必要な商談（最新商談のフォロー連絡がまだ・成約/失注でない・直近30日以内）。要約完了時に「お礼・フォローアップのメールを送る」ToDo を自動起票し、クライアントのToDoリストにも要約由来のToDoと並べて表示。ボードの「完了」とこのメールToDoのチェックは連動
 - **進行中のフェーズ**: ヒアリング／提案／見積提示／検討中の件数トラッカー
 
 ### 1人CRM
@@ -53,7 +53,7 @@
 | 言語 | Kotlin 2.4.0 |
 | UI | Jetpack Compose（Material3、Compose BOM 2026.08.00）。配色は M3 baseline purple。ダークテーマ対応 |
 | 画面遷移 | Navigation Compose 2.9.8 |
-| DB | Room 2.8.4（KSPでコード生成）。現在 version 10 |
+| DB | Room 2.8.4（KSPでコード生成）。現在 version 15 |
 | バックグラウンド | WorkManager（リマインド通知の周期実行） |
 | 通信 | OkHttp 5.5.0 + kotlinx.serialization.json 1.11.0（Retrofit不使用、手組みHTTP） |
 | 要約AI | Anthropic Claude（Messages API、tool_use、モデル `claude-haiku-4-5-20251001`）。APIキーはアプリに持たず自前の中継 Cloudflare Worker（`server/`）経由 |

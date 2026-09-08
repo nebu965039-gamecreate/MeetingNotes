@@ -215,6 +215,39 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate14To15_addsFollowupEmailFlag_defaultsToZero() {
+        helper.createDatabase(dbName, 14).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL(
+                """
+                INSERT INTO meetings
+                  (clientId, folderId, title, recordedAt, endedAt, transcript, summary,
+                   decisions, concerns, nextMeetingDate, nextMeetingOriginalText, dealPhase,
+                   phaseOverride, followedUpAt, followupDraft, meetingType)
+                VALUES (1, NULL, 'M', 1, NULL, 't', 's', '[]', '[]', NULL, NULL, NULL, NULL, NULL, NULL, NULL)
+                """.trimIndent()
+            )
+            execSQL("INSERT INTO todos (meetingId, task, assignee, deadline, isDone) VALUES (1, 'T', '自分', '金曜', 0)")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 15, true, MIGRATION_14_15)
+
+        db.query("SELECT isFollowupEmail FROM todos WHERE meetingId = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getInt(0) == 0)
+        }
+        db.execSQL(
+            "INSERT INTO todos (meetingId, task, assignee, deadline, dueDate, isDone, isFollowupEmail) " +
+                "VALUES (1, 'メール', '自分', '翌日', '2026-09-10', 0, 1)"
+        )
+        db.query("SELECT isFollowupEmail FROM todos WHERE task = 'メール'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getInt(0) == 1)
+        }
+    }
+
+    @Test
     fun migrate10To11_addsMeetingTypeAndOnlineCounters() {
         helper.createDatabase(dbName, 10).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
