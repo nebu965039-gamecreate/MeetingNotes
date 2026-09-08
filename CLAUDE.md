@@ -83,7 +83,7 @@ adb shell am start -n com.manaapps.meetingnotes/com.meetingnotes.MainActivity
 
 MVP相当の機能は一通り実装済み。Google Play Console でのクローズドテストを回している段階。すべての変更はコミット・push 済み(`origin/main`、`github.com/nebu965039-gamecreate/MeetingNotes`、**Public**)。
 
-現在 `versionCode = 9` / `versionName = "0.1.8"`(= クローズドテスト5回目。前回配信 vc4/0.1.3 以降の変更をまとめて配信)。Play Console 提出の詳細な進捗・手順は `docs/` を参照(`play-console-checklist.md`、`play-data-safety.md`、`play-store-listing.md`、`release-notes.md` の「5回目」)。
+現在 `versionCode = 10` / `versionName = "0.1.9"`(= クローズドテスト6回目。`feature/solo-crm` の 1人CRM 拡張・リモート会議モード・Tier 1 CRM をまとめて配信)。Play Console 提出の詳細な進捗・手順は `docs/` を参照(`play-console-checklist.md`、`play-data-safety.md`、`play-store-listing.md`、`release-notes.md` の「6回目」)。
 
 ### 対応済み(Play Console クローズドテスト準備)
 
