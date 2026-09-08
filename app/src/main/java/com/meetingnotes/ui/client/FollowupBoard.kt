@@ -160,7 +160,7 @@ fun FollowupBoard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(16.dp))
                         .padding(16.dp)
                 ) {
                     Text(
@@ -174,7 +174,7 @@ fun FollowupBoard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(16.dp))
                     .heightIn(max = 152.dp)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 14.dp)
@@ -211,7 +211,7 @@ fun FollowupBoard(
                         }
                     }
                     if (index != visible.lastIndex) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.08f))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
             }

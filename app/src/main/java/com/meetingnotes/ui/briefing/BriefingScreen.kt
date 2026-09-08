@@ -146,7 +146,7 @@ private fun FlowCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
@@ -157,14 +157,14 @@ private fun FlowCard(
                 Text(
                     "ここまでの流れ",
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (!loading) {
                     IconButton(onClick = onRegenerate, modifier = Modifier.size(28.dp)) {
                         Icon(
                             Icons.Filled.Refresh,
                             contentDescription = "作り直す",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -183,7 +183,7 @@ private fun FlowCard(
                 flowText != null -> Text(
                     flowText,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 else -> Text(
                     "まだ作成されていません。",

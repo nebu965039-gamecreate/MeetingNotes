@@ -122,7 +122,7 @@ fun UpcomingBoard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(16.dp))
                         .padding(16.dp)
                 ) {
                     Text(
@@ -135,14 +135,14 @@ fun UpcomingBoard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(16.dp))
                         .padding(horizontal = 14.dp)
                 ) {
                     val preview = items.take(PREVIEW_COUNT)
                     preview.forEachIndexed { index, item ->
                         UpcomingRow(item = item, onClick = { onOpenClient(item.client.id) })
                         if (index != preview.lastIndex) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.08f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
                     }
                 }

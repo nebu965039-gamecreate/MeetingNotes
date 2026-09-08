@@ -171,7 +171,7 @@ private fun DraftRecoveryCard(
         .format(java.time.format.DateTimeFormatter.ofPattern("M/d HH:mm"))
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
