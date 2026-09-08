@@ -158,10 +158,10 @@ private fun UpcomingRow(item: UpcomingItem, onClick: () -> Unit) {
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 9.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 relativeDateTimeLabel(item.start, item.allDay),
                 style = MaterialTheme.typography.bodySmall,
