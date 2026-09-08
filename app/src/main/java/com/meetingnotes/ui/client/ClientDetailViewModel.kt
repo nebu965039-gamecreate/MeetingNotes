@@ -39,18 +39,28 @@ class ClientDetailViewModel(
     private val todos: StateFlow<List<TodoEntity>> = repository.observeTodosByClient(clientId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** このクライアントの未完了 ToDo(期限のあるものを先に、近い順)。 */
-    val openTodos: StateFlow<List<TodoEntity>> = todos
-        .map { list ->
-            list.filter { !it.isDone }
-                .sortedWith(compareBy({ it.dueDate == null }, { it.dueDate ?: "" }))
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    /** アーカイブ/ToDo 共通のプロジェクト絞り込み。null=すべて / [NO_PROJECT]=未設定 / それ以外=ID。 */
+    private val _projectFilter = MutableStateFlow<Long?>(null)
+    val projectFilter: StateFlow<Long?> = _projectFilter.asStateFlow()
 
-    /** このクライアントの完了済み ToDo(新しく起票された順の逆 = id 降順)。 */
-    val doneTodos: StateFlow<List<TodoEntity>> = todos
-        .map { list -> list.filter { it.isDone }.sortedByDescending { it.id } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    /** 商談ID → その商談のプロジェクトID(ToDo をプロジェクトで絞り込むための引き当て)。 */
+    private val meetingProjectById: StateFlow<Map<Long, Long?>> = meetings
+        .map { list -> list.associate { it.id to it.projectId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** このクライアントの未完了 ToDo(期限のあるものを先に、近い順)。プロジェクト絞り込み適用後。 */
+    val openTodos: StateFlow<List<TodoEntity>> =
+        combine(todos, _projectFilter, meetingProjectById) { list, filter, projById ->
+            list.filter { !it.isDone && matchesProject(projById[it.meetingId], filter) }
+                .sortedWith(compareBy({ it.dueDate == null }, { it.dueDate ?: "" }))
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** このクライアントの完了済み ToDo(id 降順)。プロジェクト絞り込み適用後。 */
+    val doneTodos: StateFlow<List<TodoEntity>> =
+        combine(todos, _projectFilter, meetingProjectById) { list, filter, projById ->
+            list.filter { it.isDone && matchesProject(projById[it.meetingId], filter) }
+                .sortedByDescending { it.id }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val folders: StateFlow<List<FolderEntity>> = repository.observeFolders(clientId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -59,21 +69,21 @@ class ClientDetailViewModel(
     val projects: StateFlow<List<ClientProjectEntity>> = repository.observeClientProjects(clientId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** アーカイブのプロジェクト絞り込み。null=すべて / [NO_PROJECT]=プロジェクト未設定 / それ以外=プロジェクトID。 */
-    private val _projectFilter = MutableStateFlow<Long?>(null)
-    val projectFilter: StateFlow<Long?> = _projectFilter.asStateFlow()
-
     private val _sortOrder = MutableStateFlow(MeetingSortOrder.NEWEST)
     val sortOrder: StateFlow<MeetingSortOrder> = _sortOrder.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    private fun applyProjectFilter(list: List<MeetingEntity>, filter: Long?): List<MeetingEntity> = when (filter) {
-        null -> list
-        NO_PROJECT -> list.filter { it.projectId == null }
-        else -> list.filter { it.projectId == filter }
+    /** 単一のプロジェクトIDが現在の絞り込み条件に合致するか。 */
+    private fun matchesProject(projectId: Long?, filter: Long?): Boolean = when (filter) {
+        null -> true
+        NO_PROJECT -> projectId == null
+        else -> projectId == filter
     }
+
+    private fun applyProjectFilter(list: List<MeetingEntity>, filter: Long?): List<MeetingEntity> =
+        if (filter == null) list else list.filter { matchesProject(it.projectId, filter) }
 
     /** 並び替え済みの商談一覧(フォルダ表示・非検索時に使う)。プロジェクト絞り込み適用後。 */
     val sortedMeetings: StateFlow<List<MeetingEntity>> =

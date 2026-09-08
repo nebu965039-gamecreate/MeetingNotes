@@ -21,10 +21,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -77,7 +79,6 @@ import com.meetingnotes.data.local.ClientProjectEntity
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.DealPhaseChip
 import com.meetingnotes.ui.common.DealPhasePickerDialog
-import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.TextInputDialog
 import com.meetingnotes.ui.common.effectivePhase
 import com.meetingnotes.ui.theme.CreateActionBlue
@@ -241,7 +242,16 @@ fun ClientDetailScreen(
             }
         }
     ) { padding ->
-      Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+      Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+       if (projects.isNotEmpty() && selectedTab != 2) {
+           ProjectFilterBar(
+               projects = projects,
+               selected = projectFilter,
+               onSelect = { viewModel.setProjectFilter(it) },
+               modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+           )
+       }
+       Box(modifier = Modifier.fillMaxSize()) {
        when (selectedTab) {
         1 -> TodoTab(
             openTodos = openTodos,
@@ -257,21 +267,6 @@ fun ClientDetailScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (projects.isNotEmpty()) {
-                item {
-                    val projectOptions = buildList<Pair<Long?, String>> {
-                        add(null to "すべての商談")
-                        add(ClientDetailViewModel.NO_PROJECT to "プロジェクトなし")
-                        projects.forEach { add(it.id to it.name) }
-                    }
-                    LabeledDropdownField(
-                        label = "プロジェクト",
-                        options = projectOptions,
-                        selected = projectFilter,
-                        onSelect = { viewModel.setProjectFilter(it) }
-                    )
-                }
-            }
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -440,6 +435,7 @@ fun ClientDetailScreen(
         }
        }
       }
+     }
     }
 
     LaunchedEffect(searchActive) {
@@ -835,6 +831,49 @@ private fun FolderOptionRow(label: String, selected: Boolean, onClick: () -> Uni
     ) {
         RadioButton(selected = selected, onClick = onClick)
         Text(label)
+    }
+}
+
+/** アーカイブ/ToDo の上に置くコンパクトなプロジェクト絞り込みバー。 */
+@Composable
+private fun ProjectFilterBar(
+    projects: List<ClientProjectEntity>,
+    selected: Long?,
+    onSelect: (Long?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val label = when (selected) {
+        null -> "すべての商談"
+        ClientDetailViewModel.NO_PROJECT -> "プロジェクトなし"
+        else -> projects.firstOrNull { it.id == selected }?.name ?: "すべての商談"
+    }
+    Box(modifier) {
+        TextButton(
+            onClick = { expanded = true },
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+        ) {
+            Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("すべての商談") },
+                onClick = { onSelect(null); expanded = false }
+            )
+            DropdownMenuItem(
+                text = { Text("プロジェクトなし") },
+                onClick = { onSelect(ClientDetailViewModel.NO_PROJECT); expanded = false }
+            )
+            projects.forEach { project ->
+                DropdownMenuItem(
+                    text = { Text(project.name) },
+                    onClick = { onSelect(project.id); expanded = false }
+                )
+            }
+        }
     }
 }
 

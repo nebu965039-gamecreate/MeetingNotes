@@ -18,7 +18,6 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -39,6 +38,8 @@ import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.client.ClientListScreen
 import com.meetingnotes.ui.client.FollowupListScreen
 import com.meetingnotes.ui.schedule.ScheduleScreen
+import com.meetingnotes.ui.theme.CreateActionBlue
+import com.meetingnotes.ui.theme.OnCreateActionBlue
 
 /** 下部ナビの4タブ。 */
 enum class MainTab(
@@ -115,8 +116,8 @@ fun MainTabsShell(
             if (currentRoute == MainTab.HOME.route) {
                 FloatingActionButton(
                     onClick = onStartRecording,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = CreateActionBlue,
+                    contentColor = OnCreateActionBlue
                 ) {
                     Icon(Icons.Filled.Mic, contentDescription = "録音を始める")
                 }
