@@ -150,7 +150,7 @@ MVP相当の機能は一通り実装済み。Google Play Console でのクロー
 
 ### 未完了のタスク(優先度順)
 
-0. **リモート会議モード Phase 2**: (a) プライバシーポリシー(`docs/privacy-policy.*`)とデータセーフティ(`docs/play-data-safety.md`)に「リモート会議モードでは音声を文字起こしのため一時的に処理・保存しない」を追記 (b) 長時間録音のチャンク分割(45分上限の緩和) (c) `ProAccess.isPro` を実購入判定に(Billing 実装後) (d) Whisper の実コスト・レイテンシ・日本語精度の実測。**Worker の `[ai]` バインディングは Cloudflare 側で Workers AI の有効化が必要な場合あり**
+0. **リモート会議モード Phase 2**: ~~(a) プライバシーポリシー(`docs/privacy-policy.*`)とデータセーフティ(`docs/play-data-safety.md`)に「リモート会議モードでは音声を文字起こしのため一時的に処理・保存しない」を追記~~ **完了(2026-09-08)**: `privacy-policy.md/html` の 2.1 を対面/リモート会議の2モードに分割 + データ保存表 + 権限表(`POST_NOTIFICATIONS` 追記)、`play-data-safety.md` の音声データ申告を「収集=はい/共有=はい/処理は一時的=はい」に変更(D.4 に Cloudflare 規約の最終確認メモ)、`play-store-listing.md` のプライバシー文言も修正。 (b) 長時間録音のチャンク分割(45分上限の緩和) (c) `ProAccess.isPro` を実購入判定に(Billing 実装後) (d) Whisper の実コスト・レイテンシ・日本語精度の実測。**Worker の `[ai]` バインディングは Cloudflare 側で Workers AI の有効化が必要な場合あり**
 1. **APIキープロキシ フェーズ2 の有効化**(製品版公開前): コードは実装済み(`server/` + アプリ)。ユーザーが GCP/Play Console 設定を行って有効化する段階。(a) KV による全体日次上限 (b) Cloudflare ダッシュボードの IP レート制限 (c) **Play Integrity**(app: `IntegrityTokenProvider`、Worker: `src/integrity.ts`、`PLAY_INTEGRITY_ENABLED` で off/audit/enforce)。手順は `server/README.md` の「フェーズ2」。(d) 端末ごとのクレジット管理をサーバー側へ、は AdMob SSV・プライバシーポリシー更新を伴うため Billing と合わせて別タスク
 2. Google Play Billing Library(定期購入)の実装(Play Console 側のアプリ登録・商品設定が前提)
 3. 不正リセット対策フェーズ2(端末ごとのクレジット管理をサーバー側へ)。上記プロキシ フェーズ2に統合
