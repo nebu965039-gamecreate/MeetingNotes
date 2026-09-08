@@ -3,13 +3,14 @@
 # 使い方(Git Bash):
 #   cd /c/projects/meetingnotes
 #   source docs/design/shot.sh        # ← 1回だけ。"." でも可: . docs/design/shot.sh
-#   # スマホ/エミュレータで撮りたい画面を表示してから:
-#   shot home
-#   shot client-list
-#   shot meeting-detail
+#   # スマホ/エミュレータで撮りたい画面を表示してから、日本語の名前をつけて:
+#   shot ホーム
+#   shot クライアント一覧
+#   shot 商談詳細
 #   ...
 #
 # 保存先: docs/design/screens/<名前>.png (git 管理外)
+# どんな名前をつければいいか迷ったら capture-screens.sh を見る(全画面の説明つき)
 # adb のパスが違う場合は source する前に: export ADB=/path/to/adb.exe
 
 ADB="${ADB:-/c/Users/zhong/AppData/Local/Android/Sdk/platform-tools/adb.exe}"
@@ -21,7 +22,7 @@ adb-check() {
     echo "  → export ADB=/c/Users/zhong/AppData/Local/Android/Sdk/platform-tools/adb.exe を先に実行" >&2
     return 1
   fi
-  "$ADB" devices
+  "$ADB" devices </dev/null
 }
 
 shot() {
@@ -35,7 +36,7 @@ shot() {
   [ -d "$(dirname "$dir")" ] || dir="docs/design/screens"
   mkdir -p "$dir"
 
-  "$ADB" exec-out screencap -p > "$dir/$name.png"
+  "$ADB" exec-out screencap -p </dev/null > "$dir/$name.png"
   local bytes
   bytes=$(wc -c < "$dir/$name.png" 2>/dev/null | tr -d ' ')
   if [ "${bytes:-0}" -gt 1000 ]; then

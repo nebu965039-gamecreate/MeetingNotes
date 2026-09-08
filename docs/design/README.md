@@ -16,13 +16,16 @@
 cd /c/projects/meetingnotes
 source docs/design/shot.sh     # shot コマンドが使えるようになる
 adb-check                      # 端末が "device" と出るか確認(初回はUSBデバッグ許可)
-# ↓ スマホで撮りたい画面を出してから、名前をつけて撮る
-shot home
-shot client-list
-shot meeting-detail
+# ↓ スマホで撮りたい画面を出してから、日本語の名前をつけて撮る
+shot ホーム
+shot クライアント一覧
+shot 商談詳細
 ```
 
 保存先は `docs/design/screens/<名前>.png`。撮れたか確認: `ls docs/design/screens/`
+
+どの画面を撮ればいいか迷ったら **`bash docs/design/capture-screens.sh`**
+（全31画面を日本語の説明つきで1つずつ案内。スマホで説明どおりの画面を出して Enter するだけ）。
 
 ## Figma での進め方
 
