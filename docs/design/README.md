@@ -6,12 +6,27 @@
 |---|---|
 | `screen-inventory.md` | 全画面のルート・遷移・構成要素・ダイアログ一覧 |
 | `design-tokens.md` | M3 baseline の使用状況 + アプリ独自の色・タイポ・余白・シェイプ |
-| `capture-screens.sh` | 各画面のスクショを対話式で撮る adb スクリプト(→ `screens/`、git 管理外) |
+| `shot.sh` | `source` して `shot <名前>` で1枚ずつスクショ(→ `screens/`、git 管理外)。**まずこちら** |
+| `capture-screens.sh` | 31画面を順番に案内する対話式版(慣れたら) |
 | `style-guide.html` | 上記2つをまとめた閲覧用スタイルガイド(Artifact として公開可) |
+
+## スクショの撮り方(かんたん版)
+
+```bash
+cd /c/projects/meetingnotes
+source docs/design/shot.sh     # shot コマンドが使えるようになる
+adb-check                      # 端末が "device" と出るか確認(初回はUSBデバッグ許可)
+# ↓ スマホで撮りたい画面を出してから、名前をつけて撮る
+shot home
+shot client-list
+shot meeting-detail
+```
+
+保存先は `docs/design/screens/<名前>.png`。撮れたか確認: `ls docs/design/screens/`
 
 ## Figma での進め方
 
-1. `bash docs/design/capture-screens.sh` で現状の画面を撮る
+1. 上記でスクショを撮る（または `bash docs/design/capture-screens.sh` で順番に案内）
 2. [Material 3 Design Kit](https://www.figma.com/community/file/1035203688168086460) を複製
 3. `design-tokens.md` の「独自の色」をローカル変数として追加
 4. スクショを参照に貼りながら再デザイン(ライト/ダーク両方)

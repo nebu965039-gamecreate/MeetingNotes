@@ -76,11 +76,13 @@ SCREENS=(
 shoot() {
   local name="$1"
   local path="$OUT_DIR/$name.png"
-  "$ADB" exec-out screencap -p > "$path" 2>/dev/null
-  if [ -s "$path" ]; then
-    echo "  saved: docs/design/screens/$name.png"
+  "$ADB" exec-out screencap -p > "$path"
+  local bytes
+  bytes=$(wc -c < "$path" 2>/dev/null | tr -d ' ')
+  if [ "${bytes:-0}" -gt 1000 ]; then
+    echo "  OK: docs/design/screens/$name.png (${bytes} bytes)"
   else
-    echo "  FAILED: $name" >&2
+    echo "  失敗: $name — 画像が空です。'$ADB devices' で 'device' と出るか確認してください。" >&2
     rm -f "$path"
   fi
 }
