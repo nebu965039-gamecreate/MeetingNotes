@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>商談メモ スタイルガイド</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --bg: #faf8fd;
+    --surface: #ffffff;
+    --surface-2: #f3eefa;
+    --border: #e3dcef;
+    --ink: #1c1a22;
+    --ink-2: #565064;
+    --accent: #6750a4;
+    --accent-ink: #ffffff;
+    --accent-soft: #eaddff;
+    --mono-bg: #f4f0fa;
+    --shadow: 0 1px 2px rgba(40,26,70,.06), 0 8px 24px -12px rgba(40,26,70,.14);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131117;
+      --surface: #1c1a22;
+      --surface-2: #262330;
+      --border: #34303f;
+      --ink: #e7e2ef;
+      --ink-2: #b6afc4;
+      --accent: #d0bcff;
+      --accent-ink: #21005d;
+      --accent-soft: #4f378b;
+      --mono-bg: #221f2b;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131117;
+    --surface: #1c1a22;
+    --surface-2: #262330;
+    --border: #34303f;
+    --ink: #e7e2ef;
+    --ink-2: #b6afc4;
+    --accent: #d0bcff;
+    --accent-ink: #21005d;
+    --accent-soft: #4f378b;
+    --mono-bg: #221f2b;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 2rem; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "IBM Plex Sans JP", system-ui, sans-serif;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 3rem 1.4rem 6rem; }
+
+  header.masthead { margin-bottom: 2.5rem; }
+  .kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .72rem; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 .6rem;
+  }
+  h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1.15; margin: 0 0 .5rem; font-weight: 700; text-wrap: balance; }
+  .lede { color: var(--ink-2); max-width: 62ch; margin: 0; }
+
+  nav.toc {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; flex-wrap: wrap; gap: .3rem;
+    padding: .7rem 0; margin: 2rem 0 3rem;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  nav.toc a {
+    font-size: .8rem; text-decoration: none; color: var(--ink-2);
+    padding: .28rem .6rem; border-radius: 999px; border: 1px solid transparent;
+  }
+  nav.toc a:hover { color: var(--ink); border-color: var(--border); background: var(--surface); }
+
+  section { margin: 3.4rem 0; scroll-margin-top: 4.5rem; }
+  h2 {
+    font-size: 1.35rem; font-weight: 600; margin: 0 0 .3rem;
+    display: flex; align-items: baseline; gap: .6rem;
+  }
+  h2 .num { font-family: "IBM Plex Mono", monospace; font-size: .85rem; color: var(--accent); }
+  h3 { font-size: 1rem; font-weight: 600; margin: 2rem 0 .8rem; color: var(--ink); }
+  .section-note { color: var(--ink-2); margin: .2rem 0 1.4rem; max-width: 68ch; font-size: .95rem; }
+  a.inline { color: var(--accent); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.2rem 1.3rem; box-shadow: var(--shadow);
+  }
+
+  /* swatches */
+  .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .9rem; }
+  .swatch { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .swatch .chip { height: 62px; display: flex; }
+  .swatch .chip span { flex: 1; }
+  .swatch .meta { padding: .55rem .7rem .7rem; }
+  .swatch .name { font-weight: 600; font-size: .86rem; }
+  .swatch .hex { font-family: "IBM Plex Mono", monospace; font-size: .76rem; color: var(--ink-2); }
+  .swatch .use { font-size: .78rem; color: var(--ink-2); margin-top: .25rem; }
+
+  table { width: 100%; border-collapse: collapse; margin: .6rem 0 1rem; font-size: .9rem; }
+  th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+  td code, .mono { font-family: "IBM Plex Mono", monospace; font-size: .82rem; background: var(--mono-bg); padding: .08rem .34rem; border-radius: 4px; }
+  .tablewrap { overflow-x: auto; }
+
+  .pair { display: flex; gap: .4rem; align-items: center; }
+  .dot { width: 20px; height: 20px; border-radius: 6px; border: 1px solid rgba(128,128,128,.3); flex: none; }
+
+  ul.tight { margin: .4rem 0; padding-left: 1.2rem; }
+  ul.tight li { margin: .28rem 0; }
+
+  .callout {
+    border-left: 3px solid var(--accent); background: var(--surface-2);
+    padding: .8rem 1rem; border-radius: 0 10px 10px 0; font-size: .9rem; color: var(--ink);
+  }
+  .type-demo { border-bottom: 1px dashed var(--border); padding: .5rem 0; }
+  .type-demo .label { font-family: "IBM Plex Mono", monospace; font-size: .72rem; color: var(--ink-2); }
+
+  footer { margin-top: 4rem; padding-top: 1.4rem; border-top: 1px solid var(--border); color: var(--ink-2); font-size: .82rem; }
+
+  .theme-toggle {
+    position: fixed; right: 1rem; bottom: 1rem; z-index: 10;
+    background: var(--surface); border: 1px solid var(--border); color: var(--ink);
+    border-radius: 999px; padding: .5rem .9rem; font: inherit; font-size: .82rem;
+    cursor: pointer; box-shadow: var(--shadow);
+  }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" type="button">◐ テーマ切替</button>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="kicker">Design reference · v0.1.9</p>
+  <h1>商談メモ スタイルガイド</h1>
+  <p class="lede">
+    現状の画面の見た目の元。Material 3 baseline(紫)をそのまま使い、そこにアプリ独自の色・
+    コンポーネントを重ねている。Figma で再デザインするときの参照。詳細は
+    <span class="mono">docs/design/screen-inventory.md</span> と <span class="mono">design-tokens.md</span>。
+  </p>
+</header>
+
+<nav class="toc">
+  <a href="#foundation">土台</a>
+  <a href="#m3">M3 baseline</a>
+  <a href="#custom">独自の色</a>
+  <a href="#phase">フェーズ色</a>
+  <a href="#type">タイポ</a>
+  <a href="#space">余白・角丸</a>
+  <a href="#components">コンポーネント</a>
+  <a href="#screens">画面マップ</a>
+  <a href="#rules">変えない前提</a>
+</nav>
+
+<section id="foundation">
+  <h2><span class="num">01</span> 土台</h2>
+  <p class="section-note">
+    <span class="mono">MainActivity.kt</span> は
+    <span class="mono">MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme())</span>
+    のみ。カスタム ColorScheme / Typography / Shapes は無い。テーマは
+    <span class="mono">ThemeMode</span>(LIGHT / DARK / SYSTEM、設定画面で切替、即時反映)。
+  </p>
+  <div class="card">
+    <ul class="tight">
+      <li><strong>配色</strong>: M3 標準の紫パレット。ライト/ダーク両対応。カスタム色は「作成」系・フェーズ・Pro バッジのみ(テーマ非追従)</li>
+      <li><strong>フォント</strong>: 端末デフォルト(日本語は各社 Sans)。Figma では Roboto で作業してよい</li>
+      <li><strong>広告</strong>: <span class="mono">BannerAdView</span> — 帯(<span class="mono">AnchoredAdaptive</span>)は <span class="mono">bottomBar</span>、300×250(<span class="mono">MediumRectangle</span>)は商談詳細の本文中</li>
+      <li><strong>edge-to-edge</strong>: 画面下端は <span class="mono">Modifier.navigationBarsPadding()</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="m3">
+  <h2><span class="num">02</span> M3 baseline カラー</h2>
+  <p class="section-note">
+    <span class="mono">lightColorScheme()</span> / <span class="mono">darkColorScheme()</span> の値(上書きなし)。
+    下は代表値・参考。<strong>正確な hex は Figma の
+    <a class="inline" href="https://www.figma.com/community/file/1035203688168086460">Material 3 Design Kit</a>
+    または Material Theme Builder で確認</strong>(Compose のバージョンで微差あり)。かっこ内は使用頻度。
+  </p>
+  <div class="swatch-grid" id="m3grid"></div>
+  <div class="callout" style="margin-top:1rem">
+    container 系トークン(primaryContainer / secondaryContainer / tertiaryContainer …)は
+    <strong>ライトとダークで役割が入れ替わる</strong>。デザイン時は必ず両方のフレームで確認する。
+  </div>
+</section>
+
+<section id="custom">
+  <h2><span class="num">03</span> アプリ独自の色</h2>
+  <p class="section-note">コードにハードコードされている値。原則ライト/ダークで<strong>変えない</strong>。</p>
+
+  <h3><span class="mono">CreateActionColors.kt</span> — 「作成」系アクション</h3>
+  <div class="swatch-grid">
+    <div class="swatch"><div class="chip"><span style="background:#1565C0"></span></div><div class="meta"><div class="name">CreateActionBlue</div><div class="hex">#1565C0</div><div class="use">クライアント追加 FAB / フォルダ・グループ作成アイコン</div></div></div>
+    <div class="swatch"><div class="chip"><span style="background:#FFFFFF"></span></div><div class="meta"><div class="name">OnCreateActionBlue</div><div class="hex">#FFFFFF</div></div></div>
+  </div>
+
+  <h3><span class="mono">ProColors.kt</span> — Pro バッジ</h3>
+  <div class="swatch-grid">
+    <div class="swatch"><div class="chip"><span style="background:#FFB300"></span></div><div class="meta"><div class="name">ProGold</div><div class="hex">#FFB300</div><div class="use">王冠バッジ / ProGate の金枠(現状 gatingEnabled=false で非表示)</div></div></div>
+    <div class="swatch"><div class="chip"><span style="background:#3E2C00"></span></div><div class="meta"><div class="name">OnProGold</div><div class="hex">#3E2C00</div></div></div>
+  </div>
+
+  <h3><span class="mono">HelpScreen.kt</span> — ヘルプのセクションアクセント</h3>
+  <div class="swatch-grid">
+    <div class="swatch"><div class="chip"><span style="background:#6750A4"></span></div><div class="meta"><div class="name">AccentPurple</div><div class="hex">#6750A4</div></div></div>
+    <div class="swatch"><div class="chip"><span style="background:#1565C0"></span></div><div class="meta"><div class="name">AccentBlue</div><div class="hex">#1565C0</div></div></div>
+    <div class="swatch"><div class="chip"><span style="background:#2E7D32"></span></div><div class="meta"><div class="name">AccentGreen</div><div class="hex">#2E7D32</div></div></div>
+    <div class="swatch"><div class="chip"><span style="background:#455A64"></span></div><div class="meta"><div class="name">AccentSlate</div><div class="hex">#455A64</div></div></div>
+  </div>
+</section>
+
+<section id="phase">
+  <h2><span class="num">04</span> フェーズ色</h2>
+
+  <h3><span class="mono">PhaseTagColors.kt</span> — <span class="mono">DealPhaseChip</span></h3>
+  <p class="section-note">色相は固定、ライト/ダークで明度のみ入れ替え(<span class="mono">of(phase, darkTheme)</span>)。枠 + 塗り、<span class="mono">RoundedCornerShape(6dp)</span>、<span class="mono">labelMedium</span>。</p>
+  <div class="tablewrap"><table id="phaseTagTable">
+    <thead><tr><th>フェーズ</th><th>系統</th><th>Light 背景 / 文字</th><th>Dark 背景 / 文字</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+
+  <h3><span class="mono">PhaseTrackerColors.kt</span> — ホーム「進行中のフェーズ」</h3>
+  <p class="section-note">明暗共通で固定。<span class="mono">PhaseTrackerColor(dot, track, label)</span>。</p>
+  <div class="tablewrap"><table id="phaseTrackTable">
+    <thead><tr><th>フェーズ</th><th>dot</th><th>track</th><th>label</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+</section>
+
+<section id="type">
+  <h2><span class="num">05</span> タイポグラフィ</h2>
+  <p class="section-note">M3 baseline <span class="mono">Typography()</span>。実際に使われているスタイルと出現数。</p>
+  <div class="card">
+    <div class="type-demo"><div class="label">displayLarge · 57 / ホームの日付など限定</div><div style="font-size:2.6rem;line-height:1.1">商談メモ</div></div>
+    <div class="type-demo"><div class="label">titleLarge · 22 · ×5 / 画面見出し</div><div style="font-size:1.35rem;font-weight:500">クライアント一覧</div></div>
+    <div class="type-demo"><div class="label">titleMedium · 16 · ×31 / セクション見出し(最頻の見出し)</div><div style="font-size:1rem;font-weight:500">進行中のフェーズ</div></div>
+    <div class="type-demo"><div class="label">titleSmall · 14 · ×15 / 設定の項目名</div><div style="font-size:.9rem;font-weight:500">打ち合わせのリマインド</div></div>
+    <div class="type-demo"><div class="label">bodyLarge · 16 · ×11 / 強調本文・リスト主行</div><div style="font-size:1rem">株式会社サンプル商事</div></div>
+    <div class="type-demo"><div class="label">bodyMedium · 14 · ×36 / 本文・リスト行</div><div style="font-size:.875rem">お礼・フォローアップのメールを送る</div></div>
+    <div class="type-demo"><div class="label">bodySmall · 12 · ×39 / キャプション(最頻)</div><div style="font-size:.75rem;color:var(--ink-2)">最終 9/8・提案</div></div>
+    <div class="type-demo"><div class="label">labelMedium · 12 · ×5 / チップ</div><div style="font-size:.75rem;font-weight:500">提案</div></div>
+    <div class="type-demo" style="border-bottom:none"><div class="label">labelSmall · 11 · ×10 / バッジ</div><div style="font-size:.6875rem;font-weight:500">ToDo 3</div></div>
+  </div>
+  <div class="callout" style="margin-top:1rem">
+    使用頻度の目安: bodySmall 39 / bodyMedium 36 / titleMedium 31 / titleSmall 15 / bodyLarge 11 /
+    labelSmall 10 / titleLarge・labelMedium 各5 / labelLarge 3。ウェイトは Regular / Medium 中心。
+  </div>
+</section>
+
+<section id="space">
+  <h2><span class="num">06</span> 余白・角丸</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.4rem" class="spacecols">
+    <div>
+      <h3 style="margin-top:0">スペーシング(慣習値)</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>値</th><th>使いどころ</th></tr></thead>
+        <tbody>
+          <tr><td><code>16dp</code></td><td>画面の左右・カード内の標準(最頻)</td></tr>
+          <tr><td><code>14dp</code></td><td>ホームのカード内</td></tr>
+          <tr><td><code>8dp</code></td><td>要素間ギャップ(<span class="mono">spacedBy(8dp)</span>)</td></tr>
+          <tr><td><code>24dp</code></td><td>ダイアログ内・大きめの区切り</td></tr>
+          <tr><td><code>4 / 2dp</code></td><td>密なリスト行の縦詰め</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div>
+      <h3 style="margin-top:0">角丸</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>値</th><th>使いどころ</th></tr></thead>
+        <tbody>
+          <tr><td><code>16dp</code></td><td>カード内の内側コンテナ(最頻)</td></tr>
+          <tr><td><code>12dp</code></td><td>中カード</td></tr>
+          <tr><td><code>8dp</code></td><td>小バッジ(<span class="mono">TodoCountBadge</span>)</td></tr>
+          <tr><td><code>6dp</code></td><td><span class="mono">DealPhaseChip</span></td></tr>
+          <tr><td><code>CircleShape</code></td><td>アイコン背景・カレンダーの日付丸</td></tr>
+        </tbody>
+      </table></div>
+      <p class="section-note" style="margin-top:.6rem">M3 baseline Shapes: XS 4 / S 8 / M 12 / L 16 / XL 28。</p>
+    </div>
+  </div>
+</section>
+
+<section id="components">
+  <h2><span class="num">07</span> コンポーネントの使い方</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>要素</th><th>使い方</th></tr></thead>
+    <tbody>
+      <tr><td>カード</td><td><code>Card</code> / <code>ElevatedCard</code>。<code>containerColor</code> に surfaceContainerLow / secondaryContainer / tertiaryContainer を役割で使い分け</td></tr>
+      <tr><td>TopAppBar</td><td>一覧系は <code>containerColor = primaryContainer</code>、詳細系はデフォルト</td></tr>
+      <tr><td>ボタン</td><td><code>Button</code>(主) / <code>OutlinedButton</code>(副) / <code>TextButton</code>(行内・ダイアログ)</td></tr>
+      <tr><td>入力</td><td><code>OutlinedTextField</code>。セレクトは <code>LabeledDropdownField</code></td></tr>
+      <tr><td>チェック</td><td><code>Checkbox</code>(クライアント画面の ToDoリスト)</td></tr>
+      <tr><td>チップ</td><td>保存先切替は <code>FilterChip</code>、フェーズは <code>DealPhaseChip</code>(独自)</td></tr>
+      <tr><td>ダイアログ</td><td><code>AlertDialog</code>。破壊的操作は <code>ConfirmDialog</code></td></tr>
+      <tr><td>FAB</td><td><code>FloatingActionButton</code>(<code>CreateActionBlue</code>)。クライアント一覧・予定表のみ</td></tr>
+      <tr><td>リンク文字</td><td><code>TextDecoration.Underline</code>(件数表示と区別)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="screens">
+  <h2><span class="num">08</span> 画面マップ</h2>
+  <p class="section-note">全14画面。詳細な構成要素は <span class="mono">screen-inventory.md</span>。</p>
+  <pre class="card mono" style="overflow-x:auto;font-size:.8rem;line-height:1.5">HOME (起動時) ─┬─ RECORDING_UNASSIGNED ── RESULT ──▶ CLIENT_DETAIL
+               ├─ CLIENT_LIST ── CLIENT_DETAIL ─┬─ RECORDING ── RESULT
+               │                                ├─ BRIEFING ── RECORDING
+               │                                ├─ MEETING_DETAIL
+               │                                ├─ CLIENT_INFO ── CLIENT_EDIT
+               │                                └─ folder / group ダイアログ
+               ├─ SCHEDULE          （予定表・月カレンダー・FAB）
+               ├─ NOTIFICATIONS     （予定リスト＋通知履歴）
+               ├─ FOLLOWUP_LIST ── CLIENT_DETAIL  （ToDo / 完了 の2タブ）
+               ├─ SETTINGS          （リマインド ON/OFF・テーマ）
+               └─ HELP</pre>
+  <div class="tablewrap"><table>
+    <thead><tr><th>ルート</th><th>TopAppBar</th><th>広告</th><th>FAB</th></tr></thead>
+    <tbody>
+      <tr><td><code>home</code></td><td>なし(独自ヘッダー)</td><td>下 帯</td><td>—</td></tr>
+      <tr><td><code>clientList</code></td><td>クライアント一覧</td><td>下 帯</td><td>◯ 青</td></tr>
+      <tr><td><code>clientDetail/{id}</code></td><td>2段(名前 / 操作アイコン)</td><td>下 帯</td><td>—</td></tr>
+      <tr><td><code>clientInfo/{id}</code></td><td>クライアント情報 + 編集</td><td>—</td><td>—</td></tr>
+      <tr><td><code>clientEdit/{id}</code></td><td>クライアント情報を編集 + 保存</td><td>—</td><td>—</td></tr>
+      <tr><td><code>briefing/{id}</code></td><td>前回のおさらい</td><td>下 帯</td><td>—</td></tr>
+      <tr><td><code>recording/{id}</code></td><td>録音</td><td>—</td><td>—</td></tr>
+      <tr><td><code>result</code></td><td>要約結果</td><td>下 帯</td><td>—</td></tr>
+      <tr><td><code>meetingDetail/{id}</code></td><td>商談タイトル</td><td>300×250 本文中</td><td>—</td></tr>
+      <tr><td><code>schedule</code></td><td>予定表</td><td>下 帯</td><td>◯</td></tr>
+      <tr><td><code>notifications</code></td><td>通知</td><td>下 帯</td><td>—</td></tr>
+      <tr><td><code>followupList</code></td><td>ToDo</td><td>下 帯</td><td>—</td></tr>
+      <tr><td><code>settings</code></td><td>設定</td><td>下 帯</td><td>—</td></tr>
+      <tr><td><code>help</code></td><td>使い方・ヘルプ</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="rules">
+  <h2><span class="num">09</span> 変えない前提</h2>
+  <div class="card">
+    <ul class="tight">
+      <li>M3 テーマ機構(<span class="mono">light/darkColorScheme()</span>)とライト/ダーク両対応</li>
+      <li>独自色のテーマ非追従方針 — <span class="mono">CreateActionBlue</span> / <span class="mono">PhaseTagColors</span> / <span class="mono">PhaseTrackerColors</span> / <span class="mono">ProGold</span></li>
+      <li>広告枠の位置(収益に直結)。動かす場合は要相談</li>
+      <li>画面下端の <span class="mono">navigationBarsPadding()</span></li>
+      <li>要約の項目順(サマリー→決定事項→懸念点・注意点→ToDo→次回打ち合わせ)は画面表示とエクスポートで共通</li>
+      <li>DB・ViewModel には触れず「表示だけ」の変更なら影響は UI 層に閉じる</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  商談メモ(<span class="mono">com.manaapps.meetingnotes</span>)· スタイルガイド ·
+  生成元: <span class="mono">app/src/main/java/com/meetingnotes/ui/</span> · v0.1.9 時点<br>
+  M3 baseline の hex は参考値。<a class="inline" href="https://m3.material.io/styles/color/system/overview">m3.material.io</a> / Figma M3 Kit を正とする。
+</footer>
+
+</div>
+
+<script>
+  // ---- theme toggle (3-state aware) ----
+  var root = document.documentElement, btn = document.getElementById('themeToggle');
+  function apply(t){ if(t) root.setAttribute('data-theme', t); else root.removeAttribute('data-theme'); }
+  try { var s = localStorage.getItem('sg-theme'); if (s) apply(s); } catch(e){}
+  btn.addEventListener('click', function(){
+    var cur = root.getAttribute('data-theme');
+    var mqDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var next = cur ? (cur === 'dark' ? 'light' : 'dark') : (mqDark ? 'light' : 'dark');
+    apply(next);
+    try { localStorage.setItem('sg-theme', next); } catch(e){}
+  });
+
+  // ---- M3 baseline swatches (representative values) ----
+  var m3 = [
+    ['primary','#6750A4','#D0BCFF','強調テキスト・アイコン tint・リンク (16)'],
+    ['onPrimary','#FFFFFF','#381E72','primary 上の前景 (5)'],
+    ['primaryContainer','#EADDFF','#4F378B','TopAppBar 背景(一覧系)・バッジ (8)'],
+    ['onPrimaryContainer','#21005D','#EADDFF','上記の前景 (21)'],
+    ['secondaryContainer','#E8DEF8','#4A4458','「直近の予定」カード (7)'],
+    ['onSecondaryContainer','#1D192B','#E8DEF8','アーカイブ行タイトル (6)'],
+    ['tertiaryContainer','#FFD8E4','#633B48','「ToDo」カード内・空状態 (6)'],
+    ['onTertiaryContainer','#31111D','#FFD8E4','区切り線 (1)'],
+    ['error','#B3261E','#F2B8B5','期限切れ・削除・警告 (13)'],
+    ['surface','#FEF7FF','#141218','画面地 (4)'],
+    ['onSurface','#1D1B20','#E6E1E5','本文 (3)'],
+    ['onSurfaceVariant','#49454F','#CAC4D0','サブテキスト・キャプション (50・最頻)'],
+    ['surfaceContainerLow','#F7F2FA','#1D1B20','ホームの各セクション枠・カード (6)'],
+    ['outline','#79747E','#938F99','枠線 (2)'],
+    ['outlineVariant','#CAC4D0','#49454F','弱い区切り (1)']
+  ];
+  var g = document.getElementById('m3grid');
+  m3.forEach(function(r){
+    var d = document.createElement('div'); d.className = 'swatch';
+    d.innerHTML =
+      '<div class="chip"><span style="background:'+r[1]+'"></span><span style="background:'+r[2]+'"></span></div>' +
+      '<div class="meta"><div class="name">'+r[0]+'</div>' +
+      '<div class="hex">L '+r[1]+' · D '+r[2]+'</div>' +
+      '<div class="use">'+r[3]+'</div></div>';
+    g.appendChild(d);
+  });
+
+  // ---- phase tag table ----
+  var tag = [
+    ['初回接触','スレート','#E2E8F0','#334155','#33414F','#CBD5E1'],
+    ['ヒアリング','琥珀','#FEF0C7','#854D0E','#4A3A12','#FCE29B'],
+    ['提案','青','#DBEAFE','#1E40AF','#1E355C','#B6D0F5'],
+    ['見積提示','ティール','#CCFBF1','#115E59','#12433E','#9DEBDE'],
+    ['検討中','オレンジ','#FFEDD5','#9A3412','#4E2A12','#F9C99B'],
+    ['成約','緑','#DCFCE7','#166534','#17402A','#9FE3B8'],
+    ['保留','温グレー','#EDE9E3','#57534E','#3B3733','#D8D2CB'],
+    ['失注','ローズ','#FFE4E6','#9F1239','#4C1F2B','#F6AEBD'],
+    ['未設定','ニュートラル','#ECEAEF','#5B5568','#3A3742','#C9C4D0']
+  ];
+  var tb = document.querySelector('#phaseTagTable tbody');
+  tag.forEach(function(r){
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>'+r[0]+'</td><td>'+r[1]+'</td>' +
+      '<td><span class="pair"><span class="dot" style="background:'+r[2]+'"></span><span class="dot" style="background:'+r[3]+'"></span> <span class="mono">'+r[2]+' / '+r[3]+'</span></span></td>' +
+      '<td><span class="pair"><span class="dot" style="background:'+r[4]+'"></span><span class="dot" style="background:'+r[5]+'"></span> <span class="mono">'+r[4]+' / '+r[5]+'</span></span></td>';
+    tb.appendChild(tr);
+  });
+
+  // ---- phase tracker table ----
+  var trk = [
+    ['ヒアリング','#F5C518','#FCF3D0','#7A5C00'],
+    ['提案','#D4E157','#EFF6D6','#56660F'],
+    ['見積提示','#8BC34A','#E3F2DA','#33691E'],
+    ['検討中','#16A34A','#DCF0E3','#1B5E20']
+  ];
+  var tb2 = document.querySelector('#phaseTrackTable tbody');
+  trk.forEach(function(r){
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>'+r[0]+'</td>' +
+      '<td><span class="pair"><span class="dot" style="background:'+r[1]+'"></span><span class="mono">'+r[1]+'</span></span></td>' +
+      '<td><span class="pair"><span class="dot" style="background:'+r[2]+'"></span><span class="mono">'+r[2]+'</span></span></td>' +
+      '<td><span class="pair"><span class="dot" style="background:'+r[3]+'"></span><span class="mono">'+r[3]+'</span></span></td>';
+    tb2.appendChild(tr);
+  });
+</script>
+</body>
+</html>
