@@ -83,10 +83,6 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun markFollowedUp(meetingId: Long) {
-        viewModelScope.launch { repository.markMeetingFollowedUp(meetingId) }
-    }
-
     fun completeTodo(todoId: Long) {
         viewModelScope.launch { repository.setTodoDone(todoId, true) }
     }

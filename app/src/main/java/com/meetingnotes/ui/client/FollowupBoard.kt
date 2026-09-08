@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,7 +23,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,39 +48,35 @@ data class FollowupItem(
 )
 
 /**
- * 「メール連絡などの対応がまだの商談」を出すロジック(F1)。純粋関数で単体テスト可能。AI は使わない。
+ * ホーム/一覧の「ToDo」ボードに出すクライアントを決めるロジック(F1)。純粋関数で単体テスト可能。AI は使わない。
  *
- * 対象 = 各クライアントの最新商談で、以下をすべて満たすもの:
- *  - `followedUpAt` が未設定(「完了」を押したら二度と出ない)
- *  - 成約・失注ではない
- *  - 最終商談から [RECENT_WINDOW_DAYS] 日以内(古い商談は初回導入時に大量表示されないよう対象外)
- *
- * 次回予定の有無は問わない(打ち合わせが決まっていても、お礼メール等の連絡は別途必要なため)。
+ * 対象 = **未完了の ToDo が1件以上あるクライアント**。
+ * ToDo には要約が抽出したタスクに加え、要約完了時に自動起票される「お礼・フォローアップのメールを送る」も含む。
+ * クライアント画面で ToDo をすべてチェックし終えるとボードから消える(「完了」ボタンは廃止)。
+ * 最新商談はフェーズ・日付の表示にのみ使う(判定には使わない)。
  */
 object FollowupRules {
-
-    /** 要約直後の商談を ToDo に出す対象期間(日)。これより古い商談は出さない。 */
-    const val RECENT_WINDOW_DAYS = 30
 
     fun compute(
         clients: List<ClientEntity>,
         latest: List<ClientLatestMeeting>,
-        now: Long = System.currentTimeMillis(),
         openTodoCountByClient: Map<Long, Int> = emptyMap()
     ): List<FollowupItem> {
         val byClient = latest.associateBy { it.clientId }
-        val cutoff = now - RECENT_WINDOW_DAYS * DAY_MS
         return clients.mapNotNull { client ->
-            val m = byClient[client.id] ?: return@mapNotNull null
-            if (m.followedUpAt != null) return@mapNotNull null
-            if (m.lastRecordedAt < cutoff) return@mapNotNull null
-            val phase = DealPhase.fromWire(m.phaseOverride ?: m.dealPhase)
-            if (phase == DealPhase.WON || phase == DealPhase.LOST) return@mapNotNull null
-            FollowupItem(client, m.meetingId, m.lastRecordedAt, phase, openTodoCountByClient[client.id] ?: 0)
+            val count = openTodoCountByClient[client.id] ?: 0
+            if (count == 0) return@mapNotNull null
+            val m = byClient[client.id]
+            val phase = m?.let { DealPhase.fromWire(it.phaseOverride ?: it.dealPhase) }
+            FollowupItem(
+                client = client,
+                meetingId = m?.meetingId ?: 0L,
+                lastRecordedAt = m?.lastRecordedAt ?: client.createdAt,
+                phase = phase,
+                openTodoCount = count
+            )
         }.sortedByDescending { it.lastRecordedAt }
     }
-
-    private const val DAY_MS = 86_400_000L
 }
 
 private val boardDateFormatter = DateTimeFormatter.ofPattern("M/d")
@@ -112,7 +106,7 @@ internal fun followupSubtitle(item: FollowupItem): String {
         Instant.ofEpochMilli(item.lastRecordedAt).atZone(ZoneId.systemDefault())
     )
     val phase = item.phase?.label ?: "フェーズ未設定"
-    return "最終 $date・$phase・メール連絡"
+    return "最終 $date・$phase"
 }
 
 /** ホーム画面の「ToDo」カード。0件でも表示する。デフォルトで3件ぶんの高さ、内部スクロールで最大10件確認できる。 */
@@ -120,10 +114,10 @@ internal fun followupSubtitle(item: FollowupItem): String {
 fun FollowupBoard(
     items: List<FollowupItem>,
     onOpen: (clientId: Long) -> Unit,
-    onMarkFollowedUp: (meetingId: Long) -> Unit,
     onShowAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val totalTodos = items.sumOf { it.openTodoCount }
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
@@ -148,7 +142,7 @@ fun FollowupBoard(
                     Text("ToDo", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        "${items.size}件",
+                        "${totalTodos}件",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -170,7 +164,7 @@ fun FollowupBoard(
                         .padding(16.dp)
                 ) {
                     Text(
-                        "対応が必要な商談はありません。",
+                        "未完了のToDoはありません。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -214,12 +208,6 @@ fun FollowupBoard(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
-                        TextButton(
-                            onClick = { onMarkFollowedUp(item.meetingId) },
-                            contentPadding = PaddingValues(horizontal = 10.dp)
-                        ) {
-                            Text("完了", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                     if (index != visible.lastIndex) {

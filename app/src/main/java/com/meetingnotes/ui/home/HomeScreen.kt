@@ -163,7 +163,6 @@ fun HomeScreen(
                 FollowupBoard(
                     items = followups,
                     onOpen = onOpenClient,
-                    onMarkFollowedUp = { viewModel.markFollowedUp(it) },
                     onShowAll = onOpenFollowupList
                 )
             }

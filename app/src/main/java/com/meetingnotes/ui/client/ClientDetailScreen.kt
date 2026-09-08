@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
@@ -30,6 +29,7 @@ import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -771,7 +771,7 @@ private fun OpenTodoSection(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                "未完了のToDo (${todos.size}件)",
+                "ToDoリスト (${todos.size}件)",
                 style = MaterialTheme.typography.titleMedium
             )
             todos.forEach { t ->
@@ -782,13 +782,11 @@ private fun OpenTodoSection(
                         .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { onComplete(t.id) }, modifier = Modifier.size(36.dp)) {
-                        Icon(
-                            Icons.Filled.CheckCircleOutline,
-                            contentDescription = "完了にする",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Checkbox(
+                        checked = false,
+                        onCheckedChange = { onComplete(t.id) }
+                    )
+                    Spacer(Modifier.width(4.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             t.task,

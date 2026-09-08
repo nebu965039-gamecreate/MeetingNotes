@@ -27,11 +27,7 @@ class FollowupListViewModel(private val repository: MeetingRepository) : ViewMod
         repository.observeFollowedUpMeetings()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun markFollowedUp(meetingId: Long) {
-        viewModelScope.launch { repository.markMeetingFollowedUp(meetingId) }
-    }
-
-    /** 「完了」を取り消して ToDo に戻す。 */
+    /** 「完了」タブから ToDo に戻す(フォローアップメール ToDo も未完了へ)。 */
     fun unmarkFollowedUp(meetingId: Long) {
         viewModelScope.launch { repository.clearMeetingFollowedUp(meetingId) }
     }

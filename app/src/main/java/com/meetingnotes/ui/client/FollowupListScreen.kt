@@ -91,8 +91,7 @@ fun FollowupListScreen(
             if (tab == 0) {
                 TodoList(
                     items = todo,
-                    onOpen = onOpenClient,
-                    onComplete = { viewModel.markFollowedUp(it) }
+                    onOpen = onOpenClient
                 )
             } else {
                 DoneList(
@@ -108,11 +107,10 @@ fun FollowupListScreen(
 @Composable
 private fun TodoList(
     items: List<FollowupItem>,
-    onOpen: (Long) -> Unit,
-    onComplete: (Long) -> Unit
+    onOpen: (Long) -> Unit
 ) {
     if (items.isEmpty()) {
-        EmptyMessage("対応が必要な商談はありません。")
+        EmptyMessage("未完了のToDoはありません。")
         return
     }
     LazyColumn(
@@ -120,18 +118,14 @@ private fun TodoList(
         contentPadding = PaddingValues(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(items, key = { it.meetingId }) { item ->
+        items(items, key = { it.client.id }) { item ->
             FollowupCard(
                 name = item.client.name,
                 subtitle = followupSubtitle(item),
                 phase = item.phase,
                 todoCount = item.openTodoCount,
                 onClick = { onOpen(item.client.id) },
-                trailing = {
-                    TextButton(onClick = { onComplete(item.meetingId) }) {
-                        Text("完了", style = MaterialTheme.typography.labelLarge)
-                    }
-                }
+                trailing = {}
             )
         }
     }
