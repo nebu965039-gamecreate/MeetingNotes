@@ -2,6 +2,11 @@
 
 個人的に UI デザインを Figma などで見直すための下敷き。
 
+> **2026-09-08**: この資料は下部ナビ導入前のスナップショット。ホーム画面は
+> 「下部ナビ4タブ + 録音FAB + 最上部ダッシュボード(ドーナツ) + 進行中フェーズのファネル」に
+> 再構成済み(`ui/home/MainTabs.kt` / `HomeDashboard.kt`、CLAUDE.md 参照)。`PhaseTrackerColors` は
+> `PhaseChartColors` に置き換え。他画面は概ねこのまま。
+
 | ファイル | 中身 |
 |---|---|
 | `screen-inventory.md` | 全画面のルート・遷移・構成要素・ダイアログ一覧 |
