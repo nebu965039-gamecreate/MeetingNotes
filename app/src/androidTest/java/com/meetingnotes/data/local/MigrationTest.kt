@@ -142,6 +142,25 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate12To13_addsClientContactsTable() {
+        helper.createDatabase(dbName, 12).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 13, true, MIGRATION_12_13)
+
+        db.execSQL(
+            "INSERT INTO client_contacts (clientId, name, note, createdAt) VALUES (1, '田中', '部長', 100)"
+        )
+        db.query("SELECT name, note FROM client_contacts WHERE clientId = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getString(0) == "田中")
+            assertTrue(c.getString(1) == "部長")
+        }
+    }
+
+    @Test
     fun migrate11To12_addsTodoDueDateAndClientContact() {
         helper.createDatabase(dbName, 11).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

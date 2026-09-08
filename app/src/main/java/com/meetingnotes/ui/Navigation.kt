@@ -11,6 +11,8 @@ import androidx.navigation.navArgument
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.briefing.BriefingScreen
 import com.meetingnotes.ui.client.ClientDetailScreen
+import com.meetingnotes.ui.client.ClientEditScreen
+import com.meetingnotes.ui.client.ClientInfoScreen
 import com.meetingnotes.ui.client.ClientListScreen
 import com.meetingnotes.ui.client.FollowupListScreen
 import com.meetingnotes.ui.help.HelpScreen
@@ -36,11 +38,15 @@ object Routes {
     const val SCHEDULE = "schedule"
     const val FOLLOWUP_LIST = "followupList"
     const val SETTINGS = "settings"
+    const val CLIENT_INFO = "clientInfo/{clientId}"
+    const val CLIENT_EDIT = "clientEdit/{clientId}"
 
     fun clientDetail(clientId: Long) = "clientDetail/$clientId"
     fun briefing(clientId: Long) = "briefing/$clientId"
     fun recording(clientId: Long) = "recording/$clientId"
     fun meetingDetail(meetingId: Long) = "meetingDetail/$meetingId"
+    fun clientInfo(clientId: Long) = "clientInfo/$clientId"
+    fun clientEdit(clientId: Long) = "clientEdit/$clientId"
 }
 
 @Composable
@@ -130,8 +136,32 @@ fun MeetingNotesNavHost(
                 onMeetingSelected = { meetingId ->
                     navController.navigate(Routes.meetingDetail(meetingId))
                 },
+                onOpenClientInfo = { navController.navigate(Routes.clientInfo(clientId)) },
                 onBack = { navController.popBackStack() },
                 onClientDeleted = { navController.popBackStack(Routes.CLIENT_LIST, inclusive = false) }
+            )
+        }
+        composable(
+            Routes.CLIENT_INFO,
+            arguments = listOf(navArgument("clientId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val clientId = backStackEntry.arguments?.getLong("clientId") ?: return@composable
+            ClientInfoScreen(
+                repository = repository,
+                clientId = clientId,
+                onBack = { navController.popBackStack() },
+                onEdit = { navController.navigate(Routes.clientEdit(clientId)) }
+            )
+        }
+        composable(
+            Routes.CLIENT_EDIT,
+            arguments = listOf(navArgument("clientId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val clientId = backStackEntry.arguments?.getLong("clientId") ?: return@composable
+            ClientEditScreen(
+                repository = repository,
+                clientId = clientId,
+                onBack = { navController.popBackStack() }
             )
         }
         composable(

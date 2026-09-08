@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,7 +36,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -96,6 +94,7 @@ fun ClientDetailScreen(
     onStartRecording: (Long) -> Unit,
     onShowBriefing: (Long) -> Unit,
     onMeetingSelected: (Long) -> Unit,
+    onOpenClientInfo: () -> Unit,
     onBack: () -> Unit,
     onClientDeleted: () -> Unit
 ) {
@@ -114,7 +113,6 @@ fun ClientDetailScreen(
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var searchActive by remember { mutableStateOf(false) }
     val searchFocusRequester = remember { FocusRequester() }
-    var showEditInfoDialog by remember { mutableStateOf(false) }
     var showDeleteClientDialog by remember { mutableStateOf(false) }
     var showAddFolderDialog by remember { mutableStateOf(false) }
     // フォルダごとの展開状態。未登録(=このMapに無い)場合はデフォルトで未展開。
@@ -190,7 +188,7 @@ fun ClientDetailScreen(
                             text = { Text("クライアント情報") },
                             onClick = {
                                 menuExpanded = false
-                                showEditInfoDialog = true
+                                onOpenClientInfo()
                             }
                         )
                         DropdownMenuItem(
@@ -388,18 +386,6 @@ fun ClientDetailScreen(
         if (searchActive) searchFocusRequester.requestFocus()
     }
 
-    if (showEditInfoDialog) {
-        ClientInfoDialog(
-            initialName = client?.name.orEmpty(),
-            initialEmail = client?.email.orEmpty(),
-            initialPhone = client?.phone.orEmpty(),
-            onDismiss = { showEditInfoDialog = false },
-            onConfirm = { name, email, phone ->
-                viewModel.updateClientInfo(name, email, phone)
-                showEditInfoDialog = false
-            }
-        )
-    }
 
     if (showDeleteClientDialog) {
         ConfirmDialog(
@@ -811,48 +797,3 @@ private fun OpenTodoSection(
     }
 }
 
-/** 名前・メール・電話を編集するダイアログ。 */
-@Composable
-private fun ClientInfoDialog(
-    initialName: String,
-    initialEmail: String,
-    initialPhone: String,
-    onDismiss: () -> Unit,
-    onConfirm: (name: String, email: String?, phone: String?) -> Unit
-) {
-    var name by remember { mutableStateOf(initialName) }
-    var email by remember { mutableStateOf(initialEmail) }
-    var phone by remember { mutableStateOf(initialPhone) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("クライアント情報") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = name, onValueChange = { name = it },
-                    label = { Text("クライアント名") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = email, onValueChange = { email = it },
-                    label = { Text("メールアドレス（任意）") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = phone, onValueChange = { phone = it },
-                    label = { Text("電話番号（任意）") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            androidx.compose.material3.TextButton(
-                onClick = { onConfirm(name.trim(), email.trim(), phone.trim()) },
-                enabled = name.isNotBlank()
-            ) { Text("保存") }
-        },
-        dismissButton = {
-            androidx.compose.material3.TextButton(onClick = onDismiss) { Text("キャンセル") }
-        }
-    )
-}

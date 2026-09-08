@@ -1,0 +1,162 @@
+package com.meetingnotes.ui.client
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.ui.common.DealPhaseChip
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ClientInfoScreen(
+    repository: MeetingRepository,
+    clientId: Long,
+    onBack: () -> Unit,
+    onEdit: () -> Unit
+) {
+    val viewModel: ClientInfoViewModel =
+        viewModel(factory = ClientInfoViewModel.factory(repository, clientId))
+    val client by viewModel.client.collectAsState()
+    val contacts by viewModel.contacts.collectAsState()
+    val phase by viewModel.latestPhase.collectAsState()
+    val groups by viewModel.groups.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("クライアント情報") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.Edit, contentDescription = "編集")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        val c = client
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ElevatedCard {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    InfoRow("クライアント名", c?.name)
+                    HorizontalDivider()
+                    InfoRow(
+                        "グループ",
+                        groups.firstOrNull { it.id == c?.groupId }?.name ?: "未分類"
+                    )
+                    HorizontalDivider()
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text(
+                            "現在のステータス",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.width(120.dp)
+                        )
+                        if (phase != null) DealPhaseChip(phase = phase)
+                        else Text("—", style = MaterialTheme.typography.bodyLarge)
+                    }
+                    HorizontalDivider()
+                    InfoRow("メールアドレス", c?.email)
+                    HorizontalDivider()
+                    InfoRow("電話番号", c?.phone)
+                }
+            }
+
+            Text("担当者", style = MaterialTheme.typography.titleMedium)
+            if (contacts.isEmpty()) {
+                Text(
+                    "登録されていません。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                contacts.forEach { contact ->
+                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(
+                                contact.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            contact.note?.takeIf { it.isNotBlank() }?.let {
+                                Text(
+                                    it,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Text("備考", style = MaterialTheme.typography.titleMedium)
+            SelectionContainer {
+                Text(
+                    c?.memo?.takeIf { it.isNotBlank() } ?: "（なし）",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Spacer(Modifier.width(1.dp))
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String?) {
+    Row {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(120.dp)
+        )
+        SelectionContainer {
+            Text(
+                value?.takeIf { it.isNotBlank() } ?: "—",
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+    }
+}

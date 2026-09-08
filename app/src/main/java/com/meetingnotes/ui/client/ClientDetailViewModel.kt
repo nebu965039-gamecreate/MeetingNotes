@@ -73,11 +73,6 @@ class ClientDetailViewModel(
         viewModelScope.launch { repository.renameClient(clientId, name) }
     }
 
-    fun updateClientInfo(name: String, email: String?, phone: String?) {
-        if (name.isBlank()) return
-        viewModelScope.launch { repository.updateClientInfo(clientId, name, email, phone) }
-    }
-
     fun completeTodo(todoId: Long) {
         viewModelScope.launch { repository.setTodoDone(todoId, true) }
     }

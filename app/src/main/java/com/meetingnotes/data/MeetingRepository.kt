@@ -29,7 +29,8 @@ class MeetingRepository(
     private val folderDao: FolderDao,
     private val clientGroupDao: ClientGroupDao,
     private val clientBriefingDao: ClientBriefingDao,
-    private val notificationLogDao: NotificationLogDao
+    private val notificationLogDao: NotificationLogDao,
+    private val clientContactDao: com.meetingnotes.data.local.ClientContactDao
 ) {
     fun observeClients(): Flow<List<ClientEntity>> = clientDao.observeAll()
 
@@ -42,8 +43,35 @@ class MeetingRepository(
 
     suspend fun renameClient(clientId: Long, name: String) = clientDao.rename(clientId, name)
 
-    suspend fun updateClientInfo(clientId: Long, name: String, email: String?, phone: String?) =
-        clientDao.updateInfo(clientId, name.trim(), email?.trim()?.ifBlank { null }, phone?.trim()?.ifBlank { null })
+    suspend fun updateClientInfo(clientId: Long, name: String, email: String?, phone: String?, memo: String?) =
+        clientDao.updateInfo(
+            clientId, name.trim(),
+            email?.trim()?.ifBlank { null },
+            phone?.trim()?.ifBlank { null },
+            memo?.trim()?.ifBlank { null }
+        )
+
+    fun observeClientContacts(clientId: Long): Flow<List<com.meetingnotes.data.local.ClientContactEntity>> =
+        clientContactDao.observeByClient(clientId)
+
+    suspend fun addClientContact(clientId: Long, name: String, note: String?) {
+        if (name.isBlank()) return
+        clientContactDao.insert(
+            com.meetingnotes.data.local.ClientContactEntity(
+                clientId = clientId,
+                name = name.trim(),
+                note = note?.trim()?.ifBlank { null },
+                createdAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun updateClientContact(id: Long, name: String, note: String?) {
+        if (name.isBlank()) return
+        clientContactDao.update(id, name.trim(), note?.trim()?.ifBlank { null })
+    }
+
+    suspend fun deleteClientContact(id: Long) = clientContactDao.deleteById(id)
 
     suspend fun deleteClient(clientId: Long) = clientDao.deleteById(clientId)
 

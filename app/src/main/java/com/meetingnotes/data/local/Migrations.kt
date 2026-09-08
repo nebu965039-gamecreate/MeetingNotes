@@ -99,7 +99,21 @@ val MIGRATION_11_12 = object : Migration(11, 12) {
     }
 }
 
+/** v12 → v13: クライアントの担当者(先方窓口)テーブル。 */
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `client_contacts` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`clientId` INTEGER NOT NULL, `name` TEXT NOT NULL, `note` TEXT, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`clientId`) REFERENCES `clients`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_client_contacts_clientId` ON `client_contacts` (`clientId`)")
+    }
+}
+
 val databaseMigrations: Array<Migration> = arrayOf(
     MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-    MIGRATION_10_11, MIGRATION_11_12
+    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13
 )
