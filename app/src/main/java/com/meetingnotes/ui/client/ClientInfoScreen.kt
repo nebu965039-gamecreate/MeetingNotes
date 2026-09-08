@@ -12,20 +12,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,13 +30,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.common.DealPhaseChip
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * クライアント情報の閲覧表示。クライアント詳細画面の「情報」タブで使う。
+ * 編集は [onEdit](→ `ClientEditScreen`)へ。
+ */
 @Composable
-fun ClientInfoScreen(
+fun ClientInfoContent(
     repository: MeetingRepository,
     clientId: Long,
-    onBack: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val viewModel: ClientInfoViewModel =
         viewModel(factory = ClientInfoViewModel.factory(repository, clientId))
@@ -48,111 +48,97 @@ fun ClientInfoScreen(
     val phase by viewModel.latestPhase.collectAsState()
     val groups by viewModel.groups.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("クライアント情報") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "編集")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        val c = client
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            ElevatedCard {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    InfoRow("クライアント名", c?.name)
-                    HorizontalDivider()
-                    InfoRow(
-                        "グループ",
-                        groups.firstOrNull { it.id == c?.groupId }?.name ?: "未分類"
-                    )
-                    HorizontalDivider()
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Text(
-                            "現在のステータス",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.width(120.dp)
-                        )
-                        if (phase != null) DealPhaseChip(phase = phase)
-                        else Text("—", style = MaterialTheme.typography.bodyLarge)
-                    }
-                    HorizontalDivider()
-                    InfoRow("メールアドレス", c?.email)
-                    HorizontalDivider()
-                    InfoRow("電話番号", c?.phone)
-                }
+    val c = client
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            FilledTonalButton(onClick = onEdit) {
+                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.width(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("情報を編集")
             }
+        }
 
-            Text("担当者", style = MaterialTheme.typography.titleMedium)
-            if (contacts.isEmpty()) {
-                Text(
-                    "登録されていません。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                contacts.forEach { contact ->
-                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
+        ElevatedCard {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                InfoRow("クライアント名", c?.name)
+                HorizontalDivider()
+                InfoRow("グループ", groups.firstOrNull { it.id == c?.groupId }?.name ?: "未分類")
+                HorizontalDivider()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "現在のステータス",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(120.dp)
+                    )
+                    if (phase != null) DealPhaseChip(phase = phase)
+                    else Text("—", style = MaterialTheme.typography.bodyLarge)
+                }
+                HorizontalDivider()
+                InfoRow("メールアドレス", c?.email)
+                HorizontalDivider()
+                InfoRow("電話番号", c?.phone)
+            }
+        }
+
+        Text("担当者", style = MaterialTheme.typography.titleMedium)
+        if (contacts.isEmpty()) {
+            Text(
+                "登録されていません。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            contacts.forEach { contact ->
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            contact.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        contact.note?.takeIf { it.isNotBlank() }?.let {
                             Text(
-                                contact.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
+                                it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            contact.note?.takeIf { it.isNotBlank() }?.let {
-                                Text(
-                                    it,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            SelectionContainer {
-                                Column {
-                                    contact.email?.takeIf { it.isNotBlank() }?.let {
-                                        Text("✉ $it", style = MaterialTheme.typography.bodyMedium)
-                                    }
-                                    contact.phone?.takeIf { it.isNotBlank() }?.let {
-                                        Text("☎ $it", style = MaterialTheme.typography.bodyMedium)
-                                    }
+                        }
+                        SelectionContainer {
+                            Column {
+                                contact.email?.takeIf { it.isNotBlank() }?.let {
+                                    Text("✉ $it", style = MaterialTheme.typography.bodyMedium)
+                                }
+                                contact.phone?.takeIf { it.isNotBlank() }?.let {
+                                    Text("☎ $it", style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
                         }
                     }
                 }
             }
-
-            Text("備考", style = MaterialTheme.typography.titleMedium)
-            SelectionContainer {
-                Text(
-                    c?.memo?.takeIf { it.isNotBlank() } ?: "（なし）",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-            Spacer(Modifier.width(1.dp))
         }
+
+        Text("備考", style = MaterialTheme.typography.titleMedium)
+        SelectionContainer {
+            Text(
+                c?.memo?.takeIf { it.isNotBlank() } ?: "（なし）",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        Spacer(Modifier.width(1.dp))
     }
 }
 

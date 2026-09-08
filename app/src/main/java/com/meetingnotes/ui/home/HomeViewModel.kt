@@ -70,10 +70,6 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
             log.any { it.firedAt > seenAt }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val phaseCounts: StateFlow<PhaseTrackerCounts> =
-        latestMeetings.map { phaseCountsOf(it) }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PhaseTrackerCounts())
-
     private val startOfThisMonth: Long =
         java.time.YearMonth.now().atDay(1).atStartOfDay(java.time.ZoneId.systemDefault())
             .toInstant().toEpochMilli()

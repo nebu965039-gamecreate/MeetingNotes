@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -36,9 +37,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -47,9 +50,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +62,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -64,6 +70,7 @@ import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.FolderEntity
 import com.meetingnotes.data.local.MeetingEntity
+import com.meetingnotes.data.local.TodoEntity
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.DealPhaseChip
 import com.meetingnotes.ui.common.DealPhasePickerDialog
@@ -94,7 +101,7 @@ fun ClientDetailScreen(
     onStartRecording: (Long) -> Unit,
     onShowBriefing: (Long) -> Unit,
     onMeetingSelected: (Long) -> Unit,
-    onOpenClientInfo: () -> Unit,
+    onEditClient: () -> Unit,
     onBack: () -> Unit,
     onClientDeleted: () -> Unit
 ) {
@@ -103,12 +110,14 @@ fun ClientDetailScreen(
     )
     val client by viewModel.client.collectAsState()
     val openTodos by viewModel.openTodos.collectAsState()
+    val doneTodos by viewModel.doneTodos.collectAsState()
     val meetings by viewModel.sortedMeetings.collectAsState()
     val folders by viewModel.folders.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
 
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var menuExpanded by remember { mutableStateOf(false) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var searchActive by remember { mutableStateOf(false) }
@@ -154,67 +163,43 @@ fun ClientDetailScreen(
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                         }
-                    }
-                )
-                // 操作アイコンはタイトルを圧迫しないよう、TopAppBar の下の行にまとめる。
-                Surface(color = MaterialTheme.colorScheme.primaryContainer) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = {
-                            searchActive = !searchActive
-                            if (!searchActive) viewModel.setSearchQuery("")
-                        }) {
-                            Icon(
-                                if (searchActive) Icons.Filled.Close else Icons.Filled.Search,
-                                contentDescription = if (searchActive) "検索を閉じる" else "検索",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                        IconButton(onClick = { showAddFolderDialog = true }) {
-                            Icon(
-                                Icons.Filled.CreateNewFolder,
-                                contentDescription = "フォルダを作成",
-                                tint = CreateActionBlue
-                            )
-                        }
+                    },
+                    actions = {
                         Box {
                             IconButton(onClick = { menuExpanded = true }) {
-                                Icon(
-                                    Icons.Filled.MoreVert,
-                                    contentDescription = "メニュー",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
+                                Icon(Icons.Filled.MoreVert, contentDescription = "メニュー")
                             }
                             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                                 if (meetings.isNotEmpty()) {
                                     DropdownMenuItem(
                                         text = { Text("前回のおさらい") },
-                                        onClick = {
-                                            menuExpanded = false
-                                            onShowBriefing(clientId)
-                                        }
+                                        onClick = { menuExpanded = false; onShowBriefing(clientId) }
                                     )
                                 }
                                 DropdownMenuItem(
-                                    text = { Text("クライアント情報") },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onOpenClientInfo()
-                                    }
-                                )
-                                DropdownMenuItem(
                                     text = { Text("クライアントを削除") },
-                                    onClick = {
-                                        menuExpanded = false
-                                        showDeleteClientDialog = true
-                                    }
+                                    onClick = { menuExpanded = false; showDeleteClientDialog = true }
                                 )
                             }
                         }
                     }
+                )
+                PrimaryTabRow(selectedTabIndex = selectedTab) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text("アーカイブ") }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text(if (openTodos.isEmpty()) "ToDo" else "ToDo (${openTodos.size})") }
+                    )
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        text = { Text("情報") }
+                    )
                 }
             }
         },
@@ -239,13 +224,77 @@ fun ClientDetailScreen(
             }
         }
     ) { padding ->
-        LazyColumn(
+      Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+       when (selectedTab) {
+        1 -> TodoTab(
+            openTodos = openTodos,
+            doneTodos = doneTodos,
+            onOpenMeeting = onMeetingSelected,
+            onComplete = { viewModel.completeTodo(it) },
+            onReopen = { viewModel.reopenTodo(it) }
+        )
+        2 -> ClientInfoContent(repository = repository, clientId = clientId, onEdit = onEditClient)
+        else -> LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "アーカイブ", style = MaterialTheme.typography.titleMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = {
+                            searchActive = !searchActive
+                            if (!searchActive) viewModel.setSearchQuery("")
+                        }) {
+                            Icon(
+                                if (searchActive) Icons.Filled.Close else Icons.Filled.Search,
+                                contentDescription = if (searchActive) "検索を閉じる" else "検索"
+                            )
+                        }
+                        IconButton(onClick = { showAddFolderDialog = true }) {
+                            Icon(
+                                Icons.Filled.CreateNewFolder,
+                                contentDescription = "フォルダを作成",
+                                tint = CreateActionBlue
+                            )
+                        }
+                        if (meetings.size > 1) {
+                            Box {
+                                TextButton(onClick = { sortMenuExpanded = true }) {
+                                    Icon(
+                                        Icons.Filled.SwapVert,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(sortOrder.label)
+                                }
+                                DropdownMenu(
+                                    expanded = sortMenuExpanded,
+                                    onDismissRequest = { sortMenuExpanded = false }
+                                ) {
+                                    MeetingSortOrder.entries.forEach { order ->
+                                        DropdownMenuItem(
+                                            text = { Text(order.label) },
+                                            onClick = {
+                                                viewModel.setSortOrder(order)
+                                                sortMenuExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             if (searchActive) {
                 item {
                     ArchiveSearchField(
@@ -257,16 +306,6 @@ fun ClientDetailScreen(
             }
 
             val searching = searchActive && searchQuery.isNotBlank()
-
-            if (!searching && openTodos.isNotEmpty()) {
-                item(key = "open_todos") {
-                    OpenTodoSection(
-                        todos = openTodos,
-                        onOpenMeeting = onMeetingSelected,
-                        onComplete = { viewModel.completeTodo(it) }
-                    )
-                }
-            }
 
             if (searching) {
                 item {
@@ -291,43 +330,6 @@ fun ClientDetailScreen(
                     }
                 }
                 return@LazyColumn
-            }
-
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "アーカイブ", style = MaterialTheme.typography.titleMedium)
-                    if (meetings.size > 1) {
-                        Box {
-                            TextButton(onClick = { sortMenuExpanded = true }) {
-                                Icon(
-                                    Icons.Filled.SwapVert,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(sortOrder.label)
-                            }
-                            DropdownMenu(
-                                expanded = sortMenuExpanded,
-                                onDismissRequest = { sortMenuExpanded = false }
-                            ) {
-                                MeetingSortOrder.entries.forEach { order ->
-                                    DropdownMenuItem(
-                                        text = { Text(order.label) },
-                                        onClick = {
-                                            viewModel.setSortOrder(order)
-                                            sortMenuExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
             }
 
             if (meetings.isEmpty() && folders.isEmpty()) {
@@ -396,6 +398,8 @@ fun ClientDetailScreen(
                 }
             }
         }
+       }
+      }
     }
 
     LaunchedEffect(searchActive) {
@@ -755,58 +759,79 @@ private fun FolderOptionRow(label: String, selected: Boolean, onClick: () -> Uni
     }
 }
 
-/** クライアント詳細の「未完了ToDo」セクション(アーカイブの上)。 */
+/** クライアント詳細の「ToDo」タブ。ToDo / 完了 の2サブタブ。 */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun OpenTodoSection(
-    todos: List<com.meetingnotes.data.local.TodoEntity>,
+private fun TodoTab(
+    openTodos: List<TodoEntity>,
+    doneTodos: List<TodoEntity>,
     onOpenMeeting: (Long) -> Unit,
-    onComplete: (Long) -> Unit
+    onComplete: (Long) -> Unit,
+    onReopen: (Long) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                "ToDoリスト (${todos.size}件)",
-                style = MaterialTheme.typography.titleMedium
-            )
-            todos.forEach { t ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenMeeting(t.meetingId) }
-                        .padding(vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = false,
-                        onCheckedChange = { onComplete(t.id) }
+    var sub by rememberSaveable { mutableIntStateOf(0) }
+    Column(modifier = Modifier.fillMaxSize()) {
+        PrimaryTabRow(selectedTabIndex = sub) {
+            Tab(selected = sub == 0, onClick = { sub = 0 }, text = { Text("ToDo (${openTodos.size})") })
+            Tab(selected = sub == 1, onClick = { sub = 1 }, text = { Text("完了 (${doneTodos.size})") })
+        }
+        val list = if (sub == 0) openTodos else doneTodos
+        if (list.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    if (sub == 0) "未完了のToDoはありません。" else "完了したToDoはありません。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(list, key = { it.id }) { t ->
+                    TodoRowItem(
+                        todo = t,
+                        done = sub == 1,
+                        onClick = { onOpenMeeting(t.meetingId) },
+                        onToggle = { if (sub == 0) onComplete(t.id) else onReopen(t.id) }
                     )
-                    Spacer(Modifier.width(4.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            t.task,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        val sub = buildString {
-                            append("担当 ${t.assignee}")
-                            if (t.deadline.isNotBlank() && t.deadline != "未定") append("・期限 ${t.deadline}")
-                        }
-                        Text(
-                            sub,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TodoRowItem(todo: TodoEntity, done: Boolean, onClick: () -> Unit, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(checked = done, onCheckedChange = { onToggle() })
+        Spacer(Modifier.width(4.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                todo.task,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                textDecoration = if (done) TextDecoration.LineThrough else null,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            val sub = buildString {
+                append("担当 ${todo.assignee}")
+                if (todo.deadline.isNotBlank() && todo.deadline != "未定") append("・期限 ${todo.deadline}")
+            }
+            Text(
+                sub,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

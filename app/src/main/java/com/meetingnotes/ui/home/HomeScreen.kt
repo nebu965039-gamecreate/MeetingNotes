@@ -1,22 +1,15 @@
 package com.meetingnotes.ui.home
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Notifications
@@ -45,9 +38,6 @@ import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.client.FollowupBoard
 import com.meetingnotes.ui.client.UpcomingBoard
-import com.meetingnotes.ui.theme.PhaseChartColors
-import com.meetingnotes.ui.theme.ThemeMode
-import com.meetingnotes.data.model.DealPhase
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -70,7 +60,6 @@ fun HomeScreen(
     val viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory(repository))
     val followups by viewModel.followups.collectAsState()
     val upcoming by viewModel.upcoming.collectAsState()
-    val phaseCounts by viewModel.phaseCounts.collectAsState()
     val dashboard by viewModel.dashboard.collectAsState()
     val hasUnseenNotifications by viewModel.hasUnseenNotifications.collectAsState()
     val dueTodos by viewModel.dueTodos.collectAsState()
@@ -164,10 +153,6 @@ fun HomeScreen(
                     onShowAll = onOpenFollowupList
                 )
             }
-
-            item(key = "phase_tracker") {
-                PhaseTrackerSection(counts = phaseCounts)
-            }
         }
     }
 }
@@ -205,80 +190,3 @@ private fun DraftRecoveryCard(
     }
 }
 
-/** 「進行中のフェーズ」= 各フェーズの横棒(ファネル)。成約/保留/失注/初回接触は対象外。 */
-@Composable
-private fun PhaseTrackerSection(counts: PhaseTrackerCounts, modifier: Modifier = Modifier) {
-    val app = LocalContext.current.applicationContext as MeetingNotesApp
-    val darkTheme = when (app.themeModeState.value) {
-        ThemeMode.LIGHT -> false
-        ThemeMode.DARK -> true
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-    }
-    val rows = listOf(
-        Triple("ヒアリング", counts.hearing, DealPhase.HEARING),
-        Triple("提案", counts.proposal, DealPhase.PROPOSAL),
-        Triple("見積提示", counts.quoted, DealPhase.QUOTED),
-        Triple("検討中", counts.considering, DealPhase.CONSIDERING)
-    )
-    val maxCount = rows.maxOf { it.second }.coerceAtLeast(1)
-
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("進行中のフェーズ", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "${counts.total}件",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                rows.forEach { (label, count, phase) ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            label,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            modifier = Modifier.width(60.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(14.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(count.toFloat() / maxCount)
-                                    .height(14.dp)
-                                    .background(
-                                        PhaseChartColors.of(phase, darkTheme),
-                                        RoundedCornerShape(4.dp)
-                                    )
-                            )
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "$count",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-    }
-}

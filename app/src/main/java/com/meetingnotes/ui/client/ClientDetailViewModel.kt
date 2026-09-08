@@ -41,6 +41,11 @@ class ClientDetailViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** このクライアントの完了済み ToDo(新しく起票された順の逆 = id 降順)。 */
+    val doneTodos: StateFlow<List<TodoEntity>> = todos
+        .map { list -> list.filter { it.isDone }.sortedByDescending { it.id } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val folders: StateFlow<List<FolderEntity>> = repository.observeFolders(clientId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -75,6 +80,10 @@ class ClientDetailViewModel(
 
     fun completeTodo(todoId: Long) {
         viewModelScope.launch { repository.setTodoDone(todoId, true) }
+    }
+
+    fun reopenTodo(todoId: Long) {
+        viewModelScope.launch { repository.setTodoDone(todoId, false) }
     }
 
     fun deleteClient(onDeleted: () -> Unit) {
