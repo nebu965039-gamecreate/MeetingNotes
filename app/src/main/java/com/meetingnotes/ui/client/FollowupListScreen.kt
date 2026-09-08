@@ -69,11 +69,13 @@ fun FollowupListScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // 下部ナビの ToDo バッジ(= 未完了 ToDo 総数)と件数を揃える。
+            val openTodoTotal = todo.sumOf { it.openTodoCount }
             PrimaryTabRow(selectedTabIndex = tab) {
                 Tab(
                     selected = tab == 0,
                     onClick = { tab = 0 },
-                    text = { Text("ToDo (${todo.size})") }
+                    text = { Text("ToDo ($openTodoTotal)") }
                 )
                 Tab(
                     selected = tab == 1,

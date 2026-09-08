@@ -22,6 +22,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
@@ -71,9 +73,11 @@ import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.FolderEntity
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
+import com.meetingnotes.data.local.ClientProjectEntity
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.DealPhaseChip
 import com.meetingnotes.ui.common.DealPhasePickerDialog
+import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.TextInputDialog
 import com.meetingnotes.ui.common.effectivePhase
 import com.meetingnotes.ui.theme.CreateActionBlue
@@ -112,10 +116,17 @@ fun ClientDetailScreen(
     val openTodos by viewModel.openTodos.collectAsState()
     val doneTodos by viewModel.doneTodos.collectAsState()
     val meetings by viewModel.sortedMeetings.collectAsState()
+    val hasAnyMeeting by viewModel.hasAnyMeeting.collectAsState()
     val folders by viewModel.folders.collectAsState()
+    val projects by viewModel.projects.collectAsState()
+    val projectFilter by viewModel.projectFilter.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
+
+    val projectNameOf: (MeetingEntity) -> String? = { m ->
+        m.projectId?.let { pid -> projects.firstOrNull { it.id == pid }?.name }
+    }
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var menuExpanded by remember { mutableStateOf(false) }
@@ -124,12 +135,14 @@ fun ClientDetailScreen(
     val searchFocusRequester = remember { FocusRequester() }
     var showDeleteClientDialog by remember { mutableStateOf(false) }
     var showAddFolderDialog by remember { mutableStateOf(false) }
+    var showManageProjects by remember { mutableStateOf(false) }
     // フォルダごとの展開状態。未登録(=このMapに無い)場合はデフォルトで未展開。
     val expandedFolders = remember { mutableStateMapOf<Long, Boolean>() }
     var meetingToRename by remember { mutableStateOf<MeetingEntity?>(null) }
     var meetingToMove by remember { mutableStateOf<MeetingEntity?>(null) }
     var meetingToDelete by remember { mutableStateOf<MeetingEntity?>(null) }
     var meetingToPhase by remember { mutableStateOf<MeetingEntity?>(null) }
+    var meetingToProject by remember { mutableStateOf<MeetingEntity?>(null) }
     var folderToRename by remember { mutableStateOf<FolderEntity?>(null) }
     var folderToDelete by remember { mutableStateOf<FolderEntity?>(null) }
 
@@ -170,12 +183,16 @@ fun ClientDetailScreen(
                                 Icon(Icons.Filled.MoreVert, contentDescription = "メニュー")
                             }
                             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                                if (meetings.isNotEmpty()) {
+                                if (hasAnyMeeting) {
                                     DropdownMenuItem(
                                         text = { Text("前回のおさらい") },
                                         onClick = { menuExpanded = false; onShowBriefing(clientId) }
                                     )
                                 }
+                                DropdownMenuItem(
+                                    text = { Text("プロジェクトを管理") },
+                                    onClick = { menuExpanded = false; showManageProjects = true }
+                                )
                                 DropdownMenuItem(
                                     text = { Text("クライアントを削除") },
                                     onClick = { menuExpanded = false; showDeleteClientDialog = true }
@@ -210,7 +227,7 @@ fun ClientDetailScreen(
                     Button(
                         onClick = {
                             // 2回目以降は録音前に「前回のおさらい」を挟む
-                            if (meetings.isNotEmpty()) onShowBriefing(clientId) else onStartRecording(clientId)
+                            if (hasAnyMeeting) onShowBriefing(clientId) else onStartRecording(clientId)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -240,6 +257,21 @@ fun ClientDetailScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            if (projects.isNotEmpty()) {
+                item {
+                    val projectOptions = buildList<Pair<Long?, String>> {
+                        add(null to "すべての商談")
+                        add(ClientDetailViewModel.NO_PROJECT to "プロジェクトなし")
+                        projects.forEach { add(it.id to it.name) }
+                    }
+                    LabeledDropdownField(
+                        label = "プロジェクト",
+                        options = projectOptions,
+                        selected = projectFilter,
+                        onSelect = { viewModel.setProjectFilter(it) }
+                    )
+                }
+            }
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -325,7 +357,9 @@ fun ClientDetailScreen(
                             onRename = { meetingToRename = result.meeting },
                             onMove = { meetingToMove = result.meeting },
                             onDelete = { meetingToDelete = result.meeting },
-                            onChangePhase = { meetingToPhase = result.meeting }
+                            onChangePhase = { meetingToPhase = result.meeting },
+                            onChangeProject = { meetingToProject = result.meeting },
+                            projectName = projectNameOf(result.meeting)
                         )
                     }
                 }
@@ -342,7 +376,9 @@ fun ClientDetailScreen(
                         onRename = { meetingToRename = meeting },
                         onMove = { meetingToMove = meeting },
                         onDelete = { meetingToDelete = meeting },
-                        onChangePhase = { meetingToPhase = meeting }
+                        onChangePhase = { meetingToPhase = meeting },
+                        onChangeProject = { meetingToProject = meeting },
+                        projectName = projectNameOf(meeting)
                     )
                 }
             } else {
@@ -369,7 +405,9 @@ fun ClientDetailScreen(
                                     onRename = { meetingToRename = meeting },
                                     onMove = { meetingToMove = meeting },
                                     onDelete = { meetingToDelete = meeting },
-                                    onChangePhase = { meetingToPhase = meeting }
+                                    onChangePhase = { meetingToPhase = meeting },
+                                    onChangeProject = { meetingToProject = meeting },
+                                    projectName = projectNameOf(meeting)
                                 )
                             }
                         }
@@ -392,7 +430,9 @@ fun ClientDetailScreen(
                             onRename = { meetingToRename = meeting },
                             onMove = { meetingToMove = meeting },
                             onDelete = { meetingToDelete = meeting },
-                            onChangePhase = { meetingToPhase = meeting }
+                            onChangePhase = { meetingToPhase = meeting },
+                            onChangeProject = { meetingToProject = meeting },
+                            projectName = projectNameOf(meeting)
                         )
                     }
                 }
@@ -503,6 +543,28 @@ fun ClientDetailScreen(
             onConfirm = {
                 viewModel.deleteFolder(folder.id)
                 folderToDelete = null
+            }
+        )
+    }
+
+    if (showManageProjects) {
+        ManageProjectsDialog(
+            projects = projects,
+            onAdd = { viewModel.addProject(it) },
+            onRename = { id, name -> viewModel.renameProject(id, name) },
+            onDelete = { viewModel.deleteProject(it) },
+            onDismiss = { showManageProjects = false }
+        )
+    }
+
+    meetingToProject?.let { meeting ->
+        ProjectPickerDialog(
+            projects = projects,
+            currentProjectId = meeting.projectId,
+            onDismiss = { meetingToProject = null },
+            onSelect = { projectId ->
+                viewModel.setMeetingProject(meeting.id, projectId)
+                meetingToProject = null
             }
         )
     }
@@ -630,6 +692,8 @@ private fun MeetingRow(
     onMove: () -> Unit,
     onDelete: () -> Unit,
     onChangePhase: () -> Unit,
+    onChangeProject: () -> Unit,
+    projectName: String? = null,
     matchPreview: String? = null
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -669,7 +733,18 @@ private fun MeetingRow(
                     )
                 }
                 val recordedAt = Instant.ofEpochMilli(meeting.recordedAt).atZone(ZoneId.systemDefault())
-                Text(text = recordedAt.format(dateFormatter), style = MaterialTheme.typography.bodySmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = recordedAt.format(dateFormatter), style = MaterialTheme.typography.bodySmall)
+                    if (!projectName.isNullOrBlank()) {
+                        Text(
+                            text = "・📁 $projectName",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
                 if (!matchPreview.isNullOrEmpty()) {
                     Text(
                         text = matchPreview,
@@ -701,6 +776,10 @@ private fun MeetingRow(
                     DropdownMenuItem(
                         text = { Text("フォルダに移動") },
                         onClick = { menuExpanded = false; onMove() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("プロジェクトを変更") },
+                        onClick = { menuExpanded = false; onChangeProject() }
                     )
                     DropdownMenuItem(
                         text = { Text("削除") },
@@ -756,6 +835,138 @@ private fun FolderOptionRow(label: String, selected: Boolean, onClick: () -> Uni
     ) {
         RadioButton(selected = selected, onClick = onClick)
         Text(label)
+    }
+}
+
+/** 商談を1つのプロジェクトに割り当てるピッカー。 */
+@Composable
+private fun ProjectPickerDialog(
+    projects: List<ClientProjectEntity>,
+    currentProjectId: Long?,
+    onDismiss: () -> Unit,
+    onSelect: (Long?) -> Unit
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("プロジェクトを変更") },
+        text = {
+            Column {
+                FolderOptionRow(
+                    label = "なし",
+                    selected = currentProjectId == null,
+                    onClick = { onSelect(null) }
+                )
+                projects.forEach { project ->
+                    FolderOptionRow(
+                        label = project.name,
+                        selected = currentProjectId == project.id,
+                        onClick = { onSelect(project.id) }
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) { Text("キャンセル") }
+        }
+    )
+}
+
+/** プロジェクトの追加・名称変更・削除をまとめて行うダイアログ。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ManageProjectsDialog(
+    projects: List<ClientProjectEntity>,
+    onAdd: (String) -> Unit,
+    onRename: (Long, String) -> Unit,
+    onDelete: (Long) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var newName by remember { mutableStateOf("") }
+    var projectToRename by remember { mutableStateOf<ClientProjectEntity?>(null) }
+    var projectToDelete by remember { mutableStateOf<ClientProjectEntity?>(null) }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("プロジェクトを管理") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (projects.isEmpty()) {
+                    Text(
+                        "プロジェクトはまだありません。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                projects.forEach { project ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            project.name,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { projectToRename = project }
+                                .padding(vertical = 8.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        IconButton(onClick = { projectToRename = project }) {
+                            Icon(Icons.Filled.Edit, contentDescription = "名称変更", modifier = Modifier.size(18.dp))
+                        }
+                        IconButton(onClick = { projectToDelete = project }) {
+                            Icon(Icons.Filled.Delete, contentDescription = "削除", modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("新しいプロジェクト") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(
+                        onClick = {
+                            if (newName.isNotBlank()) {
+                                onAdd(newName)
+                                newName = ""
+                            }
+                        }
+                    ) { Text("追加") }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) { Text("閉じる") }
+        }
+    )
+
+    projectToRename?.let { p ->
+        TextInputDialog(
+            title = "プロジェクト名を変更",
+            label = "プロジェクト名",
+            initialValue = p.name,
+            confirmLabel = "変更",
+            onDismiss = { projectToRename = null },
+            onConfirm = { name ->
+                onRename(p.id, name)
+                projectToRename = null
+            }
+        )
+    }
+
+    projectToDelete?.let { p ->
+        ConfirmDialog(
+            title = "プロジェクトを削除",
+            text = "「${p.name}」を削除します。このプロジェクトの商談は削除されず、プロジェクト未設定に戻ります。",
+            onDismiss = { projectToDelete = null },
+            onConfirm = {
+                onDelete(p.id)
+                projectToDelete = null
+            }
+        )
     }
 }
 

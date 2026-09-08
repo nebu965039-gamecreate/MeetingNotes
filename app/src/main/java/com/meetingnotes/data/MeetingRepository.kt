@@ -31,7 +31,8 @@ class MeetingRepository(
     private val clientGroupDao: ClientGroupDao,
     private val clientBriefingDao: ClientBriefingDao,
     private val notificationLogDao: NotificationLogDao,
-    private val clientContactDao: com.meetingnotes.data.local.ClientContactDao
+    private val clientContactDao: com.meetingnotes.data.local.ClientContactDao,
+    private val clientProjectDao: com.meetingnotes.data.local.ClientProjectDao
 ) {
     fun observeClients(): Flow<List<ClientEntity>> = clientDao.observeAll()
 
@@ -196,6 +197,36 @@ class MeetingRepository(
     suspend fun renameFolder(folderId: Long, name: String) = folderDao.rename(folderId, name)
 
     suspend fun deleteFolder(folderId: Long) = folderDao.deleteById(folderId)
+
+    // --- クライアント配下のプロジェクト(任意) ---
+
+    fun observeClientProjects(clientId: Long): Flow<List<com.meetingnotes.data.local.ClientProjectEntity>> =
+        clientProjectDao.observeByClient(clientId)
+
+    suspend fun addClientProject(clientId: Long, name: String): Long {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return -1L
+        return clientProjectDao.insert(
+            com.meetingnotes.data.local.ClientProjectEntity(
+                clientId = clientId, name = trimmed, createdAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun renameClientProject(projectId: Long, name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        clientProjectDao.rename(projectId, trimmed)
+    }
+
+    /** プロジェクトを削除。紐付いていた商談は projectId を null に戻す(商談自体は消さない)。 */
+    suspend fun deleteClientProject(projectId: Long) {
+        meetingDao.clearProject(projectId)
+        clientProjectDao.deleteById(projectId)
+    }
+
+    suspend fun setMeetingProject(meetingId: Long, projectId: Long?) =
+        meetingDao.updateProject(meetingId, projectId)
 
     suspend fun saveMeeting(
         clientId: Long,

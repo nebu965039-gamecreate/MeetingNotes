@@ -59,7 +59,8 @@ class MeetingNotesApp : Application() {
             database.clientGroupDao(),
             database.clientBriefingDao(),
             database.notificationLogDao(),
-            database.clientContactDao()
+            database.clientContactDao(),
+            database.clientProjectDao()
         )
     }
 

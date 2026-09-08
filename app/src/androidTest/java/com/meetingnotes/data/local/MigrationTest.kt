@@ -215,6 +215,36 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate15To16_addsClientProjectsAndMeetingProjectId() {
+        helper.createDatabase(dbName, 15).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL(
+                """
+                INSERT INTO meetings
+                  (clientId, folderId, title, recordedAt, endedAt, transcript, summary,
+                   decisions, concerns, nextMeetingDate, nextMeetingOriginalText, dealPhase,
+                   phaseOverride, followedUpAt, followupDraft, meetingType)
+                VALUES (1, NULL, 'M', 1, NULL, 't', 's', '[]', '[]', NULL, NULL, NULL, NULL, NULL, NULL, NULL)
+                """.trimIndent()
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 16, true, MIGRATION_15_16)
+
+        db.query("SELECT projectId FROM meetings WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertNull(c.getString(0))
+        }
+        db.execSQL("INSERT INTO client_projects (clientId, name, createdAt) VALUES (1, '案件A', 100)")
+        db.execSQL("UPDATE meetings SET projectId = 1 WHERE id = 1")
+        db.query("SELECT p.name FROM meetings m JOIN client_projects p ON m.projectId = p.id WHERE m.id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getString(0) == "案件A")
+        }
+    }
+
+    @Test
     fun migrate14To15_addsFollowupEmailFlag_defaultsToZero() {
         helper.createDatabase(dbName, 14).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

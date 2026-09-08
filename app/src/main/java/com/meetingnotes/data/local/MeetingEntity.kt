@@ -48,5 +48,7 @@ data class MeetingEntity(
     /** 要約時に一緒に生成したフォローアップ文面の下書き(F5)。旧データは null。 */
     val followupDraft: String? = null,
     /** 実施形態(`MeetingType.wireValue`: "in_person" / "remote")。旧データは null。 */
-    val meetingType: String? = null
+    val meetingType: String? = null,
+    /** クライアント配下の任意のプロジェクト(`client_projects.id`)。未設定は null。FK は張らず repository で後始末。 */
+    val projectId: Long? = null
 )

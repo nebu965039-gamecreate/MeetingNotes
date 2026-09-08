@@ -62,6 +62,13 @@ interface MeetingDao {
     @Query("UPDATE meetings SET folderId = :folderId WHERE id = :meetingId")
     suspend fun updateFolder(meetingId: Long, folderId: Long?)
 
+    @Query("UPDATE meetings SET projectId = :projectId WHERE id = :meetingId")
+    suspend fun updateProject(meetingId: Long, projectId: Long?)
+
+    /** プロジェクト削除時に、そのプロジェクトに紐付く商談の projectId をクリアする。 */
+    @Query("UPDATE meetings SET projectId = NULL WHERE projectId = :projectId")
+    suspend fun clearProject(projectId: Long)
+
     @Query("UPDATE meetings SET title = :title WHERE id = :meetingId")
     suspend fun updateTitle(meetingId: Long, title: String)
 
