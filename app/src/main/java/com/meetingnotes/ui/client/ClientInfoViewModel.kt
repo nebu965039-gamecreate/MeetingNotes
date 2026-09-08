@@ -45,12 +45,12 @@ class ClientInfoViewModel(
         }
     }
 
-    fun addContact(name: String, note: String?) {
-        viewModelScope.launch { repository.addClientContact(clientId, name, note) }
+    fun addContact(name: String, note: String?, email: String?, phone: String?) {
+        viewModelScope.launch { repository.addClientContact(clientId, name, note, email, phone) }
     }
 
-    fun updateContact(id: Long, name: String, note: String?) {
-        viewModelScope.launch { repository.updateClientContact(id, name, note) }
+    fun updateContact(id: Long, name: String, note: String?, email: String?, phone: String?) {
+        viewModelScope.launch { repository.updateClientContact(id, name, note, email, phone) }
     }
 
     fun deleteContact(id: Long) {

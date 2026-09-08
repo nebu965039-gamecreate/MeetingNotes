@@ -73,6 +73,8 @@ fun ClientEditScreen(
 
     var newContactName by remember { mutableStateOf("") }
     var newContactNote by remember { mutableStateOf("") }
+    var newContactEmail by remember { mutableStateOf("") }
+    var newContactPhone by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -134,9 +136,10 @@ fun ClientEditScreen(
             Text("担当者", style = MaterialTheme.typography.titleMedium)
             contacts.forEach { contact ->
                 ContactEditRow(
-                    initialName = contact.name,
-                    initialNote = contact.note.orEmpty(),
-                    onSave = { n, note -> viewModel.updateContact(contact.id, n, note) },
+                    contact = contact,
+                    onSave = { n, note, email, phone ->
+                        viewModel.updateContact(contact.id, n, note, email, phone)
+                    },
                     onDelete = { viewModel.deleteContact(contact.id) }
                 )
             }
@@ -154,14 +157,26 @@ fun ClientEditScreen(
                     )
                     OutlinedTextField(
                         value = newContactNote, onValueChange = { newContactNote = it },
-                        label = { Text("役職・部署・連絡先など（任意）") }, singleLine = true,
+                        label = { Text("役職・部署など（任意）") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newContactEmail, onValueChange = { newContactEmail = it },
+                        label = { Text("メールアドレス（任意）") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newContactPhone, onValueChange = { newContactPhone = it },
+                        label = { Text("電話番号（任意）") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedButton(
                         onClick = {
-                            viewModel.addContact(newContactName, newContactNote)
+                            viewModel.addContact(newContactName, newContactNote, newContactEmail, newContactPhone)
                             newContactName = ""
                             newContactNote = ""
+                            newContactEmail = ""
+                            newContactPhone = ""
                         },
                         enabled = newContactName.isNotBlank(),
                         modifier = Modifier.fillMaxWidth()
@@ -179,13 +194,15 @@ fun ClientEditScreen(
 
 @Composable
 private fun ContactEditRow(
-    initialName: String,
-    initialNote: String,
-    onSave: (name: String, note: String?) -> Unit,
+    contact: com.meetingnotes.data.local.ClientContactEntity,
+    onSave: (name: String, note: String?, email: String?, phone: String?) -> Unit,
     onDelete: () -> Unit
 ) {
-    var n by remember(initialName) { mutableStateOf(initialName) }
-    var note by remember(initialNote) { mutableStateOf(initialNote) }
+    var n by remember(contact.id) { mutableStateOf(contact.name) }
+    var note by remember(contact.id) { mutableStateOf(contact.note.orEmpty()) }
+    var email by remember(contact.id) { mutableStateOf(contact.email.orEmpty()) }
+    var phone by remember(contact.id) { mutableStateOf(contact.phone.orEmpty()) }
+    fun save() = onSave(n, note, email, phone)
 
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -194,7 +211,7 @@ private fun ContactEditRow(
         ) {
             Row {
                 OutlinedTextField(
-                    value = n, onValueChange = { n = it; onSave(it, note) },
+                    value = n, onValueChange = { n = it; save() },
                     label = { Text("氏名") }, singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -203,8 +220,18 @@ private fun ContactEditRow(
                 }
             }
             OutlinedTextField(
-                value = note, onValueChange = { note = it; onSave(n, it) },
-                label = { Text("役職・部署・連絡先など（任意）") }, singleLine = true,
+                value = note, onValueChange = { note = it; save() },
+                label = { Text("役職・部署など（任意）") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = email, onValueChange = { email = it; save() },
+                label = { Text("メールアドレス（任意）") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = phone, onValueChange = { phone = it; save() },
+                label = { Text("電話番号（任意）") }, singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
         }

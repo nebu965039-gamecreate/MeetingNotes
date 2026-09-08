@@ -22,7 +22,9 @@ data class ClientContactEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val clientId: Long,
     val name: String,
-    /** 役職・部署・連絡先などの自由メモ。 */
+    /** 役職・部署などの自由メモ。 */
     val note: String? = null,
+    val email: String? = null,
+    val phone: String? = null,
     val createdAt: Long
 )

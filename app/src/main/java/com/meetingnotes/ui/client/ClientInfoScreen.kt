@@ -113,7 +113,10 @@ fun ClientInfoScreen(
             } else {
                 contacts.forEach { contact ->
                     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(14.dp)) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
                             Text(
                                 contact.name,
                                 style = MaterialTheme.typography.bodyLarge,
@@ -125,6 +128,16 @@ fun ClientInfoScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                            SelectionContainer {
+                                Column {
+                                    contact.email?.takeIf { it.isNotBlank() }?.let {
+                                        Text("✉ $it", style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                    contact.phone?.takeIf { it.isNotBlank() }?.let {
+                                        Text("☎ $it", style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
                             }
                         }
                     }

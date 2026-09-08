@@ -13,8 +13,8 @@ interface ClientContactDao {
     @Insert
     suspend fun insert(contact: ClientContactEntity): Long
 
-    @Query("UPDATE client_contacts SET name = :name, note = :note WHERE id = :id")
-    suspend fun update(id: Long, name: String, note: String?)
+    @Query("UPDATE client_contacts SET name = :name, note = :note, email = :email, phone = :phone WHERE id = :id")
+    suspend fun update(id: Long, name: String, note: String?, email: String?, phone: String?)
 
     @Query("DELETE FROM client_contacts WHERE id = :id")
     suspend fun deleteById(id: Long)

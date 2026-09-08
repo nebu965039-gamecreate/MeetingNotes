@@ -17,7 +17,7 @@ Kotlin 2.4.0 / Jetpack Compose(Material3、BOM 2026.08.00) / Navigation Compose 
 - `app/src/main/java/com/meetingnotes/data/remote/AnthropicClient.kt` — 要約クライアント。APIキーはアプリに持たず、`server/` の中継Worker(`SUMMARY_PROXY_URL`)へ `{transcript}` をPOSTする。Workerが Anthropic のレスポンスをそのまま返すためパース処理(`MessagesResponse`/`SummaryDto`)は不変。プロンプト・toolスキーマ・モデルは **Worker側(`server/src/index.ts`)** にある
 - `server/` — 要約プロキシ(Cloudflare Worker、TypeScript)。デプロイ手順は `server/README.md`。秘密情報(`ANTHROPIC_API_KEY`, `APP_TOKEN`)は `wrangler secret` 管理でリポジトリに入らない
 - `app/src/main/java/com/meetingnotes/data/MeetingRepository.kt` — 全DAOを束ねる単一リポジトリ。新機能を足す時はまずここにメソッドを足す
-- `app/src/main/java/com/meetingnotes/data/local/MeetingNotesDatabase.kt` — Room DB定義。現在 version = 13(… v11 = `meetings.meetingType` + `user_credits` オンライン回数、v12 = `todos.dueDate` + `clients.email/phone`、v13 = `client_contacts` テーブル(担当者)。`feature/solo-crm` ブランチ)
+- `app/src/main/java/com/meetingnotes/data/local/MeetingNotesDatabase.kt` — Room DB定義。現在 version = 14(… v11 = `meetings.meetingType` + `user_credits` オンライン回数、v12 = `todos.dueDate` + `clients.email/phone`、v13 = `client_contacts` テーブル(担当者)、v14 = `client_contacts.email/phone`。`feature/solo-crm` ブランチ)
 
 ## アーキテクチャ・設計上の重要事項
 
@@ -140,7 +140,7 @@ MVP相当の機能は一通り実装済み。Google Play Console でのクロー
   - **予定表**: カレンダーの丸印に ToDo 期限日を追加。日付選択時に「この日が期限のToDo」一覧
   - **クライアント詳細**: アーカイブの上に「未完了のToDo」セクション
   - **商談詳細**: `TodoRow` に解決済み期限(M/d)を併記
-- **クライアント情報 閲覧/編集の分離(2026-09-08)**: `ClientDetailScreen` の ⋮「クライアント情報」→ **`ClientInfoScreen`(閲覧専用、`Routes.CLIENT_INFO`)**: クライアント名/グループ/現在のステータス(=最新商談の実効フェーズ、`DealPhaseChip`)/メール/電話/担当者一覧/備考。TopAppBar の編集アイコン → **`ClientEditScreen`(`Routes.CLIENT_EDIT`)**: 名前/グループ/メール/電話/備考 + 担当者の追加・編集・削除。両画面とも `ClientInfoViewModel`。担当者は **`client_contacts` テーブル(DB v13 + `MIGRATION_12_13`、`13.json`、`MigrationTest` 12→13)** + `ClientContactDao`。`ClientEntity.memo` の編集導線をここで初めて用意。`updateClientInfo` に `memo` 追加、旧「クライアント名を変更」ダイアログ・`ClientDetailViewModel.updateClientInfo` は撤去。`ClientDetailScreen` に `onOpenClientInfo` パラメータ追加
+- **クライアント情報 閲覧/編集の分離(2026-09-08)**: `ClientDetailScreen` の ⋮「クライアント情報」→ **`ClientInfoScreen`(閲覧専用、`Routes.CLIENT_INFO`)**: クライアント名/グループ/現在のステータス(=最新商談の実効フェーズ、`DealPhaseChip`)/メール/電話/担当者一覧/備考。TopAppBar の編集アイコン → **`ClientEditScreen`(`Routes.CLIENT_EDIT`)**: 名前/グループ/メール/電話/備考 + 担当者の追加・編集・削除。両画面とも `ClientInfoViewModel`。担当者は **`client_contacts` テーブル(氏名/役職メモ/メール/電話。DB v13 `MIGRATION_12_13` + v14 `MIGRATION_13_14`、`14.json`、`MigrationTest` 12→13/13→14)** + `ClientContactDao`。会社レベルの `clients.email/phone` とは別に**担当者ごとにメール・電話を持てる**。`ClientEntity.memo` の編集導線をここで初めて用意。`updateClientInfo` に `memo` 追加、旧「クライアント名を変更」ダイアログ・`ClientDetailViewModel.updateClientInfo` は撤去。`ClientDetailScreen` に `onOpenClientInfo` パラメータ追加
 - 詳細な機能対照(実装済み/一部/未実装/不要/将来)と「案件レイヤー(Tier 2)」の検討は別途
 
 ### 未完了のタスク(優先度順)

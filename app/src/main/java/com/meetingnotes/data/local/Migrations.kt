@@ -113,7 +113,15 @@ val MIGRATION_12_13 = object : Migration(12, 13) {
     }
 }
 
+/** v13 → v14: 担当者ごとのメール・電話。 */
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE client_contacts ADD COLUMN email TEXT")
+        db.execSQL("ALTER TABLE client_contacts ADD COLUMN phone TEXT")
+    }
+}
+
 val databaseMigrations: Array<Migration> = arrayOf(
     MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13
+    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14
 )

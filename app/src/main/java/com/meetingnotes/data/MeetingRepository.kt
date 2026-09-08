@@ -54,21 +54,25 @@ class MeetingRepository(
     fun observeClientContacts(clientId: Long): Flow<List<com.meetingnotes.data.local.ClientContactEntity>> =
         clientContactDao.observeByClient(clientId)
 
-    suspend fun addClientContact(clientId: Long, name: String, note: String?) {
+    private fun String?.cleaned() = this?.trim()?.ifBlank { null }
+
+    suspend fun addClientContact(clientId: Long, name: String, note: String?, email: String?, phone: String?) {
         if (name.isBlank()) return
         clientContactDao.insert(
             com.meetingnotes.data.local.ClientContactEntity(
                 clientId = clientId,
                 name = name.trim(),
-                note = note?.trim()?.ifBlank { null },
+                note = note.cleaned(),
+                email = email.cleaned(),
+                phone = phone.cleaned(),
                 createdAt = System.currentTimeMillis()
             )
         )
     }
 
-    suspend fun updateClientContact(id: Long, name: String, note: String?) {
+    suspend fun updateClientContact(id: Long, name: String, note: String?, email: String?, phone: String?) {
         if (name.isBlank()) return
-        clientContactDao.update(id, name.trim(), note?.trim()?.ifBlank { null })
+        clientContactDao.update(id, name.trim(), note.cleaned(), email.cleaned(), phone.cleaned())
     }
 
     suspend fun deleteClientContact(id: Long) = clientContactDao.deleteById(id)
