@@ -33,6 +33,22 @@ data class PhaseTrackerCounts(
     val total: Int get() = hearing + proposal + quoted + considering
 }
 
+/**
+ * ホーム画面 最上部のダッシュボード(ドーナツ + 数字)の集計。
+ * [winRate] は全期間の成約率(成約 / (成約 + 失注))。母数が 0 なら null で、その行は非表示。
+ */
+data class HomeDashboard(
+    val clientCount: Int = 0,
+    val meetingsThisMonth: Int = 0,
+    val openTodoTotal: Int = 0,
+    val phase: PhaseTrackerCounts = PhaseTrackerCounts(),
+    val wonCount: Int = 0,
+    val lostCount: Int = 0
+) {
+    val winRate: Int?
+        get() = (wonCount + lostCount).takeIf { it > 0 }?.let { (wonCount * 100) / it }
+}
+
 class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
 
     private val clients = repository.observeClients()
@@ -55,24 +71,39 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val phaseCounts: StateFlow<PhaseTrackerCounts> =
-        latestMeetings
-            .map { latest ->
-                var hearing = 0
-                var proposal = 0
-                var quoted = 0
-                var considering = 0
-                latest.forEach { m ->
-                    when (DealPhase.fromWire(m.phaseOverride ?: m.dealPhase)) {
-                        DealPhase.HEARING -> hearing++
-                        DealPhase.PROPOSAL -> proposal++
-                        DealPhase.QUOTED -> quoted++
-                        DealPhase.CONSIDERING -> considering++
-                        else -> {}
-                    }
-                }
-                PhaseTrackerCounts(hearing, proposal, quoted, considering)
-            }
+        latestMeetings.map { phaseCountsOf(it) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PhaseTrackerCounts())
+
+    private val startOfThisMonth: Long =
+        java.time.YearMonth.now().atDay(1).atStartOfDay(java.time.ZoneId.systemDefault())
+            .toInstant().toEpochMilli()
+
+    /** ホーム最上部のダッシュボード。 */
+    val dashboard: StateFlow<HomeDashboard> =
+        combine(
+            clients,
+            repository.observeMeetingCountSince(startOfThisMonth),
+            repository.observeOpenTodoTotal(),
+            latestMeetings
+        ) { clientList, meetingsThisMonth, openTodoTotal, latest ->
+            var won = 0
+            var lost = 0
+            latest.forEach { m ->
+                when (DealPhase.fromWire(m.phaseOverride ?: m.dealPhase)) {
+                    DealPhase.WON -> won++
+                    DealPhase.LOST -> lost++
+                    else -> {}
+                }
+            }
+            HomeDashboard(
+                clientCount = clientList.size,
+                meetingsThisMonth = meetingsThisMonth,
+                openTodoTotal = openTodoTotal,
+                phase = phaseCountsOf(latest),
+                wonCount = won,
+                lostCount = lost
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeDashboard())
 
     /** 期限切れ + 今日 + 3日以内の未完了 ToDo(期限が解決できているもの)。 */
     val dueTodos: StateFlow<List<OpenTodo>> =
@@ -85,6 +116,20 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
 
     fun completeTodo(todoId: Long) {
         viewModelScope.launch { repository.setTodoDone(todoId, true) }
+    }
+
+    private fun phaseCountsOf(latest: List<com.meetingnotes.data.local.ClientLatestMeeting>): PhaseTrackerCounts {
+        var hearing = 0; var proposal = 0; var quoted = 0; var considering = 0
+        latest.forEach { m ->
+            when (DealPhase.fromWire(m.phaseOverride ?: m.dealPhase)) {
+                DealPhase.HEARING -> hearing++
+                DealPhase.PROPOSAL -> proposal++
+                DealPhase.QUOTED -> quoted++
+                DealPhase.CONSIDERING -> considering++
+                else -> {}
+            }
+        }
+        return PhaseTrackerCounts(hearing, proposal, quoted, considering)
     }
 
     companion object {

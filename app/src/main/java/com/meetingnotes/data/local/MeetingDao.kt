@@ -43,6 +43,10 @@ interface MeetingDao {
     )
     suspend fun getNextMeetingCandidates(): List<NextMeetingCandidate>
 
+    /** 指定時刻以降に録音した商談の件数(ホームのダッシュボード「今月の商談」)。 */
+    @Query("SELECT COUNT(*) FROM meetings WHERE recordedAt >= :since")
+    fun observeCountRecordedSince(since: Long): Flow<Int>
+
     @Query("UPDATE meetings SET phaseOverride = :phase WHERE id = :meetingId")
     suspend fun updatePhaseOverride(meetingId: Long, phase: String?)
 

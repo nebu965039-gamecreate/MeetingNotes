@@ -156,6 +156,12 @@ class MeetingRepository(
         todoDao.observeOpenTodoCountByClient()
             .map { list -> list.associate { it.clientId to it.count } }
 
+    /** 未完了 ToDo の総数(下部ナビのバッジ・ホームのダッシュボード)。 */
+    fun observeOpenTodoTotal(): Flow<Int> = todoDao.observeOpenTodoTotal()
+
+    /** 指定時刻以降に録音した商談の件数(ホームのダッシュボード)。 */
+    fun observeMeetingCountSince(since: Long): Flow<Int> = meetingDao.observeCountRecordedSince(since)
+
     suspend fun getTodosDueOn(date: String): List<com.meetingnotes.data.local.OpenTodo> =
         todoDao.getTodosDueOn(date)
 

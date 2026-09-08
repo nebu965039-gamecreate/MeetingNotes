@@ -44,6 +44,10 @@ interface TodoDao {
     )
     fun observeOpenTodosWithDueDate(): Flow<List<OpenTodo>>
 
+    /** 未完了 ToDo の総数(下部ナビの ToDo バッジ・ホームのダッシュボード)。 */
+    @Query("SELECT COUNT(*) FROM todos WHERE isDone = 0")
+    fun observeOpenTodoTotal(): Flow<Int>
+
     /** クライアントごとの未完了 ToDo 件数(ホームのフォローボードのバッジ)。 */
     @Query(
         """
