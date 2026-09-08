@@ -15,8 +15,12 @@ import kotlinx.coroutines.launch
 class FollowupListViewModel(private val repository: MeetingRepository) : ViewModel() {
 
     val followups: StateFlow<List<FollowupItem>> =
-        combine(repository.observeClients(), repository.observeLatestMeetingPerClient()) { clients, latest ->
-            FollowupRules.compute(clients, latest)
+        combine(
+            repository.observeClients(),
+            repository.observeLatestMeetingPerClient(),
+            repository.observeOpenTodoCountByClient()
+        ) { clients, latest, counts ->
+            FollowupRules.compute(clients, latest, openTodoCountByClient = counts)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val followedUp: StateFlow<List<FollowedUpMeeting>> =

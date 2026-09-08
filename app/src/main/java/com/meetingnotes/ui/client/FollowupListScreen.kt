@@ -53,7 +53,7 @@ import java.time.format.DateTimeFormatter
 fun FollowupListScreen(
     repository: MeetingRepository,
     onBack: () -> Unit,
-    onOpenMeeting: (Long) -> Unit
+    onOpenClient: (Long) -> Unit
 ) {
     val viewModel: FollowupListViewModel = viewModel(factory = FollowupListViewModel.factory(repository))
     val todo by viewModel.followups.collectAsState()
@@ -91,13 +91,13 @@ fun FollowupListScreen(
             if (tab == 0) {
                 TodoList(
                     items = todo,
-                    onOpen = onOpenMeeting,
+                    onOpen = onOpenClient,
                     onComplete = { viewModel.markFollowedUp(it) }
                 )
             } else {
                 DoneList(
                     items = done,
-                    onOpen = onOpenMeeting,
+                    onOpen = onOpenClient,
                     onReopen = { viewModel.unmarkFollowedUp(it) }
                 )
             }
@@ -125,7 +125,8 @@ private fun TodoList(
                 name = item.client.name,
                 subtitle = followupSubtitle(item),
                 phase = item.phase,
-                onClick = { onOpen(item.meetingId) },
+                todoCount = item.openTodoCount,
+                onClick = { onOpen(item.client.id) },
                 trailing = {
                     TextButton(onClick = { onComplete(item.meetingId) }) {
                         Text("完了", style = MaterialTheme.typography.labelLarge)
@@ -156,7 +157,7 @@ private fun DoneList(
                 name = item.clientName,
                 subtitle = "完了 ${monthDay(item.followedUpAt)}・${item.title}",
                 phase = DealPhase.fromWire(item.phaseOverride ?: item.dealPhase),
-                onClick = { onOpen(item.meetingId) },
+                onClick = { onOpen(item.clientId) },
                 trailing = {
                     TextButton(onClick = { onReopen(item.meetingId) }) {
                         Text("ToDoに戻す", style = MaterialTheme.typography.labelLarge)
@@ -173,7 +174,8 @@ private fun FollowupCard(
     subtitle: String,
     phase: DealPhase?,
     onClick: () -> Unit,
-    trailing: @Composable () -> Unit
+    trailing: @Composable () -> Unit,
+    todoCount: Int = 0
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -194,6 +196,10 @@ private fun FollowupCard(
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.weight(1f, fill = false)
                     )
+                    if (todoCount > 0) {
+                        Spacer(Modifier.width(6.dp))
+                        TodoCountBadge(todoCount)
+                    }
                     if (phase != null) {
                         Spacer(Modifier.width(6.dp))
                         DealPhaseChip(phase = phase)

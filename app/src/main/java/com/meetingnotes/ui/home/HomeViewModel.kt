@@ -37,10 +37,12 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
 
     private val clients = repository.observeClients()
     private val latestMeetings = repository.observeLatestMeetingPerClient()
+    private val openTodoCounts = repository.observeOpenTodoCountByClient()
 
     val followups: StateFlow<List<FollowupItem>> =
-        combine(clients, latestMeetings) { clientList, latest -> FollowupRules.compute(clientList, latest) }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        combine(clients, latestMeetings, openTodoCounts) { clientList, latest, counts ->
+            FollowupRules.compute(clientList, latest, openTodoCountByClient = counts)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val upcoming: StateFlow<List<UpcomingItem>> =
         combine(clients, latestMeetings) { clientList, latest -> UpcomingRules.compute(clientList, latest) }

@@ -8,6 +8,9 @@ data class NextMeetingCandidate(
     val nextMeetingDate: String
 )
 
+/** `TodoDao.observeOpenTodoCountByClient` の射影結果。 */
+data class ClientTodoCount(val clientId: Long, val count: Int)
+
 /** `TodoDao.observeOpenTodosWithDueDate` / `getTodosDueOn` の射影結果。 */
 data class OpenTodo(
     val todoId: Long,

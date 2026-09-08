@@ -20,6 +20,7 @@ import com.meetingnotes.data.local.UserCreditsDao
 import com.meetingnotes.data.local.UserCreditsEntity
 import com.meetingnotes.data.model.MeetingSummary
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class MeetingRepository(
     private val clientDao: ClientDao,
@@ -142,6 +143,10 @@ class MeetingRepository(
 
     fun observeOpenTodosWithDueDate(): Flow<List<com.meetingnotes.data.local.OpenTodo>> =
         todoDao.observeOpenTodosWithDueDate()
+
+    fun observeOpenTodoCountByClient(): Flow<Map<Long, Int>> =
+        todoDao.observeOpenTodoCountByClient()
+            .map { list -> list.associate { it.clientId to it.count } }
 
     suspend fun getTodosDueOn(date: String): List<com.meetingnotes.data.local.OpenTodo> =
         todoDao.getTodosDueOn(date)

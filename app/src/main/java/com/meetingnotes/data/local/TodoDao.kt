@@ -37,6 +37,17 @@ interface TodoDao {
     )
     fun observeOpenTodosWithDueDate(): Flow<List<OpenTodo>>
 
+    /** クライアントごとの未完了 ToDo 件数(ホームのフォローボードのバッジ)。 */
+    @Query(
+        """
+        SELECT m.clientId AS clientId, COUNT(*) AS count
+        FROM todos t INNER JOIN meetings m ON t.meetingId = m.id
+        WHERE t.isDone = 0
+        GROUP BY m.clientId
+        """
+    )
+    fun observeOpenTodoCountByClient(): Flow<List<ClientTodoCount>>
+
     /** 指定日が期限の未完了 ToDo(リマインド Worker 用、Flow でなく suspend)。 */
     @Query(
         """

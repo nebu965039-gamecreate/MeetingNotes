@@ -126,81 +126,97 @@ fun ClientDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "クライアント",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
-                        )
-                        Text(
-                            text = client?.name ?: "",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {
-                        searchActive = !searchActive
-                        if (!searchActive) viewModel.setSearchQuery("")
-                    }) {
-                        Icon(
-                            if (searchActive) Icons.Filled.Close else Icons.Filled.Search,
-                            contentDescription = if (searchActive) "検索を閉じる" else "検索"
-                        )
-                    }
-                    IconButton(onClick = { showAddFolderDialog = true }) {
-                        Icon(
-                            Icons.Filled.CreateNewFolder,
-                            contentDescription = "フォルダを作成",
-                            tint = CreateActionBlue
-                        )
-                    }
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "メニュー")
-                    }
-                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                        if (meetings.isNotEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text("前回のおさらい") },
-                                onClick = {
-                                    menuExpanded = false
-                                    onShowBriefing(clientId)
-                                }
+            Column {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(
+                                text = "クライアント",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                            )
+                            Text(
+                                text = client?.name ?: "",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
-                        DropdownMenuItem(
-                            text = { Text("クライアント情報") },
-                            onClick = {
-                                menuExpanded = false
-                                onOpenClientInfo()
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
+                        }
+                    }
+                )
+                // 操作アイコンはタイトルを圧迫しないよう、TopAppBar の下の行にまとめる。
+                Surface(color = MaterialTheme.colorScheme.primaryContainer) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = {
+                            searchActive = !searchActive
+                            if (!searchActive) viewModel.setSearchQuery("")
+                        }) {
+                            Icon(
+                                if (searchActive) Icons.Filled.Close else Icons.Filled.Search,
+                                contentDescription = if (searchActive) "検索を閉じる" else "検索",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                        IconButton(onClick = { showAddFolderDialog = true }) {
+                            Icon(
+                                Icons.Filled.CreateNewFolder,
+                                contentDescription = "フォルダを作成",
+                                tint = CreateActionBlue
+                            )
+                        }
+                        Box {
+                            IconButton(onClick = { menuExpanded = true }) {
+                                Icon(
+                                    Icons.Filled.MoreVert,
+                                    contentDescription = "メニュー",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
                             }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("クライアントを削除") },
-                            onClick = {
-                                menuExpanded = false
-                                showDeleteClientDialog = true
+                            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                                if (meetings.isNotEmpty()) {
+                                    DropdownMenuItem(
+                                        text = { Text("前回のおさらい") },
+                                        onClick = {
+                                            menuExpanded = false
+                                            onShowBriefing(clientId)
+                                        }
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = { Text("クライアント情報") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onOpenClientInfo()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("クライアントを削除") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        showDeleteClientDialog = true
+                                    }
+                                )
                             }
-                        )
+                        }
                     }
                 }
-            )
+            }
         },
         bottomBar = {
             Column(modifier = Modifier.navigationBarsPadding()) {

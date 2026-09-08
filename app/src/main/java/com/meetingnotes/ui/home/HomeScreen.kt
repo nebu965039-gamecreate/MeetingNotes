@@ -162,7 +162,7 @@ fun HomeScreen(
             item(key = "followup_board") {
                 FollowupBoard(
                     items = followups,
-                    onOpen = onOpenMeeting,
+                    onOpen = onOpenClient,
                     onMarkFollowedUp = { viewModel.markFollowedUp(it) },
                     onShowAll = onOpenFollowupList
                 )

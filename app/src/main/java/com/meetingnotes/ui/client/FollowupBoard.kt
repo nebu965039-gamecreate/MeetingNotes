@@ -44,7 +44,9 @@ data class FollowupItem(
     val client: ClientEntity,
     val meetingId: Long,
     val lastRecordedAt: Long,
-    val phase: DealPhase?
+    val phase: DealPhase?,
+    /** このクライアントの未完了 ToDo 件数(0 なら未表示)。 */
+    val openTodoCount: Int = 0
 )
 
 /**
@@ -65,7 +67,8 @@ object FollowupRules {
     fun compute(
         clients: List<ClientEntity>,
         latest: List<ClientLatestMeeting>,
-        now: Long = System.currentTimeMillis()
+        now: Long = System.currentTimeMillis(),
+        openTodoCountByClient: Map<Long, Int> = emptyMap()
     ): List<FollowupItem> {
         val byClient = latest.associateBy { it.clientId }
         val cutoff = now - RECENT_WINDOW_DAYS * DAY_MS
@@ -75,7 +78,7 @@ object FollowupRules {
             if (m.lastRecordedAt < cutoff) return@mapNotNull null
             val phase = DealPhase.fromWire(m.phaseOverride ?: m.dealPhase)
             if (phase == DealPhase.WON || phase == DealPhase.LOST) return@mapNotNull null
-            FollowupItem(client, m.meetingId, m.lastRecordedAt, phase)
+            FollowupItem(client, m.meetingId, m.lastRecordedAt, phase, openTodoCountByClient[client.id] ?: 0)
         }.sortedByDescending { it.lastRecordedAt }
     }
 
@@ -86,6 +89,22 @@ private val boardDateFormatter = DateTimeFormatter.ofPattern("M/d")
 
 /** 内部スクロールで表示する最大件数。これを超える分は「すべて表示」で全件ページへ誘導する。 */
 private const val MAX_VISIBLE = 10
+
+/** クライアント名の右に出す「未完了ToDo N件」バッジ。 */
+@Composable
+internal fun TodoCountBadge(count: Int) {
+    androidx.compose.material3.Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.primary
+    ) {
+        Text(
+            "ToDo $count",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+        )
+    }
+}
 
 /** ToDo 1行の説明文(ホーム・全件ページ共通)。 */
 internal fun followupSubtitle(item: FollowupItem): String {
@@ -100,7 +119,7 @@ internal fun followupSubtitle(item: FollowupItem): String {
 @Composable
 fun FollowupBoard(
     items: List<FollowupItem>,
-    onOpen: (meetingId: Long) -> Unit,
+    onOpen: (clientId: Long) -> Unit,
     onMarkFollowedUp: (meetingId: Long) -> Unit,
     onShowAll: () -> Unit,
     modifier: Modifier = Modifier
@@ -171,18 +190,25 @@ fun FollowupBoard(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onOpen(item.meetingId) }
+                            .clickable { onOpen(item.client.id) }
                             .padding(vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                item.client.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    item.client.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                if (item.openTodoCount > 0) {
+                                    Spacer(Modifier.width(6.dp))
+                                    TodoCountBadge(item.openTodoCount)
+                                }
+                            }
                             Text(
                                 followupSubtitle(item),
                                 style = MaterialTheme.typography.bodySmall,

@@ -105,7 +105,7 @@ fun MeetingNotesNavHost(
             FollowupListScreen(
                 repository = repository,
                 onBack = { navController.popBackStack() },
-                onOpenMeeting = { meetingId -> navController.navigate(Routes.meetingDetail(meetingId)) }
+                onOpenClient = { clientId -> navController.navigate(Routes.clientDetail(clientId)) }
             )
         }
         composable(Routes.HELP) {
