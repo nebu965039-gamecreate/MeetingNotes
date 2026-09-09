@@ -440,6 +440,24 @@ class MeetingRepository(
         )
     }
 
+    /** 案件のフェーズだけを変更する(パイプラインボード用)。変わったら `phaseChangedAt` を更新。 */
+    suspend fun setClientProjectPhase(projectId: Long, phase: com.meetingnotes.data.model.DealPhase) {
+        val current = clientProjectDao.getById(projectId) ?: return
+        if (current.phase == phase.wireValue) return
+        val isWon = phase == com.meetingnotes.data.model.DealPhase.WON
+        val isLost = phase == com.meetingnotes.data.model.DealPhase.LOST
+        clientProjectDao.update(
+            current.copy(
+                phase = phase.wireValue,
+                phaseChangedAt = System.currentTimeMillis(),
+                wonAt = if (isWon) (current.wonAt ?: System.currentTimeMillis()) else null,
+                lostReason = if (isLost) current.lostReason else null,
+                expectedCloseAt = if (phase.isActive) current.expectedCloseAt else null,
+                probability = if (phase.isActive) current.probability else null
+            )
+        )
+    }
+
     /** プロジェクトを削除。紐付いていた商談は projectId を null に戻す(商談自体は消さない)。 */
     suspend fun deleteClientProject(projectId: Long) {
         meetingDao.clearProject(projectId)

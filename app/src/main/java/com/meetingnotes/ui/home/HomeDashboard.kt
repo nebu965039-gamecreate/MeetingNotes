@@ -48,7 +48,8 @@ import com.meetingnotes.ui.theme.ThemeMode
 fun HomeDashboardCard(
     data: HomeDashboard,
     modifier: Modifier = Modifier,
-    onOpenSales: (() -> Unit)? = null
+    onOpenSales: (() -> Unit)? = null,
+    onOpenPipeline: (() -> Unit)? = null
 ) {
     val app = LocalContext.current.applicationContext as MeetingNotesApp
     val darkTheme = when (app.themeModeState.value) {
@@ -67,7 +68,8 @@ fun HomeDashboardCard(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = if (onOpenPipeline != null) Modifier.clickable(onClick = onOpenPipeline) else Modifier
             ) {
                 PhaseDonut(data.phase, darkTheme, Modifier.size(88.dp))
                 Column(
@@ -78,6 +80,21 @@ fun HomeDashboardCard(
                     LegendRow("提案", data.phase.proposal, PhaseChartColors.of(DealPhase.PROPOSAL, darkTheme))
                     LegendRow("見積提示", data.phase.quoted, PhaseChartColors.of(DealPhase.QUOTED, darkTheme))
                     LegendRow("検討中", data.phase.considering, PhaseChartColors.of(DealPhase.CONSIDERING, darkTheme))
+                    if (onOpenPipeline != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "パイプラインを開く",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Icon(
+                                Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
                 }
             }
 

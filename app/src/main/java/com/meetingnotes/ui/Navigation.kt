@@ -18,6 +18,7 @@ import com.meetingnotes.ui.meeting.MeetingDetailScreen
 import com.meetingnotes.ui.notifications.NotificationScreen
 import com.meetingnotes.ui.recording.RecordingScreen
 import com.meetingnotes.ui.result.ResultScreen
+import com.meetingnotes.ui.pipeline.PipelineScreen
 import com.meetingnotes.ui.sales.SalesScreen
 import com.meetingnotes.ui.settings.SettingsScreen
 
@@ -33,6 +34,7 @@ object Routes {
     const val NOTIFICATIONS = "notifications"
     const val SETTINGS = "settings"
     const val SALES = "sales"
+    const val PIPELINE = "pipeline"
     const val CLIENT_EDIT = "clientEdit/{clientId}"
 
     fun clientDetail(clientId: Long) = "clientDetail/$clientId"
@@ -70,7 +72,8 @@ fun MeetingNotesNavHost(
                     meetingViewModel.resetForNewMeeting()
                     navController.navigate(Routes.RECORDING_UNASSIGNED)
                 },
-                onOpenSales = { navController.navigate(Routes.SALES) }
+                onOpenSales = { navController.navigate(Routes.SALES) },
+                onOpenPipeline = { navController.navigate(Routes.PIPELINE) }
             )
         }
         composable(Routes.SETTINGS) {
@@ -78,6 +81,13 @@ fun MeetingNotesNavHost(
         }
         composable(Routes.SALES) {
             SalesScreen(repository = repository, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.PIPELINE) {
+            PipelineScreen(
+                repository = repository,
+                onBack = { navController.popBackStack() },
+                onOpenClient = { clientId -> navController.navigate(Routes.clientDetail(clientId)) }
+            )
         }
         composable(Routes.HELP) {
             HelpScreen(onBack = { navController.popBackStack() })

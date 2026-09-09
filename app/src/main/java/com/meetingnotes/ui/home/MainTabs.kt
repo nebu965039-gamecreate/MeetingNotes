@@ -77,7 +77,8 @@ fun MainTabsShell(
     onHelp: () -> Unit,
     onOpenNotifications: () -> Unit,
     onStartRecording: () -> Unit,
-    onOpenSales: () -> Unit
+    onOpenSales: () -> Unit,
+    onOpenPipeline: () -> Unit
 ) {
     val tabNav = rememberNavController()
     val entry by tabNav.currentBackStackEntryAsState()
@@ -155,7 +156,8 @@ fun MainTabsShell(
                     onOpenNotifications = onOpenNotifications,
                     onOpenSchedule = { switchTab(MainTab.SCHEDULE) },
                     onOpenFollowupList = { switchTab(MainTab.TODO) },
-                    onOpenSales = onOpenSales
+                    onOpenSales = onOpenSales,
+                    onOpenPipeline = onOpenPipeline
                 )
             }
             composable(MainTab.CLIENTS.route) {
