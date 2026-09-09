@@ -1,7 +1,5 @@
 package com.meetingnotes.data
 
-import com.meetingnotes.data.local.ClientBriefingDao
-import com.meetingnotes.data.local.ClientBriefingEntity
 import com.meetingnotes.data.local.ClientDao
 import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.ClientLatestMeeting
@@ -29,7 +27,6 @@ class MeetingRepository(
     private val userCreditsDao: UserCreditsDao,
     private val folderDao: FolderDao,
     private val clientGroupDao: ClientGroupDao,
-    private val clientBriefingDao: ClientBriefingDao,
     private val notificationLogDao: NotificationLogDao,
     private val clientContactDao: com.meetingnotes.data.local.ClientContactDao,
     private val clientProjectDao: com.meetingnotes.data.local.ClientProjectDao,
@@ -317,17 +314,6 @@ class MeetingRepository(
 
     suspend fun getTodosDueOn(date: String): List<com.meetingnotes.data.local.OpenTodo> =
         todoDao.getTodosDueOn(date)
-
-    // --- F2: 前回のおさらい(ブリーフィング)---
-
-    fun observeBriefing(clientId: Long): Flow<ClientBriefingEntity?> = clientBriefingDao.observe(clientId)
-
-    suspend fun getBriefing(clientId: Long): ClientBriefingEntity? = clientBriefingDao.get(clientId)
-
-    suspend fun saveBriefing(clientId: Long, flowText: String, sourceMeetingCount: Int) =
-        clientBriefingDao.upsert(
-            ClientBriefingEntity(clientId, flowText, System.currentTimeMillis(), sourceMeetingCount)
-        )
 
     suspend fun getMeetingsChrono(clientId: Long): List<MeetingEntity> =
         meetingDao.getByClientChrono(clientId)

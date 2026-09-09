@@ -106,8 +106,6 @@ private fun conciseSummary(summary: String): String {
 fun ClientDetailScreen(
     repository: MeetingRepository,
     clientId: Long,
-    onStartRecording: (Long) -> Unit,
-    onShowBriefing: (Long) -> Unit,
     onMeetingSelected: (Long) -> Unit,
     onEditClient: () -> Unit,
     onBack: () -> Unit,
@@ -120,7 +118,6 @@ fun ClientDetailScreen(
     val openTodos by viewModel.openTodos.collectAsState()
     val doneTodos by viewModel.doneTodos.collectAsState()
     val meetings by viewModel.sortedMeetings.collectAsState()
-    val hasAnyMeeting by viewModel.hasAnyMeeting.collectAsState()
     val folders by viewModel.folders.collectAsState()
     val projects by viewModel.projects.collectAsState()
     val projectFilter by viewModel.projectFilter.collectAsState()
@@ -181,12 +178,6 @@ fun ClientDetailScreen(
                                 Icon(Icons.Filled.MoreVert, contentDescription = "メニュー")
                             }
                             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                                if (hasAnyMeeting) {
-                                    DropdownMenuItem(
-                                        text = { Text("前回のおさらい") },
-                                        onClick = { menuExpanded = false; onShowBriefing(clientId) }
-                                    )
-                                }
                                 DropdownMenuItem(
                                     text = { Text("プロジェクトを管理") },
                                     onClick = { menuExpanded = false; showManageProjects = true }
@@ -218,26 +209,7 @@ fun ClientDetailScreen(
                 }
             }
         },
-        bottomBar = {
-            Column(modifier = Modifier.navigationBarsPadding()) {
-                BannerAdView()
-                Surface(shadowElevation = 4.dp) {
-                    Button(
-                        onClick = {
-                            // 2回目以降は録音前に「前回のおさらい」を挟む
-                            if (hasAnyMeeting) onShowBriefing(clientId) else onStartRecording(clientId)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Icon(Icons.Filled.Mic, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(text = "録音開始")
-                    }
-                }
-            }
-        }
+        bottomBar = { BannerAdView(Modifier.navigationBarsPadding()) }
     ) { padding ->
       Column(modifier = Modifier.fillMaxSize().padding(padding)) {
        if (projects.isNotEmpty() && selectedTab != 2) {

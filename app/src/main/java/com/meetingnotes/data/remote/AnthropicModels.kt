@@ -15,15 +15,11 @@ data class SummarizeRequest(
     val transcript: String
 )
 
-/** F2 ブリーフィング(過去要約 → ここまでの流れ)。 */
-@Serializable
-data class BriefingRequest(val summaries: List<String>)
-
 /** F5 フォローアップ下書き(要約時に付かなかった商談向けの後追い生成、1回のみ)。 */
 @Serializable
 data class FollowupRequest(val summary: String)
 
-/** briefing / followup のレスポンス。 */
+/** followup のレスポンス。 */
 @Serializable
 data class TextResponse(val text: String = "")
 

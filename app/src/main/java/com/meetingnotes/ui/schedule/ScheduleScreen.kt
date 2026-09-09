@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.OutlinedTextField
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.ui.common.TabTopBar
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.NextMeetingTime
 import com.meetingnotes.ui.client.UpcomingItem
@@ -115,27 +116,11 @@ fun ScheduleScreen(
 
     Scaffold(
         topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                text = "予定表",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onHome) {
-                            Icon(Icons.Filled.Home, contentDescription = "ホーム")
-                        }
-                    }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            }
+            TabTopBar(
+                icon = Icons.Filled.CalendarMonth,
+                title = "予定表",
+                onHome = onHome
+            )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {

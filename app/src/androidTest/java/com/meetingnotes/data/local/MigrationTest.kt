@@ -215,6 +215,24 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate26To27_dropsBriefingTable() {
+        helper.createDatabase(dbName, 26).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL(
+                "INSERT INTO client_briefing (clientId, flowText, generatedAt, sourceMeetingCount) " +
+                    "VALUES (1, 'x', 0, 1)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 27, true, MIGRATION_26_27)
+
+        db.query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='client_briefing'"
+        ).use { c -> assertTrue(!c.moveToFirst()) }
+    }
+
+    @Test
     fun migrate25To26_addsEmailTemplatesTable() {
         helper.createDatabase(dbName, 25).apply { close() }
 

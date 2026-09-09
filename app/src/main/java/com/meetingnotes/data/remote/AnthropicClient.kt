@@ -108,10 +108,6 @@ class AnthropicClient(
         throw lastError ?: AnthropicApiException("要約APIの呼び出しに失敗しました。")
     }
 
-    /** F2: 過去の商談要約から「ここまでの流れ」を生成する。 */
-    suspend fun generateBriefing(summaries: List<String>): String =
-        postText("$baseUrl/briefing", BriefingRequest(summaries))
-
     /** F5: 要約時に下書きが付かなかった商談向けに、要約テキストから下書きを1回生成する。 */
     suspend fun generateFollowup(summary: String): String =
         postText("$baseUrl/followup", FollowupRequest(summary))

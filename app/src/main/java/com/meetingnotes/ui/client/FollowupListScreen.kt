@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Snooze
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.ui.common.TabTopBar
 import com.meetingnotes.data.local.FollowedUpMeeting
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.ui.common.DealPhaseChip
@@ -66,13 +69,10 @@ fun FollowupListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("ToDo") },
-                navigationIcon = {
-                    IconButton(onClick = onHome) {
-                        Icon(Icons.Filled.Home, contentDescription = "ホーム")
-                    }
-                }
+            TabTopBar(
+                icon = Icons.Filled.CheckCircle,
+                title = "ToDo",
+                onHome = onHome
             )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
@@ -102,7 +102,8 @@ fun FollowupListScreen(
                 0 -> TodoList(
                     items = todo,
                     onOpen = onOpenClient,
-                    onSnooze = { clientId, days -> viewModel.snooze(clientId, days) }
+                    onSnooze = { clientId, days -> viewModel.snooze(clientId, days) },
+                    onSnoozeUntil = { clientId, millis -> viewModel.snoozeUntil(clientId, millis) }
                 )
                 1 -> SnoozedList(
                     items = snoozed,
@@ -123,10 +124,11 @@ fun FollowupListScreen(
 private fun TodoList(
     items: List<FollowupItem>,
     onOpen: (Long) -> Unit,
-    onSnooze: (clientId: Long, days: Long) -> Unit
+    onSnooze: (clientId: Long, days: Long) -> Unit,
+    onSnoozeUntil: (clientId: Long, millis: Long) -> Unit
 ) {
     if (items.isEmpty()) {
-        EmptyMessage("未完了のToDoはありません。")
+        EmptyMessage("現在ToDoはありません")
         return
     }
     LazyColumn(
@@ -141,27 +143,51 @@ private fun TodoList(
                 phase = item.phase,
                 todoCount = item.openTodoCount,
                 onClick = { onOpen(item.client.id) },
-                trailing = { SnoozeMenu(onSnooze = { days -> onSnooze(item.client.id, days) }) }
+                trailing = {
+                    SnoozeMenu(
+                        onSnooze = { days -> onSnooze(item.client.id, days) },
+                        onSnoozeUntil = { millis -> onSnoozeUntil(item.client.id, millis) }
+                    )
+                }
             )
         }
     }
 }
 
 @Composable
-private fun SnoozeMenu(onSnooze: (days: Long) -> Unit) {
+private fun SnoozeMenu(onSnooze: (days: Long) -> Unit, onSnoozeUntil: (millis: Long) -> Unit) {
     var open by remember { mutableStateOf(false) }
+    var showPicker by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }) {
-            Text("スヌーズ", style = MaterialTheme.typography.labelLarge)
+        IconButton(onClick = { open = true }) {
+            Icon(Icons.Filled.Snooze, contentDescription = "スヌーズ")
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            listOf("1週間" to 7L, "2週間" to 14L, "1ヶ月" to 30L, "3ヶ月" to 90L).forEach { (label, days) ->
+            listOf("1日後" to 1L, "3日後" to 3L, "1週間後" to 7L, "1ヶ月後" to 30L).forEach { (label, days) ->
                 DropdownMenuItem(
-                    text = { Text("$label 後に再表示") },
+                    text = { Text("$label に再表示") },
                     onClick = { onSnooze(days); open = false }
                 )
             }
+            DropdownMenuItem(
+                text = { Text("日付を指定…") },
+                onClick = { open = false; showPicker = true }
+            )
         }
+    }
+    if (showPicker) {
+        com.meetingnotes.ui.common.NextMeetingDateTimeDialog(
+            initial = java.time.LocalDate.now().plusWeeks(1).atStartOfDay(),
+            initialHasTime = false,
+            onDismiss = { showPicker = false },
+            onConfirm = { dt, _ ->
+                onSnoozeUntil(
+                    dt.toLocalDate().atStartOfDay(java.time.ZoneId.systemDefault())
+                        .toInstant().toEpochMilli()
+                )
+                showPicker = false
+            }
+        )
     }
 }
 
@@ -172,7 +198,7 @@ private fun SnoozedList(
     onUnsnooze: (Long) -> Unit
 ) {
     if (items.isEmpty()) {
-        EmptyMessage("スヌーズ中のクライアントはありません。")
+        EmptyMessage("スヌーズ中のクライアントはありません")
         return
     }
     LazyColumn(
@@ -203,7 +229,7 @@ private fun DoneList(
     onReopen: (Long) -> Unit
 ) {
     if (items.isEmpty()) {
-        EmptyMessage("完了した項目はまだありません。")
+        EmptyMessage("完了した項目はまだありません")
         return
     }
     LazyColumn(

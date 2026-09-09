@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.ui.common.TabTopBar
 import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.ClientGroupEntity
 import com.meetingnotes.ui.common.ConfirmDialog
@@ -82,36 +83,20 @@ fun ClientListScreen(
 
     Scaffold(
         topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.People, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "クライアント一覧",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onHome) {
-                            Icon(Icons.Filled.Home, contentDescription = "ホーム")
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = { showAddGroupDialog = true }) {
-                            Icon(
-                                Icons.Filled.CreateNewFolder,
-                                contentDescription = "グループを作成",
-                                tint = CreateActionBlue
-                            )
-                        }
+            TabTopBar(
+                icon = Icons.Filled.People,
+                title = "クライアント",
+                onHome = onHome,
+                actions = {
+                    IconButton(onClick = { showAddGroupDialog = true }) {
+                        Icon(
+                            Icons.Filled.CreateNewFolder,
+                            contentDescription = "グループを作成",
+                            tint = CreateActionBlue
+                        )
                     }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            }
+                }
+            )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {

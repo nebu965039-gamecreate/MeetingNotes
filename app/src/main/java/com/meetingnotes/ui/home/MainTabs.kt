@@ -113,8 +113,8 @@ fun MainTabsShell(
                 BannerAdView()
                 Box {
                     NavigationBar {
-                        NavTab(MainTab.CLIENTS, currentRoute, openTodoTotal) { switchTab(it) }
                         NavTab(MainTab.SCHEDULE, currentRoute, openTodoTotal) { switchTab(it) }
+                        NavTab(MainTab.CLIENTS, currentRoute, openTodoTotal) { switchTab(it) }
                         // 中央は録音ボタンぶんの空きスロット。
                         Spacer(Modifier.weight(1f))
                         NavTab(MainTab.TODO, currentRoute, openTodoTotal) { switchTab(it) }

@@ -50,6 +50,11 @@ class FollowupListViewModel(private val repository: MeetingRepository) : ViewMod
         viewModelScope.launch { repository.setClientFollowSnooze(clientId, until) }
     }
 
+    /** 指定日時まで伏せる。 */
+    fun snoozeUntil(clientId: Long, untilMillis: Long) {
+        viewModelScope.launch { repository.setClientFollowSnooze(clientId, untilMillis) }
+    }
+
     fun unsnooze(clientId: Long) {
         viewModelScope.launch { repository.setClientFollowSnooze(clientId, null) }
     }
