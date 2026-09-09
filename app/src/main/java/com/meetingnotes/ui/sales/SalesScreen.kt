@@ -38,16 +38,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.data.MeetingRepository
-import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.ui.common.DealPhaseChip
-import com.meetingnotes.ui.theme.PhaseChartColors
+import com.meetingnotes.ui.theme.AnalyticsChartColors
 import com.meetingnotes.ui.theme.ThemeMode
 import com.meetingnotes.util.Currency
 import com.meetingnotes.util.formatMoney
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val monthLabelFormatter = DateTimeFormatter.ofPattern("yy/M", Locale.JAPAN)
+private val monthLabelFormatter = DateTimeFormatter.ofPattern("yy年M月", Locale.JAPAN)
 
 /** 「分析」画面の「売上」タブの中身。期間セレクタ + 通貨ごとのレポート。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,7 +94,7 @@ fun SalesReportTab(repository: MeetingRepository, modifier: Modifier = Modifier)
                     report = report,
                     period = period,
                     showCurrencyHeader = reports.size > 1,
-                    barColor = PhaseChartColors.of(DealPhase.WON, darkTheme)
+                    barColor = AnalyticsChartColors.bar(darkTheme)
                 )
             }
         }
