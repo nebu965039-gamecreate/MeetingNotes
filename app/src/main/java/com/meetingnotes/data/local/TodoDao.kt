@@ -10,17 +10,24 @@ interface TodoDao {
     @Insert
     suspend fun insertAll(todos: List<TodoEntity>)
 
+    @Insert
+    suspend fun insert(todo: TodoEntity): Long
+
     @Query("SELECT * FROM todos WHERE meetingId = :meetingId ORDER BY id ASC")
     fun observeByMeeting(meetingId: Long): Flow<List<TodoEntity>>
 
-    @Query(
-        "SELECT t.* FROM todos t INNER JOIN meetings m ON t.meetingId = m.id " +
-            "WHERE m.clientId = :clientId ORDER BY t.id ASC"
-    )
+    @Query("SELECT * FROM todos WHERE clientId = :clientId ORDER BY id ASC")
     fun observeByClient(clientId: Long): Flow<List<TodoEntity>>
 
     @Query("UPDATE todos SET isDone = :isDone WHERE id = :todoId")
     suspend fun setDone(todoId: Long, isDone: Boolean)
+
+    /** 手動 ToDo の本文・期限の編集。 */
+    @Query("UPDATE todos SET task = :task, deadline = :deadline, dueDate = :dueDate WHERE id = :todoId")
+    suspend fun updateContent(todoId: Long, task: String, deadline: String, dueDate: String?)
+
+    @Query("DELETE FROM todos WHERE id = :todoId")
+    suspend fun deleteById(todoId: Long)
 
     @Query("SELECT * FROM todos WHERE id = :todoId")
     suspend fun getById(todoId: Long): TodoEntity?
@@ -34,10 +41,9 @@ interface TodoDao {
         """
         SELECT t.id AS todoId, t.meetingId AS meetingId, t.task AS task, t.assignee AS assignee,
                t.deadline AS deadline, t.dueDate AS dueDate, t.isDone AS isDone,
-               m.clientId AS clientId, c.name AS clientName
+               t.clientId AS clientId, c.name AS clientName
         FROM todos t
-        INNER JOIN meetings m ON t.meetingId = m.id
-        INNER JOIN clients c ON c.id = m.clientId
+        INNER JOIN clients c ON c.id = t.clientId
         WHERE t.isDone = 0 AND t.dueDate IS NOT NULL
         ORDER BY t.dueDate ASC
         """
@@ -51,10 +57,10 @@ interface TodoDao {
     /** クライアントごとの未完了 ToDo 件数(ホームのフォローボードのバッジ)。 */
     @Query(
         """
-        SELECT m.clientId AS clientId, COUNT(*) AS count
-        FROM todos t INNER JOIN meetings m ON t.meetingId = m.id
+        SELECT t.clientId AS clientId, COUNT(*) AS count
+        FROM todos t
         WHERE t.isDone = 0
-        GROUP BY m.clientId
+        GROUP BY t.clientId
         """
     )
     fun observeOpenTodoCountByClient(): Flow<List<ClientTodoCount>>
@@ -64,10 +70,9 @@ interface TodoDao {
         """
         SELECT t.id AS todoId, t.meetingId AS meetingId, t.task AS task, t.assignee AS assignee,
                t.deadline AS deadline, t.dueDate AS dueDate, t.isDone AS isDone,
-               m.clientId AS clientId, c.name AS clientName
+               t.clientId AS clientId, c.name AS clientName
         FROM todos t
-        INNER JOIN meetings m ON t.meetingId = m.id
-        INNER JOIN clients c ON c.id = m.clientId
+        INNER JOIN clients c ON c.id = t.clientId
         WHERE t.isDone = 0 AND t.dueDate = :date
         """
     )

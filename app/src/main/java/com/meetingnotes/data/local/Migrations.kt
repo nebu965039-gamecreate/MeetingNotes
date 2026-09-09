@@ -174,8 +174,38 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
     }
 }
 
+/**
+ * v18 → v19: 手動 ToDo 追加のための `todos` 再構築。
+ * `meetingId` を nullable に、`clientId`(NOT NULL・clients へ FK CASCADE)を追加。
+ * 既存行の `clientId` は由来商談の `meetings.clientId` から補完する。
+ */
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE `todos_new` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`meetingId` INTEGER, `clientId` INTEGER NOT NULL, " +
+                "`task` TEXT NOT NULL, `assignee` TEXT NOT NULL, `deadline` TEXT NOT NULL, " +
+                "`dueDate` TEXT, `isDone` INTEGER NOT NULL, `isFollowupEmail` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`meetingId`) REFERENCES `meetings`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE, " +
+                "FOREIGN KEY(`clientId`) REFERENCES `clients`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+        db.execSQL(
+            "INSERT INTO `todos_new` " +
+                "(`id`, `meetingId`, `clientId`, `task`, `assignee`, `deadline`, `dueDate`, `isDone`, `isFollowupEmail`) " +
+                "SELECT t.`id`, t.`meetingId`, m.`clientId`, t.`task`, t.`assignee`, t.`deadline`, " +
+                "t.`dueDate`, t.`isDone`, t.`isFollowupEmail` " +
+                "FROM `todos` t INNER JOIN `meetings` m ON m.`id` = t.`meetingId`"
+        )
+        db.execSQL("DROP TABLE `todos`")
+        db.execSQL("ALTER TABLE `todos_new` RENAME TO `todos`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_todos_meetingId` ON `todos` (`meetingId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_todos_clientId` ON `todos` (`clientId`)")
+    }
+}
+
 val databaseMigrations: Array<Migration> = arrayOf(
     MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
     MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
-    MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18
+    MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19
 )

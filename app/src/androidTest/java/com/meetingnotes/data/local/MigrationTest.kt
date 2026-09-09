@@ -215,6 +215,52 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate18To19_todosGainClientId_andAllowNullMeetingId() {
+        helper.createDatabase(dbName, 18).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL(
+                """
+                INSERT INTO meetings
+                  (clientId, folderId, title, recordedAt, endedAt, transcript, summary,
+                   decisions, concerns, nextMeetingDate, nextMeetingOriginalText, dealPhase,
+                   phaseOverride, followedUpAt, followupDraft, meetingType, projectId)
+                VALUES (1, NULL, 'M', 1, NULL, 't', 's', '[]', '[]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
+                """.trimIndent()
+            )
+            execSQL(
+                "INSERT INTO todos (meetingId, task, assignee, deadline, dueDate, isDone, isFollowupEmail) " +
+                    "VALUES (1, '見積書を送る', '自分', '金曜', '2026-09-11', 0, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 19, true, MIGRATION_18_19)
+
+        // 既存行の clientId が meetings から補完されている。
+        db.query("SELECT clientId, meetingId FROM todos WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getLong(0) == 1L)
+            assertTrue(c.getLong(1) == 1L)
+        }
+        // meetingId NULL の手動 ToDo を追加できる。
+        db.execSQL(
+            "INSERT INTO todos (meetingId, clientId, task, assignee, deadline, dueDate, isDone, isFollowupEmail) " +
+                "VALUES (NULL, 1, '月曜に電話', '自分', '', NULL, 0, 0)"
+        )
+        db.query("SELECT COUNT(*) FROM todos WHERE clientId = 1 AND meetingId IS NULL").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getInt(0) == 1)
+        }
+        // クライアント削除で ToDo が CASCADE 削除される。
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("DELETE FROM clients WHERE id = 1")
+        db.query("SELECT COUNT(*) FROM todos").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getInt(0) == 0)
+        }
+    }
+
+    @Test
     fun migrate17To18_addsProjectAmountColumns_keepsExistingRows() {
         helper.createDatabase(dbName, 17).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

@@ -72,7 +72,8 @@ class MeetingReminderWorker(
         val dueTodos = runCatching { repository.getTodosDueOn(todayIso) }.getOrDefault(emptyList())
         for (t in dueTodos) {
             val key = "todo-${t.todoId}-$todayIso"
-            if (repository.notificationAlreadyFired(t.meetingId, key)) continue
+            val logMeetingId = t.meetingId ?: 0L
+            if (repository.notificationAlreadyFired(logMeetingId, key)) continue
             val title = "本日期限のToDo: ${t.clientName}"
             val body = "「${t.task}」の期限が本日です。"
             NotificationHelper.notify(
@@ -83,7 +84,7 @@ class MeetingReminderWorker(
             )
             repository.logNotification(
                 NotificationLogEntity(
-                    meetingId = t.meetingId,
+                    meetingId = logMeetingId,
                     clientId = t.clientId,
                     title = title,
                     body = body,

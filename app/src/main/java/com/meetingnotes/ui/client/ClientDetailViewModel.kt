@@ -51,14 +51,14 @@ class ClientDetailViewModel(
     /** このクライアントの未完了 ToDo(期限のあるものを先に、近い順)。プロジェクト絞り込み適用後。 */
     val openTodos: StateFlow<List<TodoEntity>> =
         combine(todos, _projectFilter, meetingProjectById) { list, filter, projById ->
-            list.filter { !it.isDone && matchesProject(projById[it.meetingId], filter) }
+            list.filter { !it.isDone && matchesProject(it.meetingId?.let(projById::get), filter) }
                 .sortedWith(compareBy({ it.dueDate == null }, { it.dueDate ?: "" }))
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** このクライアントの完了済み ToDo(id 降順)。プロジェクト絞り込み適用後。 */
     val doneTodos: StateFlow<List<TodoEntity>> =
         combine(todos, _projectFilter, meetingProjectById) { list, filter, projById ->
-            list.filter { it.isDone && matchesProject(projById[it.meetingId], filter) }
+            list.filter { it.isDone && matchesProject(it.meetingId?.let(projById::get), filter) }
                 .sortedByDescending { it.id }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -95,7 +95,10 @@ class ClientDetailViewModel(
     val searchResults: StateFlow<List<MeetingSearchResult>> =
         combine(meetings, todos, _searchQuery, _sortOrder, _projectFilter) { list, todoList, query, order, filter ->
             MeetingArchiveSearch.search(
-                applyProjectFilter(list, filter), todoList.groupBy { it.meetingId }, query, order
+                applyProjectFilter(list, filter),
+                todoList.filter { it.meetingId != null }.groupBy { it.meetingId!! },
+                query,
+                order
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -159,6 +162,19 @@ class ClientDetailViewModel(
 
     fun reopenTodo(todoId: Long) {
         viewModelScope.launch { repository.setTodoDone(todoId, false) }
+    }
+
+    /** クライアント直下に手動 ToDo を追加。 */
+    fun addManualTodo(task: String, dueDate: String?) {
+        viewModelScope.launch { repository.addManualTodo(clientId, task, dueDate) }
+    }
+
+    fun updateTodo(todoId: Long, task: String, dueDate: String?) {
+        viewModelScope.launch { repository.updateTodoContent(todoId, task, dueDate) }
+    }
+
+    fun deleteTodo(todoId: Long) {
+        viewModelScope.launch { repository.deleteTodo(todoId) }
     }
 
     fun deleteClient(onDeleted: () -> Unit) {

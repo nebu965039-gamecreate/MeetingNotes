@@ -137,7 +137,9 @@ fun HomeScreen(
                 item(key = "due_todos") {
                     DueTodoBoard(
                         items = dueTodos,
-                        onOpen = onOpenMeeting,
+                        onOpen = { t ->
+                            if (t.meetingId != null) onOpenMeeting(t.meetingId) else onOpenClient(t.clientId)
+                        },
                         onComplete = { viewModel.completeTodo(it) }
                     )
                 }

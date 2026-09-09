@@ -13,17 +13,29 @@ import androidx.room.PrimaryKey
             parentColumns = ["id"],
             childColumns = ["meetingId"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = ClientEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["clientId"],
+            onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("meetingId")]
+    indices = [Index("meetingId"), Index("clientId")]
 )
 data class TodoEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val meetingId: Long,
+    /**
+     * 由来の商談。要約から起票された ToDo は商談 id を持つ。
+     * ユーザーが手動で追加した ToDo は null(商談に紐付かない・クライアント直下)。
+     */
+    val meetingId: Long? = null,
+    /** 所属クライアント。手動追加・要約起票のどちらも必須。 */
+    val clientId: Long = 0,
     val task: String,
-    val assignee: String,
-    /** AI が抽出した期限の原文(例: "金曜日まで")。表示用。 */
-    val deadline: String,
+    val assignee: String = "自分",
+    /** AI が抽出した期限の原文(例: "金曜日まで")。手動追加では空。表示用。 */
+    val deadline: String = "",
     /** [deadline] を解決した ISO 日付(yyyy-MM-dd)。解決できなければ null。ホーム・通知・カレンダーで使う。 */
     val dueDate: String? = null,
     val isDone: Boolean = false,

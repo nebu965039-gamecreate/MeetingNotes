@@ -6,7 +6,8 @@ data class ClientTodoCount(val clientId: Long, val count: Int)
 /** `TodoDao.observeOpenTodosWithDueDate` / `getTodosDueOn` の射影結果。 */
 data class OpenTodo(
     val todoId: Long,
-    val meetingId: Long,
+    /** 由来の商談 id。手動追加の ToDo は null。 */
+    val meetingId: Long?,
     val task: String,
     val assignee: String,
     val deadline: String,

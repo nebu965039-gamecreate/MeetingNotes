@@ -255,7 +255,10 @@ fun ClientDetailScreen(
             doneTodos = doneTodos,
             onOpenMeeting = onMeetingSelected,
             onComplete = { viewModel.completeTodo(it) },
-            onReopen = { viewModel.reopenTodo(it) }
+            onReopen = { viewModel.reopenTodo(it) },
+            onAddTodo = { task, dueDate -> viewModel.addManualTodo(task, dueDate) },
+            onEditTodo = { id, task, dueDate -> viewModel.updateTodo(id, task, dueDate) },
+            onDeleteTodo = { viewModel.deleteTodo(it) }
         )
         2 -> ClientInfoContent(repository = repository, clientId = clientId, onEdit = onEditClient)
         else -> LazyColumn(
@@ -1147,19 +1150,38 @@ private fun TodoTab(
     doneTodos: List<TodoEntity>,
     onOpenMeeting: (Long) -> Unit,
     onComplete: (Long) -> Unit,
-    onReopen: (Long) -> Unit
+    onReopen: (Long) -> Unit,
+    onAddTodo: (task: String, dueDate: String?) -> Unit,
+    onEditTodo: (todoId: Long, task: String, dueDate: String?) -> Unit,
+    onDeleteTodo: (Long) -> Unit
 ) {
     var sub by rememberSaveable { mutableIntStateOf(0) }
+    var showAdd by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<TodoEntity?>(null) }
+
     Column(modifier = Modifier.fillMaxSize()) {
         PrimaryTabRow(selectedTabIndex = sub) {
             Tab(selected = sub == 0, onClick = { sub = 0 }, text = { Text("ToDo (${openTodos.size})") })
             Tab(selected = sub == 1, onClick = { sub = 1 }, text = { Text("完了 (${doneTodos.size})") })
         }
+
+        if (sub == 0) {
+            TextButton(
+                onClick = { showAdd = true },
+                modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("ToDoを追加")
+            }
+        }
+
         val list = if (sub == 0) openTodos else doneTodos
         if (list.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    if (sub == 0) "未完了のToDoはありません。" else "完了したToDoはありません。",
+                    if (sub == 0) "未完了のToDoはありません。「ToDoを追加」から登録できます。"
+                    else "完了したToDoはありません。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1174,12 +1196,97 @@ private fun TodoTab(
                     TodoRowItem(
                         todo = t,
                         done = sub == 1,
-                        onClick = { onOpenMeeting(t.meetingId) },
+                        onClick = {
+                            if (t.meetingId != null) onOpenMeeting(t.meetingId)
+                            else editing = t
+                        },
                         onToggle = { if (sub == 0) onComplete(t.id) else onReopen(t.id) }
                     )
                 }
             }
         }
+    }
+
+    if (showAdd) {
+        TodoFormDialog(
+            editing = null,
+            onDismiss = { showAdd = false },
+            onConfirm = { task, dueDate -> onAddTodo(task, dueDate); showAdd = false },
+            onDelete = null
+        )
+    }
+    editing?.let { t ->
+        TodoFormDialog(
+            editing = t,
+            onDismiss = { editing = null },
+            onConfirm = { task, dueDate -> onEditTodo(t.id, task, dueDate); editing = null },
+            onDelete = { onDeleteTodo(t.id); editing = null }
+        )
+    }
+}
+
+/** 手動 ToDo の追加・編集フォーム(本文 + 任意の期限日)。 */
+@Composable
+private fun TodoFormDialog(
+    editing: TodoEntity?,
+    onDismiss: () -> Unit,
+    onConfirm: (task: String, dueDate: String?) -> Unit,
+    onDelete: (() -> Unit)?
+) {
+    var task by remember { mutableStateOf(editing?.task.orEmpty()) }
+    var due by remember {
+        mutableStateOf(editing?.dueDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() })
+    }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (editing == null) "ToDoを追加" else "ToDoを編集") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = task,
+                    onValueChange = { task = it },
+                    label = { Text("内容") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { showDatePicker = true }) {
+                        Text(
+                            due?.let { "期限: ${it.monthValue}月${it.dayOfMonth}日" } ?: "期限日を設定"
+                        )
+                    }
+                    if (due != null) {
+                        TextButton(onClick = { due = null }) { Text("クリア") }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(task, due?.toString()) },
+                enabled = task.isNotBlank()
+            ) { Text(if (editing == null) "追加" else "保存") }
+        },
+        dismissButton = {
+            Row {
+                if (onDelete != null) {
+                    TextButton(onClick = onDelete) {
+                        Text("削除", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                TextButton(onClick = onDismiss) { Text("キャンセル") }
+            }
+        }
+    )
+
+    if (showDatePicker) {
+        com.meetingnotes.ui.common.NextMeetingDateTimeDialog(
+            initial = (due ?: java.time.LocalDate.now()).atStartOfDay(),
+            initialHasTime = false,
+            onDismiss = { showDatePicker = false },
+            onConfirm = { dt, _ -> due = dt.toLocalDate(); showDatePicker = false }
+        )
     }
 }
 
@@ -1204,8 +1311,13 @@ private fun TodoRowItem(todo: TodoEntity, done: Boolean, onClick: () -> Unit, on
                 overflow = TextOverflow.Ellipsis
             )
             val sub = buildString {
-                append("担当 ${todo.assignee}")
-                if (todo.deadline.isNotBlank() && todo.deadline != "未定") append("・期限 ${todo.deadline}")
+                if (todo.meetingId == null) append("手動") else append("担当 ${todo.assignee}")
+                val dueLabel = todo.dueDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+                if (dueLabel != null) {
+                    append("・期限 ${dueLabel.monthValue}/${dueLabel.dayOfMonth}")
+                } else if (todo.deadline.isNotBlank() && todo.deadline != "未定") {
+                    append("・期限 ${todo.deadline}")
+                }
             }
             Text(
                 sub,

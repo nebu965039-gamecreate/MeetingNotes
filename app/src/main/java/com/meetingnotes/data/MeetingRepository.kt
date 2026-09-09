@@ -309,9 +309,37 @@ class MeetingRepository(
         // 「フォローアップメール」ToDo のチェックは F1 ボードの完了状態(followedUpAt)と同期する。
         val todo = todoDao.getById(todoId)
         if (todo?.isFollowupEmail == true) {
-            meetingDao.updateFollowedUpAt(todo.meetingId, if (isDone) System.currentTimeMillis() else null)
+            todo.meetingId?.let {
+                meetingDao.updateFollowedUpAt(it, if (isDone) System.currentTimeMillis() else null)
+            }
         }
     }
+
+    /** クライアント直下に手動 ToDo を追加(商談に紐付かない)。期限は任意の ISO 日付。 */
+    suspend fun addManualTodo(clientId: Long, task: String, dueDate: String?): Long {
+        val trimmed = task.trim()
+        if (trimmed.isEmpty()) return -1L
+        return todoDao.insert(
+            TodoEntity(
+                meetingId = null,
+                clientId = clientId,
+                task = trimmed,
+                assignee = "自分",
+                deadline = "",
+                dueDate = dueDate
+            )
+        )
+    }
+
+    /** ToDo の本文・期限を編集する(手動追加した ToDo 向け)。 */
+    suspend fun updateTodoContent(todoId: Long, task: String, dueDate: String?) {
+        val trimmed = task.trim()
+        if (trimmed.isEmpty()) return
+        todoDao.updateContent(todoId, trimmed, deadline = "", dueDate = dueDate)
+    }
+
+    /** ToDo を削除する。 */
+    suspend fun deleteTodo(todoId: Long) = todoDao.deleteById(todoId)
 
     fun observeFolders(clientId: Long): Flow<List<FolderEntity>> = folderDao.observeByClient(clientId)
 
@@ -424,13 +452,14 @@ class MeetingRepository(
         val todos = summary.todos.map {
             TodoEntity(
                 meetingId = meetingId,
+                clientId = clientId,
                 task = it.task,
                 assignee = it.assignee,
                 deadline = it.deadline,
                 dueDate = it.deadlineDate
                     ?: com.meetingnotes.data.model.TodoDueDate.parse(it.deadline)
             )
-        } + followupEmailTodo(meetingId, recordedAt)
+        } + followupEmailTodo(meetingId, clientId, recordedAt)
         todoDao.insertAll(todos)
         // AI が「次回打ち合わせ」を拾っていれば、予定(schedules)にも1件作る。
         summary.nextMeeting.date?.let { syncNextMeetingSchedule(meetingId, it) }
@@ -441,13 +470,14 @@ class MeetingRepository(
      * 要約完了時に必ず1件だけ自動起票する「お礼・フォローアップのメールを送る」ToDo。
      * 期限は録音日の翌日。完了/未完了は `meetings.followedUpAt` と同期される([setTodoDone])。
      */
-    private fun followupEmailTodo(meetingId: Long, recordedAt: Long): TodoEntity {
+    private fun followupEmailTodo(meetingId: Long, clientId: Long, recordedAt: Long): TodoEntity {
         val due = java.time.Instant.ofEpochMilli(recordedAt)
             .atZone(java.time.ZoneId.systemDefault())
             .toLocalDate()
             .plusDays(1)
         return TodoEntity(
             meetingId = meetingId,
+            clientId = clientId,
             task = FOLLOWUP_EMAIL_TASK,
             assignee = FOLLOWUP_EMAIL_ASSIGNEE,
             deadline = "翌日",

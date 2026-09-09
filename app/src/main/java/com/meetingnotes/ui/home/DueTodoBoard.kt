@@ -33,7 +33,7 @@ import java.time.LocalDate
 @Composable
 fun DueTodoBoard(
     items: List<OpenTodo>,
-    onOpen: (meetingId: Long) -> Unit,
+    onOpen: (todo: OpenTodo) -> Unit,
     onComplete: (todoId: Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -74,7 +74,7 @@ fun DueTodoBoard(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onOpen(t.meetingId) }
+                            .clickable { onOpen(t) }
                             .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
