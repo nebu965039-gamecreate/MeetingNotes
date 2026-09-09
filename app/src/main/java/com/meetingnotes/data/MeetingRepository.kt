@@ -57,6 +57,14 @@ class MeetingRepository(
             memo?.trim()?.ifBlank { null }
         )
 
+    /** 流入経路・紹介元の更新。 */
+    suspend fun updateClientLeadInfo(clientId: Long, leadSource: String?, referredBy: String?) =
+        clientDao.updateLeadInfo(
+            clientId,
+            leadSource?.trim()?.ifBlank { null },
+            referredBy?.trim()?.ifBlank { null }
+        )
+
     fun observeClientContacts(clientId: Long): Flow<List<com.meetingnotes.data.local.ClientContactEntity>> =
         clientContactDao.observeByClient(clientId)
 

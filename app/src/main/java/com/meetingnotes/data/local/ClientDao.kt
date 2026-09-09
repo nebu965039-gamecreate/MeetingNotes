@@ -31,6 +31,9 @@ interface ClientDao {
     @Query("UPDATE clients SET followBoardSnoozedUntil = :until WHERE id = :clientId")
     suspend fun updateFollowBoardSnooze(clientId: Long, until: Long?)
 
+    @Query("UPDATE clients SET leadSource = :leadSource, referredBy = :referredBy WHERE id = :clientId")
+    suspend fun updateLeadInfo(clientId: Long, leadSource: String?, referredBy: String?)
+
     @Query("DELETE FROM clients WHERE id = :clientId")
     suspend fun deleteById(clientId: Long)
 }

@@ -39,6 +39,11 @@ import androidx.compose.runtime.LaunchedEffect
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.common.LabeledDropdownField
 
+/** 流入経路のプリセット候補(自由入力も可)。 */
+private val LEAD_SOURCES = listOf(
+    "紹介", "Web検索", "SNS", "イベント・展示会", "既存顧客からの追加", "問い合わせフォーム", "広告", "その他"
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientEditScreen(
@@ -57,6 +62,8 @@ fun ClientEditScreen(
     var phone by remember { mutableStateOf("") }
     var memo by remember { mutableStateOf("") }
     var groupId by remember { mutableStateOf<Long?>(null) }
+    var leadSource by remember { mutableStateOf("") }
+    var referredBy by remember { mutableStateOf("") }
     var loaded by remember { mutableStateOf(false) }
 
     LaunchedEffect(client) {
@@ -67,6 +74,8 @@ fun ClientEditScreen(
             phone = c.phone.orEmpty()
             memo = c.memo.orEmpty()
             groupId = c.groupId
+            leadSource = c.leadSource.orEmpty()
+            referredBy = c.referredBy.orEmpty()
             loaded = true
         }
     }
@@ -88,7 +97,11 @@ fun ClientEditScreen(
                 actions = {
                     TextButton(
                         onClick = {
-                            viewModel.saveInfo(name, email, phone, memo, groupId)
+                            viewModel.saveInfo(
+                                name, email, phone, memo, groupId,
+                                leadSource.trim().ifBlank { null },
+                                referredBy.trim().ifBlank { null }
+                            )
                             onBack()
                         },
                         enabled = name.isNotBlank()
@@ -131,6 +144,24 @@ fun ClientEditScreen(
                 value = memo, onValueChange = { memo = it },
                 label = { Text("備考（任意）") },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp)
+            )
+
+            LabeledDropdownField(
+                label = "流入経路（任意）",
+                options = listOf<Pair<String?, String>>(null to "未設定") + LEAD_SOURCES.map { it to it },
+                selected = LEAD_SOURCES.firstOrNull { it == leadSource },
+                onSelect = { leadSource = it.orEmpty() },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = leadSource, onValueChange = { leadSource = it },
+                label = { Text("流入経路（自由記述可）") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = referredBy, onValueChange = { referredBy = it },
+                label = { Text("紹介元・紹介者（任意）") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth()
             )
 
             Text("担当者", style = MaterialTheme.typography.titleMedium)

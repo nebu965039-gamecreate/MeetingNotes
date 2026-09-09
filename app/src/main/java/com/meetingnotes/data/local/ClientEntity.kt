@@ -26,5 +26,9 @@ data class ClientEntity(
     val email: String? = null,
     val phone: String? = null,
     /** ホーム/一覧の「ToDo」ボードでこのクライアントを一時的に伏せる期限(epoch millis)。null で通常表示。 */
-    val followBoardSnoozedUntil: Long? = null
+    val followBoardSnoozedUntil: Long? = null,
+    /** 流入経路(紹介 / Web検索 / SNS / イベント 等、自由入力も可)。任意。 */
+    val leadSource: String? = null,
+    /** 紹介元(紹介者の名前・関係先)。任意。 */
+    val referredBy: String? = null
 )

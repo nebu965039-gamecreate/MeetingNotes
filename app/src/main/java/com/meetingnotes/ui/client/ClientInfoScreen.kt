@@ -88,6 +88,14 @@ fun ClientInfoContent(
                 InfoRow("メールアドレス", c?.email)
                 HorizontalDivider()
                 InfoRow("電話番号", c?.phone)
+                if (!c?.leadSource.isNullOrBlank() || !c?.referredBy.isNullOrBlank()) {
+                    HorizontalDivider()
+                    InfoRow("流入経路", c?.leadSource)
+                    if (!c?.referredBy.isNullOrBlank()) {
+                        HorizontalDivider()
+                        InfoRow("紹介元", c?.referredBy)
+                    }
+                }
             }
         }
 

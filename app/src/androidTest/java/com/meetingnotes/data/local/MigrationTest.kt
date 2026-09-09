@@ -215,6 +215,28 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate24To25_addsLeadSourceAndReferredByColumns() {
+        helper.createDatabase(dbName, 24).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 25, true, MIGRATION_24_25)
+
+        db.query("SELECT leadSource, referredBy FROM clients WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertNull(c.getString(0))
+            assertNull(c.getString(1))
+        }
+        db.execSQL("UPDATE clients SET leadSource = '紹介', referredBy = '田中さん' WHERE id = 1")
+        db.query("SELECT leadSource, referredBy FROM clients WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getString(0) == "紹介")
+            assertTrue(c.getString(1) == "田中さん")
+        }
+    }
+
+    @Test
     fun migrate23To24_addsScheduleUrlAndLocationColumns() {
         helper.createDatabase(dbName, 23).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

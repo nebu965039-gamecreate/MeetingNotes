@@ -40,11 +40,20 @@ class ClientInfoViewModel(
     val projects = repository.observeClientProjects(clientId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun saveInfo(name: String, email: String?, phone: String?, memo: String?, groupId: Long?) {
+    fun saveInfo(
+        name: String,
+        email: String?,
+        phone: String?,
+        memo: String?,
+        groupId: Long?,
+        leadSource: String? = null,
+        referredBy: String? = null
+    ) {
         if (name.isBlank()) return
         viewModelScope.launch {
             repository.updateClientInfo(clientId, name, email, phone, memo)
             repository.moveClientToGroup(clientId, groupId)
+            repository.updateClientLeadInfo(clientId, leadSource, referredBy)
         }
     }
 
