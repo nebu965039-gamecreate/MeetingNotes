@@ -164,7 +164,9 @@ class MeetingRepository(
         title: String,
         note: String,
         participants: String,
-        phase: com.meetingnotes.data.model.DealPhase?
+        phase: com.meetingnotes.data.model.DealPhase?,
+        meetingUrl: String? = null,
+        location: String? = null
     ): Long = scheduleDao.insert(
         com.meetingnotes.data.local.ScheduleEntity(
             clientId = clientId,
@@ -175,6 +177,8 @@ class MeetingRepository(
             note = note.trim(),
             participants = participants.trim(),
             phase = phase?.wireValue,
+            meetingUrl = meetingUrl?.trim()?.ifBlank { null },
+            location = location?.trim()?.ifBlank { null },
             createdAt = System.currentTimeMillis()
         )
     )
@@ -186,7 +190,9 @@ class MeetingRepository(
         title: String,
         note: String,
         participants: String,
-        phase: com.meetingnotes.data.model.DealPhase?
+        phase: com.meetingnotes.data.model.DealPhase?,
+        meetingUrl: String? = null,
+        location: String? = null
     ) {
         val row = scheduleDao.getById(id) ?: return
         scheduleDao.update(
@@ -196,7 +202,9 @@ class MeetingRepository(
                 title = title.trim().ifBlank { "打ち合わせ" },
                 note = note.trim(),
                 participants = participants.trim(),
-                phase = phase?.wireValue
+                phase = phase?.wireValue,
+                meetingUrl = meetingUrl?.trim()?.ifBlank { null },
+                location = location?.trim()?.ifBlank { null }
             )
         )
         // AI 由来なら商談側の nextMeetingDate も合わせる。

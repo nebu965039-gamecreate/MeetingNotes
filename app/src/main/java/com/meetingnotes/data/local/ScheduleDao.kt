@@ -17,7 +17,9 @@ data class ScheduleWithClient(
     val title: String,
     val note: String,
     val participants: String,
-    val phase: String?
+    val phase: String?,
+    val meetingUrl: String?,
+    val location: String?
 )
 
 @Dao
@@ -28,7 +30,8 @@ interface ScheduleDao {
         SELECT s.id AS id, s.clientId AS clientId, c.name AS clientName,
                s.sourceMeetingId AS sourceMeetingId, s.startAtMillis AS startAtMillis,
                s.hasTime AS hasTime, s.title AS title, s.note AS note,
-               s.participants AS participants, s.phase AS phase
+               s.participants AS participants, s.phase AS phase,
+               s.meetingUrl AS meetingUrl, s.location AS location
         FROM schedules s
         INNER JOIN clients c ON c.id = s.clientId
         ORDER BY s.startAtMillis ASC
@@ -45,7 +48,8 @@ interface ScheduleDao {
         SELECT s.id AS id, s.clientId AS clientId, c.name AS clientName,
                s.sourceMeetingId AS sourceMeetingId, s.startAtMillis AS startAtMillis,
                s.hasTime AS hasTime, s.title AS title, s.note AS note,
-               s.participants AS participants, s.phase AS phase
+               s.participants AS participants, s.phase AS phase,
+               s.meetingUrl AS meetingUrl, s.location AS location
         FROM schedules s
         INNER JOIN clients c ON c.id = s.clientId
         WHERE s.startAtMillis BETWEEN :fromMillis AND :toMillis

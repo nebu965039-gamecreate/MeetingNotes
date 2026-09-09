@@ -50,8 +50,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.core.net.toUri
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.OutlinedTextField
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -64,6 +68,7 @@ import com.meetingnotes.ui.common.DealPhaseChip
 import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.NextMeetingDateTimeDialog
 import com.meetingnotes.ui.common.relativeDateTimeLabel
+import com.meetingnotes.util.CalendarIntent
 import com.meetingnotes.util.JapaneseHolidays
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -232,8 +237,8 @@ fun ScheduleScreen(
             clients = clients,
             editing = null,
             onDismiss = { showAddDialog = false },
-            onConfirm = { clientId, millis, hasTime, title, participants, note, phase ->
-                viewModel.addSchedule(clientId, millis, hasTime, title, note, participants, phase)
+            onConfirm = { clientId, millis, hasTime, title, participants, note, phase, url, loc ->
+                viewModel.addSchedule(clientId, millis, hasTime, title, note, participants, phase, url, loc)
                 showAddDialog = false
             }
         )
@@ -244,8 +249,8 @@ fun ScheduleScreen(
             clients = clients,
             editing = item,
             onDismiss = { scheduleToEdit = null },
-            onConfirm = { _, millis, hasTime, title, participants, note, phase ->
-                viewModel.updateSchedule(item.scheduleId, millis, hasTime, title, note, participants, phase)
+            onConfirm = { _, millis, hasTime, title, participants, note, phase, url, loc ->
+                viewModel.updateSchedule(item.scheduleId, millis, hasTime, title, note, participants, phase, url, loc)
                 scheduleToEdit = null
             }
         )
@@ -273,6 +278,7 @@ private fun ScheduleRow(
     onDelete: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Card(
         modifier = Modifier
@@ -311,6 +317,29 @@ private fun ScheduleRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
                 )
+                item.location?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        "📍 $it",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+                item.meetingUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                    Text(
+                        url,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        textDecoration = TextDecoration.Underline,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clickable {
+                            runCatching {
+                                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri()))
+                            }
+                        }
+                    )
+                }
                 if (item.note.isNotBlank()) {
                     Text(
                         item.note,
@@ -325,6 +354,24 @@ private fun ScheduleRow(
                     Icon(Icons.Filled.MoreVert, contentDescription = "メニュー")
                 }
                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("カレンダーに追加") },
+                        onClick = {
+                            menuExpanded = false
+                            CalendarIntent.add(
+                                context = context,
+                                title = item.title.ifBlank { "打ち合わせ" },
+                                start = item.start,
+                                allDay = item.allDay,
+                                description = listOfNotNull(
+                                    item.participants.takeIf { it.isNotBlank() }?.let { "参加者: $it" },
+                                    item.meetingUrl?.takeIf { it.isNotBlank() },
+                                    item.note.takeIf { it.isNotBlank() }
+                                ).joinToString("\n"),
+                                location = item.location.orEmpty()
+                            )
+                        }
+                    )
                     DropdownMenuItem(
                         text = { Text("編集") },
                         onClick = { menuExpanded = false; onEdit() }
@@ -473,7 +520,8 @@ private fun ScheduleFormDialog(
     onDismiss: () -> Unit,
     onConfirm: (
         clientId: Long, startAtMillis: Long, hasTime: Boolean,
-        title: String, participants: String, note: String, phase: DealPhase?
+        title: String, participants: String, note: String, phase: DealPhase?,
+        meetingUrl: String?, location: String?
     ) -> Unit
 ) {
     var clientId by remember { mutableStateOf(editing?.clientId ?: clients.firstOrNull()?.first) }
@@ -484,6 +532,8 @@ private fun ScheduleFormDialog(
     var title by remember { mutableStateOf(editing?.title?.takeIf { it.isNotBlank() } ?: "打ち合わせ") }
     var participants by remember { mutableStateOf(editing?.participants.orEmpty()) }
     var note by remember { mutableStateOf(editing?.note.orEmpty()) }
+    var meetingUrl by remember { mutableStateOf(editing?.meetingUrl.orEmpty()) }
+    var location by remember { mutableStateOf(editing?.location.orEmpty()) }
     var phase by remember { mutableStateOf(editing?.phase) }
     var showPicker by remember { mutableStateOf(false) }
 
@@ -531,6 +581,20 @@ private fun ScheduleFormDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
+                        value = meetingUrl,
+                        onValueChange = { meetingUrl = it },
+                        label = { Text("会議URL（Zoom/Meet 等）") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = location,
+                        onValueChange = { location = it },
+                        label = { Text("場所") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
                         value = note,
                         onValueChange = { note = it },
                         label = { Text("メモ") },
@@ -552,7 +616,8 @@ private fun ScheduleFormDialog(
                     clientId?.let {
                         onConfirm(
                             it, NextMeetingTime.toMillis(dateTime), hasTime,
-                            title, participants, note, phase
+                            title, participants, note, phase,
+                            meetingUrl.trim().ifBlank { null }, location.trim().ifBlank { null }
                         )
                     }
                 },

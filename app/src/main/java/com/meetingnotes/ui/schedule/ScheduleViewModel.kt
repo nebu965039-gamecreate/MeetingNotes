@@ -44,10 +44,14 @@ class ScheduleViewModel(private val repository: MeetingRepository) : ViewModel()
         title: String,
         note: String,
         participants: String,
-        phase: DealPhase?
+        phase: DealPhase?,
+        meetingUrl: String?,
+        location: String?
     ) {
         viewModelScope.launch {
-            repository.addSchedule(clientId, startAtMillis, hasTime, title, note, participants, phase)
+            repository.addSchedule(
+                clientId, startAtMillis, hasTime, title, note, participants, phase, meetingUrl, location
+            )
         }
     }
 
@@ -58,10 +62,14 @@ class ScheduleViewModel(private val repository: MeetingRepository) : ViewModel()
         title: String,
         note: String,
         participants: String,
-        phase: DealPhase?
+        phase: DealPhase?,
+        meetingUrl: String?,
+        location: String?
     ) {
         viewModelScope.launch {
-            repository.updateSchedule(id, startAtMillis, hasTime, title, note, participants, phase)
+            repository.updateSchedule(
+                id, startAtMillis, hasTime, title, note, participants, phase, meetingUrl, location
+            )
         }
     }
 

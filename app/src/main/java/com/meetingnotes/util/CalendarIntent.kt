@@ -16,13 +16,15 @@ object CalendarIntent {
         title: String,
         start: LocalDateTime,
         allDay: Boolean,
-        description: String = ""
+        description: String = "",
+        location: String = ""
     ) {
         val startMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val intent = Intent(Intent.ACTION_INSERT).apply {
             data = CalendarContract.Events.CONTENT_URI
             putExtra(CalendarContract.Events.TITLE, title)
             if (description.isNotBlank()) putExtra(CalendarContract.Events.DESCRIPTION, description)
+            if (location.isNotBlank()) putExtra(CalendarContract.Events.EVENT_LOCATION, location)
             putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis)
             if (allDay) {
                 putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, true)

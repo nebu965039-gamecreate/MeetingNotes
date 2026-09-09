@@ -47,6 +47,8 @@ data class UpcomingItem(
     val note: String,
     val participants: String,
     val phase: DealPhase?,
+    val meetingUrl: String?,
+    val location: String?,
     /** AI が要約から拾った「次回打ち合わせ」由来か(手動追加でない)。 */
     val fromAi: Boolean
 )
@@ -61,6 +63,8 @@ fun ScheduleWithClient.toUpcomingItem(): UpcomingItem = UpcomingItem(
     note = note,
     participants = participants,
     phase = DealPhase.fromWire(phase),
+    meetingUrl = meetingUrl,
+    location = location,
     fromAi = sourceMeetingId != null
 )
 

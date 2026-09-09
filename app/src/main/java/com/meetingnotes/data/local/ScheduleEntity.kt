@@ -38,5 +38,9 @@ data class ScheduleEntity(
     val participants: String = "",
     /** 進捗ラベル(`DealPhase.wireValue`)。未設定は null。 */
     val phase: String? = null,
+    /** Web 会議の URL(Zoom/Meet 等)。任意。 */
+    val meetingUrl: String? = null,
+    /** 場所(対面のとき)。任意。 */
+    val location: String? = null,
     val createdAt: Long
 )

@@ -215,6 +215,33 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate23To24_addsScheduleUrlAndLocationColumns() {
+        helper.createDatabase(dbName, 23).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL(
+                "INSERT INTO schedules " +
+                    "(clientId, sourceMeetingId, startAtMillis, hasTime, title, note, participants, phase, createdAt) " +
+                    "VALUES (1, NULL, 1000, 1, '打ち合わせ', '', '', NULL, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 24, true, MIGRATION_23_24)
+
+        db.query("SELECT meetingUrl, location FROM schedules WHERE clientId = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertNull(c.getString(0))
+            assertNull(c.getString(1))
+        }
+        db.execSQL("UPDATE schedules SET meetingUrl = 'https://meet.example/x', location = '本社会議室' WHERE clientId = 1")
+        db.query("SELECT meetingUrl, location FROM schedules WHERE clientId = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getString(0) == "https://meet.example/x")
+            assertTrue(c.getString(1) == "本社会議室")
+        }
+    }
+
+    @Test
     fun migrate22To23_addsFollowBoardSnoozeColumn_defaultsNull() {
         helper.createDatabase(dbName, 22).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

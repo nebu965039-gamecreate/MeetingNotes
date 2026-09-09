@@ -18,7 +18,7 @@ import androidx.room.TypeConverters
         ClientProjectEntity::class,
         ScheduleEntity::class
     ],
-    version = 23,
+    version = 24,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
