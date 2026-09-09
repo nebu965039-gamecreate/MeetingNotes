@@ -15,6 +15,7 @@ enum class SalesPeriod(val label: String) {
 
 data class MonthlyAmount(val month: YearMonth, val amount: Long)
 data class PhaseAmount(val phase: DealPhase, val amount: Long)
+data class ReasonCount(val reason: String, val count: Int)
 
 /**
  * 1通貨ぶんの売上集計。
@@ -42,7 +43,9 @@ data class SalesCurrencyReport(
     /** 進行中案件のフェーズ別 見積額合計(見積額のあるもの・降順)。 */
     val pipelineByPhase: List<PhaseAmount>,
     /** 平均成約単価(金額のある成約案件のみ)。0件なら null。 */
-    val avgDealSize: Long?
+    val avgDealSize: Long?,
+    /** 失注理由の内訳(理由が入力された失注案件のみ・件数降順)。 */
+    val lostReasonBreakdown: List<ReasonCount> = emptyList()
 ) {
     /** 金額ベース成約率(%): 成約額 / (成約額 + 失注見積額)。母数0なら null。 */
     val winRateByAmount: Int?
@@ -115,7 +118,13 @@ object SalesRules {
                 lostCount = lost.size,
                 lostAmount = lost.sumOf { it.estimatedAmount ?: 0L },
                 pipelineByPhase = pipeline,
-                avgDealSize = wonAmountsInPeriod.takeIf { it.isNotEmpty() }?.let { it.sum() / it.size }
+                avgDealSize = wonAmountsInPeriod.takeIf { it.isNotEmpty() }?.let { it.sum() / it.size },
+                lostReasonBreakdown = lost
+                    .mapNotNull { it.lostReason?.trim()?.takeIf(String::isNotEmpty) }
+                    .groupingBy { it }
+                    .eachCount()
+                    .map { (reason, count) -> ReasonCount(reason, count) }
+                    .sortedByDescending { it.count }
             )
         }
     }

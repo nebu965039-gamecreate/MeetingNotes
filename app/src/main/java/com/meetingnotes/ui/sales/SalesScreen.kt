@@ -209,6 +209,25 @@ private fun CurrencyReportCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
+            if (report.lostReasonBreakdown.isNotEmpty()) {
+                SectionLabel("失注理由の内訳(全期間)")
+                report.lostReasonBreakdown.forEach { rc ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            rc.reason,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            "${rc.count}件",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
             if (report.pipelineByPhase.isNotEmpty()) {
                 SectionLabel("フェーズ別パイプライン")
                 val maxPhase = report.pipelineByPhase.maxOf { it.amount }.coerceAtLeast(1)

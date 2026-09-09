@@ -365,7 +365,8 @@ class MeetingRepository(
         currency: String = "JPY",
         estimatedAmount: Long? = null,
         wonAmount: Long? = null,
-        wonAt: Long? = null
+        wonAt: Long? = null,
+        lostReason: String? = null
     ): Long {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return -1L
@@ -378,12 +379,16 @@ class MeetingRepository(
                 currency = currency,
                 estimatedAmount = estimatedAmount,
                 wonAmount = wonAmount,
-                wonAt = if (phase == com.meetingnotes.data.model.DealPhase.WON) (wonAt ?: System.currentTimeMillis()) else wonAt
+                wonAt = if (phase == com.meetingnotes.data.model.DealPhase.WON) (wonAt ?: System.currentTimeMillis()) else wonAt,
+                lostReason = if (phase == com.meetingnotes.data.model.DealPhase.LOST) lostReason?.trim()?.ifBlank { null } else null
             )
         )
     }
 
-    /** 案件フォームからの更新。フェーズを成約にしたら `wonAt` を補完(手動指定があればそれを優先)。 */
+    /**
+     * 案件フォームからの更新。フェーズを成約にしたら `wonAt` を補完(手動指定があればそれを優先)。
+     * `lostReason` は `phase == LOST` のときのみ保持する。
+     */
     suspend fun updateClientProject(
         projectId: Long,
         name: String,
@@ -391,7 +396,8 @@ class MeetingRepository(
         currency: String,
         estimatedAmount: Long?,
         wonAmount: Long?,
-        wonAt: Long?
+        wonAt: Long?,
+        lostReason: String?
     ) {
         val current = clientProjectDao.getById(projectId) ?: return
         val wasWon = current.phase == com.meetingnotes.data.model.DealPhase.WON.wireValue
@@ -409,7 +415,8 @@ class MeetingRepository(
                 currency = currency,
                 estimatedAmount = estimatedAmount,
                 wonAmount = wonAmount,
-                wonAt = resolvedWonAt
+                wonAt = resolvedWonAt,
+                lostReason = if (phase == com.meetingnotes.data.model.DealPhase.LOST) lostReason?.trim()?.ifBlank { null } else null
             )
         )
     }

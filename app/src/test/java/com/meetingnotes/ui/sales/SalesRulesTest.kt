@@ -24,7 +24,8 @@ class SalesRulesTest {
         currency: String = "JPY",
         estimated: Long? = null,
         won: Long? = null,
-        wonAt: Long? = null
+        wonAt: Long? = null,
+        lostReason: String? = null
     ) = ClientProjectEntity(
         id = id,
         clientId = 1,
@@ -34,7 +35,8 @@ class SalesRulesTest {
         currency = currency,
         estimatedAmount = estimated,
         wonAmount = won,
-        wonAt = wonAt
+        wonAt = wonAt,
+        lostReason = lostReason
     )
 
     @Test
@@ -136,6 +138,22 @@ class SalesRulesTest {
         )
         val reports = SalesRules.report(projects, SalesPeriod.ALL, now, zone)
         assertEquals(listOf("JPY", "USD"), reports.map { it.currencyCode })
+    }
+
+    @Test
+    fun `lost reason breakdown counts and sorts by frequency`() {
+        val projects = listOf(
+            project(1, DealPhase.LOST, lostReason = "価格"),
+            project(2, DealPhase.LOST, lostReason = "価格"),
+            project(3, DealPhase.LOST, lostReason = "タイミング"),
+            project(4, DealPhase.LOST, lostReason = "  "),
+            project(5, DealPhase.LOST, lostReason = null)
+        )
+        val report = SalesRules.report(projects, SalesPeriod.ALL, now, zone).single()
+        assertEquals(
+            listOf("価格" to 2, "タイミング" to 1),
+            report.lostReasonBreakdown.map { it.reason to it.count }
+        )
     }
 
     @Test

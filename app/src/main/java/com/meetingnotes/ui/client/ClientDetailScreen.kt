@@ -546,11 +546,11 @@ fun ClientDetailScreen(
     if (showManageProjects) {
         ManageProjectsDialog(
             projects = projects,
-            onAdd = { name, phase, currency, est, won, wonAt ->
-                viewModel.addProject(name, phase, currency, est, won, wonAt)
+            onAdd = { name, phase, currency, est, won, wonAt, lostReason ->
+                viewModel.addProject(name, phase, currency, est, won, wonAt, lostReason)
             },
-            onUpdate = { id, name, phase, currency, est, won, wonAt ->
-                viewModel.updateProject(id, name, phase, currency, est, won, wonAt)
+            onUpdate = { id, name, phase, currency, est, won, wonAt, lostReason ->
+                viewModel.updateProject(id, name, phase, currency, est, won, wonAt, lostReason)
             },
             onDelete = { viewModel.deleteProject(it) },
             onDismiss = { showManageProjects = false }
@@ -917,15 +917,24 @@ private fun ProjectPickerDialog(
 
 private typealias ProjectSaveArgs = (
     name: String, phase: DealPhase?, currency: String,
-    estimatedAmount: Long?, wonAmount: Long?, wonAt: Long?
+    estimatedAmount: Long?, wonAmount: Long?, wonAt: Long?, lostReason: String?
 ) -> Unit
+
+private val LOST_REASON_PRESETS = listOf(
+    "価格・予算が合わない",
+    "時期・タイミングが合わない",
+    "競合他社に決定",
+    "社内で見送り・保留",
+    "音信不通",
+    "要件・スコープの不一致"
+)
 
 /** 案件(= プロジェクト)の一覧・追加・編集・削除。金額(見積/成約)・進捗・成約日を持つ。 */
 @Composable
 private fun ManageProjectsDialog(
     projects: List<ClientProjectEntity>,
     onAdd: ProjectSaveArgs,
-    onUpdate: (Long, String, DealPhase?, String, Long?, Long?, Long?) -> Unit,
+    onUpdate: (Long, String, DealPhase?, String, Long?, Long?, Long?, String?) -> Unit,
     onDelete: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -972,6 +981,13 @@ private fun ManageProjectsDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            if (DealPhase.fromWire(p.phase) == DealPhase.LOST && !p.lostReason.isNullOrBlank()) {
+                                Text(
+                                    "失注理由: ${p.lostReason}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                         IconButton(onClick = { projectToDelete = p }) {
                             Icon(Icons.Filled.Delete, contentDescription = "削除", modifier = Modifier.size(18.dp))
@@ -995,8 +1011,8 @@ private fun ManageProjectsDialog(
         ProjectFormDialog(
             editing = null,
             onDismiss = { showForm = false },
-            onConfirm = { name, phase, currency, est, won, wonAt ->
-                onAdd(name, phase, currency, est, won, wonAt)
+            onConfirm = { name, phase, currency, est, won, wonAt, lostReason ->
+                onAdd(name, phase, currency, est, won, wonAt, lostReason)
                 showForm = false
             }
         )
@@ -1006,8 +1022,8 @@ private fun ManageProjectsDialog(
         ProjectFormDialog(
             editing = p,
             onDismiss = { projectToEdit = null },
-            onConfirm = { name, phase, currency, est, won, wonAt ->
-                onUpdate(p.id, name, phase, currency, est, won, wonAt)
+            onConfirm = { name, phase, currency, est, won, wonAt, lostReason ->
+                onUpdate(p.id, name, phase, currency, est, won, wonAt, lostReason)
                 projectToEdit = null
             }
         )
@@ -1047,12 +1063,17 @@ private fun ProjectFormDialog(
         )
     }
     var showDatePicker by remember { mutableStateOf(false) }
+    var lostReason by remember { mutableStateOf(editing?.lostReason.orEmpty()) }
 
     val phaseOptions = buildList<Pair<DealPhase?, String>> {
         add(null to "設定なし")
         DealPhase.entries.forEach { add(it to it.label) }
     }
     val currencyOptions = com.meetingnotes.util.Currency.entries.map { it to it.label }
+    val lostReasonOptions = buildList<Pair<String?, String>> {
+        add(null to "プリセットから選ぶ")
+        LOST_REASON_PRESETS.forEach { add(it to it) }
+    }
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
@@ -1108,6 +1129,21 @@ private fun ProjectFormDialog(
                         Text("成約日: ${wonDate.monthValue}月${wonDate.dayOfMonth}日")
                     }
                 }
+                if (phase == DealPhase.LOST) {
+                    com.meetingnotes.ui.common.LabeledDropdownField(
+                        label = "失注理由",
+                        options = lostReasonOptions,
+                        selected = LOST_REASON_PRESETS.firstOrNull { it == lostReason },
+                        onSelect = { it?.let { v -> lostReason = v } },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    androidx.compose.material3.OutlinedTextField(
+                        value = lostReason,
+                        onValueChange = { lostReason = it },
+                        label = { Text("失注理由（自由記述可）") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         },
         confirmButton = {
@@ -1120,7 +1156,8 @@ private fun ProjectFormDialog(
                         name, phase, currency.code,
                         com.meetingnotes.util.parseMoneyInput(estText),
                         com.meetingnotes.util.parseMoneyInput(wonText),
-                        wonAtMillis
+                        wonAtMillis,
+                        if (phase == DealPhase.LOST) lostReason.trim().ifBlank { null } else null
                     )
                 },
                 enabled = name.isNotBlank()

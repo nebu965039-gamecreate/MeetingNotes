@@ -118,6 +118,15 @@ fun ClientInfoContent(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (com.meetingnotes.data.model.DealPhase.fromWire(p.phase) ==
+                            com.meetingnotes.data.model.DealPhase.LOST && !p.lostReason.isNullOrBlank()
+                        ) {
+                            Text(
+                                "失注理由: ${p.lostReason}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }

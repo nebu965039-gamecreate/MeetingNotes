@@ -36,5 +36,7 @@ data class ClientProjectEntity(
     /** 成約額。 */
     val wonAmount: Long? = null,
     /** 成約日(epoch millis)。フェーズを成約にすると自動、フォームで手動変更も可。 */
-    val wonAt: Long? = null
+    val wonAt: Long? = null,
+    /** 失注理由(自由記述 or プリセット文言)。`phase == LOST` のときのみ意味を持つ。 */
+    val lostReason: String? = null
 )
