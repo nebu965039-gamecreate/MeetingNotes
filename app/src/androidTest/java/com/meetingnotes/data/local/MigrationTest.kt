@@ -215,6 +215,32 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate17To18_addsProjectAmountColumns_keepsExistingRows() {
+        helper.createDatabase(dbName, 17).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL("INSERT INTO client_projects (clientId, name, createdAt) VALUES (1, '案件A', 100)")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 18, true, MIGRATION_17_18)
+
+        db.query("SELECT phase, currency, estimatedAmount, wonAmount, wonAt FROM client_projects WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertNull(c.getString(0))
+            assertTrue(c.getString(1) == "JPY")
+            assertNull(c.getString(2))
+            assertNull(c.getString(3))
+            assertNull(c.getString(4))
+        }
+        db.execSQL("UPDATE client_projects SET phase = 'won', currency = 'USD', estimatedAmount = 5000, wonAmount = 4800, wonAt = 123 WHERE id = 1")
+        db.query("SELECT currency, wonAmount FROM client_projects WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getString(0) == "USD")
+            assertTrue(c.getLong(1) == 4800L)
+        }
+    }
+
+    @Test
     fun migrate16To17_addsSchedulesTable() {
         helper.createDatabase(dbName, 16).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

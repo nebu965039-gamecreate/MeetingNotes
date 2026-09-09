@@ -327,20 +327,63 @@ class MeetingRepository(
     fun observeClientProjects(clientId: Long): Flow<List<com.meetingnotes.data.local.ClientProjectEntity>> =
         clientProjectDao.observeByClient(clientId)
 
-    suspend fun addClientProject(clientId: Long, name: String): Long {
+    fun observeAllProjects(): Flow<List<com.meetingnotes.data.local.ClientProjectEntity>> =
+        clientProjectDao.observeAll()
+
+    suspend fun addClientProject(
+        clientId: Long,
+        name: String,
+        phase: com.meetingnotes.data.model.DealPhase? = null,
+        currency: String = "JPY",
+        estimatedAmount: Long? = null,
+        wonAmount: Long? = null,
+        wonAt: Long? = null
+    ): Long {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return -1L
         return clientProjectDao.insert(
             com.meetingnotes.data.local.ClientProjectEntity(
-                clientId = clientId, name = trimmed, createdAt = System.currentTimeMillis()
+                clientId = clientId,
+                name = trimmed,
+                createdAt = System.currentTimeMillis(),
+                phase = phase?.wireValue,
+                currency = currency,
+                estimatedAmount = estimatedAmount,
+                wonAmount = wonAmount,
+                wonAt = if (phase == com.meetingnotes.data.model.DealPhase.WON) (wonAt ?: System.currentTimeMillis()) else wonAt
             )
         )
     }
 
-    suspend fun renameClientProject(projectId: Long, name: String) {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) return
-        clientProjectDao.rename(projectId, trimmed)
+    /** 案件フォームからの更新。フェーズを成約にしたら `wonAt` を補完(手動指定があればそれを優先)。 */
+    suspend fun updateClientProject(
+        projectId: Long,
+        name: String,
+        phase: com.meetingnotes.data.model.DealPhase?,
+        currency: String,
+        estimatedAmount: Long?,
+        wonAmount: Long?,
+        wonAt: Long?
+    ) {
+        val current = clientProjectDao.getById(projectId) ?: return
+        val wasWon = current.phase == com.meetingnotes.data.model.DealPhase.WON.wireValue
+        val isWon = phase == com.meetingnotes.data.model.DealPhase.WON
+        val resolvedWonAt = when {
+            !isWon -> null
+            wonAt != null -> wonAt
+            wasWon -> current.wonAt ?: System.currentTimeMillis()
+            else -> System.currentTimeMillis()
+        }
+        clientProjectDao.update(
+            current.copy(
+                name = name.trim().ifBlank { current.name },
+                phase = phase?.wireValue,
+                currency = currency,
+                estimatedAmount = estimatedAmount,
+                wonAmount = wonAmount,
+                wonAt = resolvedWonAt
+            )
+        )
     }
 
     /** プロジェクトを削除。紐付いていた商談は projectId を null に戻す(商談自体は消さない)。 */

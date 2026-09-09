@@ -123,6 +123,12 @@ fun HomeDashboardCard(data: HomeDashboard, modifier: Modifier = Modifier) {
                     )
                 }
             }
+
+            if (data.wonAmountThisMonth.isNotEmpty() || data.pipelineAmount.isNotEmpty()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                AmountRow("今月の成約", data.wonAmountThisMonth)
+                AmountRow("パイプライン", data.pipelineAmount)
+            }
         }
     }
 }
@@ -175,6 +181,29 @@ private fun PhaseDonut(phase: PhaseTrackerCounts, darkTheme: Boolean, modifier: 
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Composable
+private fun AmountRow(label: String, amounts: Map<String, Long>) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.weight(1f))
+        val text = if (amounts.isEmpty()) "—" else amounts.entries
+            .sortedByDescending { it.value }
+            .joinToString(" / ") { com.meetingnotes.util.formatMoney(it.value, it.key) }
+        Text(
+            text,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 

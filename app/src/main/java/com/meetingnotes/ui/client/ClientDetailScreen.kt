@@ -1,6 +1,8 @@
 package com.meetingnotes.ui.client
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
@@ -75,6 +78,7 @@ import com.meetingnotes.data.local.FolderEntity
 import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
 import com.meetingnotes.data.local.ClientProjectEntity
+import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.DealPhaseChip
 import com.meetingnotes.ui.common.DealPhasePickerDialog
@@ -539,8 +543,12 @@ fun ClientDetailScreen(
     if (showManageProjects) {
         ManageProjectsDialog(
             projects = projects,
-            onAdd = { viewModel.addProject(it) },
-            onRename = { id, name -> viewModel.renameProject(id, name) },
+            onAdd = { name, phase, currency, est, won, wonAt ->
+                viewModel.addProject(name, phase, currency, est, won, wonAt)
+            },
+            onUpdate = { id, name, phase, currency, est, won, wonAt ->
+                viewModel.updateProject(id, name, phase, currency, est, won, wonAt)
+            },
             onDelete = { viewModel.deleteProject(it) },
             onDismiss = { showManageProjects = false }
         )
@@ -904,68 +912,73 @@ private fun ProjectPickerDialog(
     )
 }
 
-/** プロジェクトの追加・名称変更・削除をまとめて行うダイアログ。 */
-@OptIn(ExperimentalMaterial3Api::class)
+private typealias ProjectSaveArgs = (
+    name: String, phase: DealPhase?, currency: String,
+    estimatedAmount: Long?, wonAmount: Long?, wonAt: Long?
+) -> Unit
+
+/** 案件(= プロジェクト)の一覧・追加・編集・削除。金額(見積/成約)・進捗・成約日を持つ。 */
 @Composable
 private fun ManageProjectsDialog(
     projects: List<ClientProjectEntity>,
-    onAdd: (String) -> Unit,
-    onRename: (Long, String) -> Unit,
+    onAdd: ProjectSaveArgs,
+    onUpdate: (Long, String, DealPhase?, String, Long?, Long?, Long?) -> Unit,
     onDelete: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var newName by remember { mutableStateOf("") }
-    var projectToRename by remember { mutableStateOf<ClientProjectEntity?>(null) }
+    var showForm by remember { mutableStateOf(false) }
+    var projectToEdit by remember { mutableStateOf<ClientProjectEntity?>(null) }
     var projectToDelete by remember { mutableStateOf<ClientProjectEntity?>(null) }
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("プロジェクトを管理") },
+        title = { Text("案件") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (projects.isEmpty()) {
                     Text(
-                        "プロジェクトはまだありません。",
+                        "案件はまだありません。",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                projects.forEach { project ->
+                projects.forEach { p ->
+                    val cur = com.meetingnotes.util.Currency.of(p.currency)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            project.name,
+                        Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { projectToRename = project }
-                                .padding(vertical = 8.dp),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        IconButton(onClick = { projectToRename = project }) {
-                            Icon(Icons.Filled.Edit, contentDescription = "名称変更", modifier = Modifier.size(18.dp))
+                                .clickable { projectToEdit = p }
+                                .padding(vertical = 6.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(p.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                DealPhase.fromWire(p.phase)?.let {
+                                    Spacer(Modifier.width(6.dp))
+                                    DealPhaseChip(phase = it)
+                                }
+                            }
+                            val amountLine = buildList {
+                                p.estimatedAmount?.let { add("見積 " + com.meetingnotes.util.formatMoney(it, cur)) }
+                                p.wonAmount?.let { add("成約 " + com.meetingnotes.util.formatMoney(it, cur)) }
+                            }.joinToString(" ・ ")
+                            if (amountLine.isNotEmpty()) {
+                                Text(
+                                    amountLine,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
-                        IconButton(onClick = { projectToDelete = project }) {
+                        IconButton(onClick = { projectToDelete = p }) {
                             Icon(Icons.Filled.Delete, contentDescription = "削除", modifier = Modifier.size(18.dp))
                         }
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.OutlinedTextField(
-                        value = newName,
-                        onValueChange = { newName = it },
-                        label = { Text("新しいプロジェクト") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    TextButton(
-                        onClick = {
-                            if (newName.isNotBlank()) {
-                                onAdd(newName)
-                                newName = ""
-                            }
-                        }
-                    ) { Text("追加") }
+                TextButton(onClick = { showForm = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("案件を追加")
                 }
             }
         },
@@ -975,28 +988,152 @@ private fun ManageProjectsDialog(
         }
     )
 
-    projectToRename?.let { p ->
-        TextInputDialog(
-            title = "プロジェクト名を変更",
-            label = "プロジェクト名",
-            initialValue = p.name,
-            confirmLabel = "変更",
-            onDismiss = { projectToRename = null },
-            onConfirm = { name ->
-                onRename(p.id, name)
-                projectToRename = null
+    if (showForm) {
+        ProjectFormDialog(
+            editing = null,
+            onDismiss = { showForm = false },
+            onConfirm = { name, phase, currency, est, won, wonAt ->
+                onAdd(name, phase, currency, est, won, wonAt)
+                showForm = false
+            }
+        )
+    }
+
+    projectToEdit?.let { p ->
+        ProjectFormDialog(
+            editing = p,
+            onDismiss = { projectToEdit = null },
+            onConfirm = { name, phase, currency, est, won, wonAt ->
+                onUpdate(p.id, name, phase, currency, est, won, wonAt)
+                projectToEdit = null
             }
         )
     }
 
     projectToDelete?.let { p ->
         ConfirmDialog(
-            title = "プロジェクトを削除",
-            text = "「${p.name}」を削除します。このプロジェクトの商談は削除されず、プロジェクト未設定に戻ります。",
+            title = "案件を削除",
+            text = "「${p.name}」を削除します。この案件の商談は削除されず、案件未設定に戻ります。",
             onDismiss = { projectToDelete = null },
             onConfirm = {
                 onDelete(p.id)
                 projectToDelete = null
+            }
+        )
+    }
+}
+
+/** 案件の追加・編集フォーム。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProjectFormDialog(
+    editing: ClientProjectEntity?,
+    onDismiss: () -> Unit,
+    onConfirm: ProjectSaveArgs
+) {
+    var name by remember { mutableStateOf(editing?.name.orEmpty()) }
+    var phase by remember { mutableStateOf(DealPhase.fromWire(editing?.phase)) }
+    var currency by remember { mutableStateOf(com.meetingnotes.util.Currency.of(editing?.currency)) }
+    var estText by remember { mutableStateOf(editing?.estimatedAmount?.toString().orEmpty()) }
+    var wonText by remember { mutableStateOf(editing?.wonAmount?.toString().orEmpty()) }
+    var wonDate by remember {
+        mutableStateOf(
+            editing?.wonAt?.let {
+                java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            } ?: java.time.LocalDate.now()
+        )
+    }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    val phaseOptions = buildList<Pair<DealPhase?, String>> {
+        add(null to "設定なし")
+        DealPhase.entries.forEach { add(it to it.label) }
+    }
+    val currencyOptions = com.meetingnotes.util.Currency.entries.map { it to it.label }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (editing == null) "案件を追加" else "案件を編集") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("案件名") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                com.meetingnotes.ui.common.LabeledDropdownField(
+                    label = "進捗",
+                    options = phaseOptions,
+                    selected = phase,
+                    onSelect = { phase = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                com.meetingnotes.ui.common.LabeledDropdownField(
+                    label = "通貨",
+                    options = currencyOptions,
+                    selected = currency,
+                    onSelect = { currency = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                androidx.compose.material3.OutlinedTextField(
+                    value = estText,
+                    onValueChange = { estText = it.filter { c -> c.isDigit() } },
+                    label = { Text("見積額 (${currency.symbol})") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                androidx.compose.material3.OutlinedTextField(
+                    value = wonText,
+                    onValueChange = { wonText = it.filter { c -> c.isDigit() } },
+                    label = { Text("成約額 (${currency.symbol})") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (phase == DealPhase.WON) {
+                    TextButton(onClick = { showDatePicker = true }) {
+                        Text("成約日: ${wonDate.monthValue}月${wonDate.dayOfMonth}日")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val wonAtMillis = if (phase == DealPhase.WON) {
+                        wonDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    } else null
+                    onConfirm(
+                        name, phase, currency.code,
+                        com.meetingnotes.util.parseMoneyInput(estText),
+                        com.meetingnotes.util.parseMoneyInput(wonText),
+                        wonAtMillis
+                    )
+                },
+                enabled = name.isNotBlank()
+            ) { Text(if (editing == null) "追加" else "保存") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("キャンセル") } }
+    )
+
+    if (showDatePicker) {
+        com.meetingnotes.ui.common.NextMeetingDateTimeDialog(
+            initial = wonDate.atStartOfDay(),
+            initialHasTime = false,
+            onDismiss = { showDatePicker = false },
+            onConfirm = { dt, _ ->
+                wonDate = dt.toLocalDate()
+                showDatePicker = false
             }
         )
     }

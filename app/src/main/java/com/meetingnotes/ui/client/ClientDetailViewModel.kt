@@ -111,12 +111,31 @@ class ClientDetailViewModel(
         _projectFilter.value = filter
     }
 
-    fun addProject(name: String) {
-        viewModelScope.launch { repository.addClientProject(clientId, name) }
+    fun addProject(
+        name: String,
+        phase: com.meetingnotes.data.model.DealPhase?,
+        currency: String,
+        estimatedAmount: Long?,
+        wonAmount: Long?,
+        wonAt: Long?
+    ) {
+        viewModelScope.launch {
+            repository.addClientProject(clientId, name, phase, currency, estimatedAmount, wonAmount, wonAt)
+        }
     }
 
-    fun renameProject(projectId: Long, name: String) {
-        viewModelScope.launch { repository.renameClientProject(projectId, name) }
+    fun updateProject(
+        projectId: Long,
+        name: String,
+        phase: com.meetingnotes.data.model.DealPhase?,
+        currency: String,
+        estimatedAmount: Long?,
+        wonAmount: Long?,
+        wonAt: Long?
+    ) {
+        viewModelScope.launch {
+            repository.updateClientProject(projectId, name, phase, currency, estimatedAmount, wonAmount, wonAt)
+        }
     }
 
     fun deleteProject(projectId: Long) {

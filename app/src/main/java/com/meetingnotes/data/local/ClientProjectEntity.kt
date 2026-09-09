@@ -26,5 +26,15 @@ data class ClientProjectEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val clientId: Long,
     val name: String,
-    val createdAt: Long
+    val createdAt: Long,
+    /** 案件の状態(`DealPhase.wireValue`)。未設定は null。`WON` になると `wonAt` を記録する。 */
+    val phase: String? = null,
+    /** 金額の通貨コード。"JPY" / "USD"。 */
+    val currency: String = "JPY",
+    /** 見積額(通貨の主単位・小数なし。ドルもセントは扱わない)。 */
+    val estimatedAmount: Long? = null,
+    /** 成約額。 */
+    val wonAmount: Long? = null,
+    /** 成約日(epoch millis)。フェーズを成約にすると自動、フォームで手動変更も可。 */
+    val wonAt: Long? = null
 )

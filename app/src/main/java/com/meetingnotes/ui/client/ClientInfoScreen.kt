@@ -47,6 +47,7 @@ fun ClientInfoContent(
     val contacts by viewModel.contacts.collectAsState()
     val phase by viewModel.latestPhase.collectAsState()
     val groups by viewModel.groups.collectAsState()
+    val projects by viewModel.projects.collectAsState()
 
     val c = client
     Column(
@@ -87,6 +88,49 @@ fun ClientInfoContent(
                 InfoRow("メールアドレス", c?.email)
                 HorizontalDivider()
                 InfoRow("電話番号", c?.phone)
+            }
+        }
+
+        if (projects.isNotEmpty()) {
+            Text("案件", style = MaterialTheme.typography.titleMedium)
+            projects.forEach { p ->
+                val cur = com.meetingnotes.util.Currency.of(p.currency)
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                p.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            com.meetingnotes.data.model.DealPhase.fromWire(p.phase)?.let {
+                                Spacer(Modifier.width(6.dp))
+                                DealPhaseChip(phase = it)
+                            }
+                        }
+                        Text(
+                            "見積 " + com.meetingnotes.util.formatMoney(p.estimatedAmount, cur) +
+                                " ・ 成約 " + com.meetingnotes.util.formatMoney(p.wonAmount, cur),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            // 通貨ごとの合計
+            projects.groupBy { it.currency }.forEach { (code, list) ->
+                val cur = com.meetingnotes.util.Currency.of(code)
+                val est = list.mapNotNull { it.estimatedAmount }.sum()
+                val won = list.mapNotNull { it.wonAmount }.sum()
+                Text(
+                    "合計 (${cur.code}): 見積 ${com.meetingnotes.util.formatMoney(est, cur)} ・ 成約 ${com.meetingnotes.util.formatMoney(won, cur)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 

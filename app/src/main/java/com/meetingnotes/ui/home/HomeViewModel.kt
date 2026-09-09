@@ -43,7 +43,11 @@ data class HomeDashboard(
     val openTodoTotal: Int = 0,
     val phase: PhaseTrackerCounts = PhaseTrackerCounts(),
     val wonCount: Int = 0,
-    val lostCount: Int = 0
+    val lostCount: Int = 0,
+    /** 通貨コード → 今月の成約額合計。 */
+    val wonAmountThisMonth: Map<String, Long> = emptyMap(),
+    /** 通貨コード → 進行中案件の見積額合計(パイプライン)。 */
+    val pipelineAmount: Map<String, Long> = emptyMap()
 ) {
     val winRate: Int?
         get() = (wonCount + lostCount).takeIf { it > 0 }?.let { (wonCount * 100) / it }
@@ -81,8 +85,9 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
             clients,
             repository.observeMeetingCountSince(startOfThisMonth),
             repository.observeOpenTodoTotal(),
-            latestMeetings
-        ) { clientList, meetingsThisMonth, openTodoTotal, latest ->
+            latestMeetings,
+            repository.observeAllProjects()
+        ) { clientList, meetingsThisMonth, openTodoTotal, latest, projects ->
             var won = 0
             var lost = 0
             latest.forEach { m ->
@@ -92,13 +97,29 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
                     else -> {}
                 }
             }
+            val wonAmount = projects
+                .filter {
+                    it.phase == DealPhase.WON.wireValue &&
+                        it.wonAt != null && it.wonAt >= startOfThisMonth &&
+                        it.wonAmount != null
+                }
+                .groupBy { it.currency }
+                .mapValues { (_, list) -> list.sumOf { it.wonAmount ?: 0L } }
+            val pipeline = projects
+                .filter {
+                    DealPhase.fromWire(it.phase)?.isActive != false && it.estimatedAmount != null
+                }
+                .groupBy { it.currency }
+                .mapValues { (_, list) -> list.sumOf { it.estimatedAmount ?: 0L } }
             HomeDashboard(
                 clientCount = clientList.size,
                 meetingsThisMonth = meetingsThisMonth,
                 openTodoTotal = openTodoTotal,
                 phase = phaseCountsOf(latest),
                 wonCount = won,
-                lostCount = lost
+                lostCount = lost,
+                wonAmountThisMonth = wonAmount,
+                pipelineAmount = pipeline
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeDashboard())
 
