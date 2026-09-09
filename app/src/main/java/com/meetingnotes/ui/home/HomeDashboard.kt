@@ -2,6 +2,7 @@ package com.meetingnotes.ui.home
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,9 +16,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,7 +45,11 @@ import com.meetingnotes.ui.theme.ThemeMode
  * (母数があれば)全期間の成約率。表示のみでタップ動作は持たない。
  */
 @Composable
-fun HomeDashboardCard(data: HomeDashboard, modifier: Modifier = Modifier) {
+fun HomeDashboardCard(
+    data: HomeDashboard,
+    modifier: Modifier = Modifier,
+    onOpenSales: (() -> Unit)? = null
+) {
     val app = LocalContext.current.applicationContext as MeetingNotesApp
     val darkTheme = when (app.themeModeState.value) {
         ThemeMode.LIGHT -> false
@@ -124,10 +132,35 @@ fun HomeDashboardCard(data: HomeDashboard, modifier: Modifier = Modifier) {
                 }
             }
 
-            if (data.wonAmountThisMonth.isNotEmpty() || data.pipelineAmount.isNotEmpty()) {
+            val hasAmounts = data.wonAmountThisMonth.isNotEmpty() || data.pipelineAmount.isNotEmpty()
+            if (hasAmounts || onOpenSales != null) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                AmountRow("今月の成約", data.wonAmountThisMonth)
-                AmountRow("パイプライン", data.pipelineAmount)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(if (onOpenSales != null) Modifier.clickable(onClick = onOpenSales) else Modifier),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (hasAmounts) {
+                        AmountRow("今月の成約", data.wonAmountThisMonth)
+                        AmountRow("パイプライン", data.pipelineAmount)
+                    }
+                    if (onOpenSales != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "売上・実績を見る",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Icon(
+                                Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }

@@ -51,6 +51,7 @@ fun HomeScreen(
     onOpenSchedule: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenFollowupList: () -> Unit,
+    onOpenSales: () -> Unit,
     onOpenClient: (Long) -> Unit,
     onOpenMeeting: (Long) -> Unit,
     onRecoverDraft: (Long) -> Unit,
@@ -118,7 +119,7 @@ fun HomeScreen(
             }
 
             item(key = "dashboard") {
-                HomeDashboardCard(data = dashboard)
+                HomeDashboardCard(data = dashboard, onOpenSales = onOpenSales)
             }
 
             draft?.let { d ->
