@@ -172,6 +172,53 @@ Send feedback to contact.manaapps@gmail.com — bug reports, rough edges, anythi
 
 ---
 
+## クローズドテスト 7回目 (versionName 0.2.0 / versionCode 11 予定)
+
+「1人CRM」をパイプライン管理まで広げた版です。
+※ 6回目 (vc10 / 0.1.9) がまだ配信されていない場合は、この版に統合して配信してください（そのときは versionCode / versionName を 10 / 0.1.9 のまま据え置き）。
+
+### Play Console 貼り付け用(約440字)
+
+```
+今回は案件（商談）の管理を強化しました。
+
+【案件・パイプライン】
+・案件ごとに見積額・成約額・成約日・受注確度・想定クローズ日を記録
+・「パイプライン」ボードで進行中の案件をフェーズ別に一覧、その場でフェーズ変更
+・21日以上動いていない案件をホームの「動いていない案件」に表示
+・失注時に理由を記録
+
+【フォロー・予定】
+・録音しなくても ToDo を手動で追加・編集できるように
+・フォローを1週間〜3ヶ月「スヌーズ」して一時的に伏せられます
+・予定に会議URL・場所を登録、行から「カレンダーに追加」
+
+【データ】
+・設定に「データのバックアップ」を追加（全データを1ファイルに書き出し／復元、任意でパスワード暗号化）
+・クライアントに流入経路・紹介元を記録
+
+不具合は contact.manaapps@gmail.com へ（操作手順・端末名を添えて）。
+```
+
+### この版に含まれる主な変更(社内メモ)
+
+- 手動 ToDo 追加(`todos.meetingId` を nullable 化 + `clientId`、DB v19)
+- 失注理由(`client_projects.lostReason`、DB v20)
+- 案件の金額・状態(`client_projects` に `phase`/`currency`/`estimatedAmount`/`wonAmount`/`wonAt`、DB v18)+ 想定クローズ日・受注確度(`expectedCloseAt`/`probability`、DB v21、`DealPhase.defaultProbability`)
+- 売上・実績ビュー(`ui/sales/`、`SalesRules`：月次成約額・成約率・売上予測(加重)・セールスサイクル日数・フェーズ別滞留・失注理由内訳。Pro 予定・現状ロックなし)
+- よどみ検知(`client_projects.phaseChangedAt`、DB v22、`StaleDealRules`、ホーム「動いていない案件」)
+- 定期フォローのスヌーズ(`clients.followBoardSnoozedUntil`、DB v23、`FollowupListScreen` 3タブ化)
+- 案件パイプラインボード(`ui/pipeline/`、`Routes.PIPELINE`、ホームのドーナツタップで遷移)
+- 予定に会議URL・場所(`schedules.meetingUrl`/`location`、DB v24、カレンダー連携)
+- クライアントに流入経路・紹介元(`clients.leadSource`/`referredBy`、DB v25)
+- 全データのバックアップ/復元(`data/backup/BackupManager`、JSON + 任意 AES-GCM、復元は全置換え+再起動、設定画面)
+- Google Play Billing 基盤(`billing/BillingManager` 7.1.1、商品 `meetingnotes_pro`、購入フロー/復元/acknowledge、ペイウォール)。`PRO_GATING_ENABLED` 既定 false のためロック表示なし
+- CI 修正(`gradlew` 実行権限)
+- DB マイグレーション v15→v25(各1段、`MigrationTest` / `MigrationIntegrityTest`)
+- プライバシーポリシー: 2.5 に「データのバックアップ」(利用者操作でのファイル書き出し)を追記
+
+---
+
 ## 次回以降のリリース用テンプレート
 
 ### 軽微な修正のみ
