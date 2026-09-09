@@ -172,14 +172,13 @@ private fun SnoozeMenu(onSnooze: (days: Long) -> Unit, onSnoozeUntil: (millis: L
         }
     }
     if (showPicker) {
-        com.meetingnotes.ui.common.NextMeetingDateTimeDialog(
-            initial = java.time.LocalDate.now().plusWeeks(1).atStartOfDay(),
-            initialHasTime = false,
+        com.meetingnotes.ui.common.PickDateDialog(
+            initial = java.time.LocalDate.now().plusWeeks(1),
+            title = "再表示する日",
             onDismiss = { showPicker = false },
-            onConfirm = { dt, _ ->
+            onConfirm = { d ->
                 onSnoozeUntil(
-                    dt.toLocalDate().atStartOfDay(java.time.ZoneId.systemDefault())
-                        .toInstant().toEpochMilli()
+                    d.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
                 )
                 showPicker = false
             }

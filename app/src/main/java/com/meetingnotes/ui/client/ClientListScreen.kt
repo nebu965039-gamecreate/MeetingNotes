@@ -19,7 +19,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,12 +29,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.People
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -58,7 +56,6 @@ import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.TextInputDialog
 import com.meetingnotes.ui.theme.CreateActionBlue
-import com.meetingnotes.ui.theme.OnCreateActionBlue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,19 +92,17 @@ fun ClientListScreen(
                             tint = CreateActionBlue
                         )
                     }
+                    IconButton(onClick = { showAddDialog = true }) {
+                        Icon(
+                            Icons.Filled.PersonAdd,
+                            contentDescription = "クライアントを追加",
+                            tint = CreateActionBlue
+                        )
+                    }
                 }
             )
         },
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = CreateActionBlue,
-                contentColor = OnCreateActionBlue
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "クライアント追加")
-            }
-        }
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Column(
             modifier = Modifier
@@ -116,7 +111,7 @@ fun ClientListScreen(
         ) {
             if (clients.isEmpty()) {
                 Column(modifier = Modifier.padding(24.dp)) {
-                    Text("右下の + からクライアントを追加してください。")
+                    Text("右上の + からクライアントを追加してください。")
                 }
                 return@Column
             }

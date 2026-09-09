@@ -32,7 +32,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -121,15 +120,15 @@ fun ScheduleScreen(
             TabTopBar(
                 icon = Icons.Filled.CalendarMonth,
                 title = "予定表",
-                onHome = onHome
+                onHome = onHome,
+                actions = {
+                    IconButton(onClick = { showAddDialog = true }) {
+                        Icon(Icons.Filled.Add, contentDescription = "予定を追加")
+                    }
+                }
             )
         },
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Filled.Add, contentDescription = "予定を追加")
-            }
-        }
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -170,7 +169,7 @@ fun ScheduleScreen(
                 if (filteredItems.isEmpty()) {
                     item {
                         Text(
-                            "予定はありません。右下の＋から追加できます。",
+                            "予定はありません。右上の＋から追加できます。",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -222,7 +221,7 @@ fun ScheduleScreen(
                 if (upcomingSchedules.isEmpty()) {
                     item(key = "upcoming_empty") {
                         Text(
-                            "予定はありません。右下の＋から追加できます。",
+                            "予定はありません。右上の＋から追加できます。",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
