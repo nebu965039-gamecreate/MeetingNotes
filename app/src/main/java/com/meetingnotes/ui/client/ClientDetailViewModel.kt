@@ -121,10 +121,15 @@ class ClientDetailViewModel(
         estimatedAmount: Long?,
         wonAmount: Long?,
         wonAt: Long?,
-        lostReason: String?
+        lostReason: String?,
+        expectedCloseAt: Long?,
+        probability: Int?
     ) {
         viewModelScope.launch {
-            repository.addClientProject(clientId, name, phase, currency, estimatedAmount, wonAmount, wonAt, lostReason)
+            repository.addClientProject(
+                clientId, name, phase, currency, estimatedAmount, wonAmount, wonAt,
+                lostReason, expectedCloseAt, probability
+            )
         }
     }
 
@@ -136,10 +141,15 @@ class ClientDetailViewModel(
         estimatedAmount: Long?,
         wonAmount: Long?,
         wonAt: Long?,
-        lostReason: String?
+        lostReason: String?,
+        expectedCloseAt: Long?,
+        probability: Int?
     ) {
         viewModelScope.launch {
-            repository.updateClientProject(projectId, name, phase, currency, estimatedAmount, wonAmount, wonAt, lostReason)
+            repository.updateClientProject(
+                projectId, name, phase, currency, estimatedAmount, wonAmount, wonAt,
+                lostReason, expectedCloseAt, probability
+            )
         }
     }
 

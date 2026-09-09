@@ -366,10 +366,13 @@ class MeetingRepository(
         estimatedAmount: Long? = null,
         wonAmount: Long? = null,
         wonAt: Long? = null,
-        lostReason: String? = null
+        lostReason: String? = null,
+        expectedCloseAt: Long? = null,
+        probability: Int? = null
     ): Long {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return -1L
+        val active = phase?.isActive != false
         return clientProjectDao.insert(
             com.meetingnotes.data.local.ClientProjectEntity(
                 clientId = clientId,
@@ -380,7 +383,9 @@ class MeetingRepository(
                 estimatedAmount = estimatedAmount,
                 wonAmount = wonAmount,
                 wonAt = if (phase == com.meetingnotes.data.model.DealPhase.WON) (wonAt ?: System.currentTimeMillis()) else wonAt,
-                lostReason = if (phase == com.meetingnotes.data.model.DealPhase.LOST) lostReason?.trim()?.ifBlank { null } else null
+                lostReason = if (phase == com.meetingnotes.data.model.DealPhase.LOST) lostReason?.trim()?.ifBlank { null } else null,
+                expectedCloseAt = if (active) expectedCloseAt else null,
+                probability = if (active) probability?.coerceIn(0, 100) else null
             )
         )
     }
@@ -397,7 +402,9 @@ class MeetingRepository(
         estimatedAmount: Long?,
         wonAmount: Long?,
         wonAt: Long?,
-        lostReason: String?
+        lostReason: String?,
+        expectedCloseAt: Long?,
+        probability: Int?
     ) {
         val current = clientProjectDao.getById(projectId) ?: return
         val wasWon = current.phase == com.meetingnotes.data.model.DealPhase.WON.wireValue
@@ -408,6 +415,7 @@ class MeetingRepository(
             wasWon -> current.wonAt ?: System.currentTimeMillis()
             else -> System.currentTimeMillis()
         }
+        val active = phase?.isActive != false
         clientProjectDao.update(
             current.copy(
                 name = name.trim().ifBlank { current.name },
@@ -416,7 +424,9 @@ class MeetingRepository(
                 estimatedAmount = estimatedAmount,
                 wonAmount = wonAmount,
                 wonAt = resolvedWonAt,
-                lostReason = if (phase == com.meetingnotes.data.model.DealPhase.LOST) lostReason?.trim()?.ifBlank { null } else null
+                lostReason = if (phase == com.meetingnotes.data.model.DealPhase.LOST) lostReason?.trim()?.ifBlank { null } else null,
+                expectedCloseAt = if (active) expectedCloseAt else null,
+                probability = if (active) probability?.coerceIn(0, 100) else null
             )
         )
     }

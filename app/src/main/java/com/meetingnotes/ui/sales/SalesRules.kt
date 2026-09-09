@@ -42,6 +42,8 @@ data class SalesCurrencyReport(
     val lostAmount: Long,
     /** 進行中案件のフェーズ別 見積額合計(見積額のあるもの・降順)。 */
     val pipelineByPhase: List<PhaseAmount>,
+    /** 売上予測 = Σ(見積額 × 受注確度)。確度は案件の probability、未入力ならフェーズ既定値。 */
+    val weightedPipeline: Long,
     /** 平均成約単価(金額のある成約案件のみ)。0件なら null。 */
     val avgDealSize: Long?,
     /** 失注理由の内訳(理由が入力された失注案件のみ・件数降順)。 */
@@ -102,11 +104,16 @@ object SalesRules {
                 MonthlyAmount(m, sum)
             }
 
-            val pipeline = forCurrency
+            val active = forCurrency
                 .filter { DealPhase.fromWire(it.phase)?.isActive == true && it.estimatedAmount != null }
+            val pipeline = active
                 .groupBy { DealPhase.fromWire(it.phase)!! }
                 .map { (phase, list) -> PhaseAmount(phase, list.sumOf { it.estimatedAmount ?: 0L }) }
                 .sortedByDescending { it.amount }
+            val weighted = active.sumOf { p ->
+                val prob = p.probability ?: DealPhase.fromWire(p.phase)?.defaultProbability ?: 0
+                (p.estimatedAmount ?: 0L) * prob / 100
+            }
 
             SalesCurrencyReport(
                 currencyCode = code,
@@ -118,6 +125,7 @@ object SalesRules {
                 lostCount = lost.size,
                 lostAmount = lost.sumOf { it.estimatedAmount ?: 0L },
                 pipelineByPhase = pipeline,
+                weightedPipeline = weighted,
                 avgDealSize = wonAmountsInPeriod.takeIf { it.isNotEmpty() }?.let { it.sum() / it.size },
                 lostReasonBreakdown = lost
                     .mapNotNull { it.lostReason?.trim()?.takeIf(String::isNotEmpty) }

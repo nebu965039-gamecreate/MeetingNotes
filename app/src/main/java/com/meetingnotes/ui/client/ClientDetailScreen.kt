@@ -546,11 +546,11 @@ fun ClientDetailScreen(
     if (showManageProjects) {
         ManageProjectsDialog(
             projects = projects,
-            onAdd = { name, phase, currency, est, won, wonAt, lostReason ->
-                viewModel.addProject(name, phase, currency, est, won, wonAt, lostReason)
+            onAdd = { name, phase, currency, est, won, wonAt, lostReason, closeAt, prob ->
+                viewModel.addProject(name, phase, currency, est, won, wonAt, lostReason, closeAt, prob)
             },
-            onUpdate = { id, name, phase, currency, est, won, wonAt, lostReason ->
-                viewModel.updateProject(id, name, phase, currency, est, won, wonAt, lostReason)
+            onUpdate = { id, name, phase, currency, est, won, wonAt, lostReason, closeAt, prob ->
+                viewModel.updateProject(id, name, phase, currency, est, won, wonAt, lostReason, closeAt, prob)
             },
             onDelete = { viewModel.deleteProject(it) },
             onDismiss = { showManageProjects = false }
@@ -917,8 +917,26 @@ private fun ProjectPickerDialog(
 
 private typealias ProjectSaveArgs = (
     name: String, phase: DealPhase?, currency: String,
-    estimatedAmount: Long?, wonAmount: Long?, wonAt: Long?, lostReason: String?
+    estimatedAmount: Long?, wonAmount: Long?, wonAt: Long?, lostReason: String?,
+    expectedCloseAt: Long?, probability: Int?
 ) -> Unit
+
+/** 進行中案件の「確度 X% ・ 想定 M/d」行。どちらも未設定なら null。 */
+private fun projectForecastLabel(p: ClientProjectEntity): String? {
+    val phase = DealPhase.fromWire(p.phase)
+    if (phase?.isActive == false) return null
+    val parts = buildList {
+        val prob = p.probability ?: phase?.defaultProbability
+        if (p.probability != null) add("確度 ${p.probability}%")
+        else if (prob != null) add("確度 ${prob}%（既定）")
+        p.expectedCloseAt?.let {
+            val d = java.time.Instant.ofEpochMilli(it)
+                .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            add("想定クローズ ${d.monthValue}/${d.dayOfMonth}")
+        }
+    }
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" ・ ")
+}
 
 private val LOST_REASON_PRESETS = listOf(
     "価格・予算が合わない",
@@ -934,7 +952,7 @@ private val LOST_REASON_PRESETS = listOf(
 private fun ManageProjectsDialog(
     projects: List<ClientProjectEntity>,
     onAdd: ProjectSaveArgs,
-    onUpdate: (Long, String, DealPhase?, String, Long?, Long?, Long?, String?) -> Unit,
+    onUpdate: (Long, String, DealPhase?, String, Long?, Long?, Long?, String?, Long?, Int?) -> Unit,
     onDelete: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -988,6 +1006,14 @@ private fun ManageProjectsDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            val forecastLine = projectForecastLabel(p)
+                            if (forecastLine != null) {
+                                Text(
+                                    forecastLine,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                         IconButton(onClick = { projectToDelete = p }) {
                             Icon(Icons.Filled.Delete, contentDescription = "削除", modifier = Modifier.size(18.dp))
@@ -1011,8 +1037,8 @@ private fun ManageProjectsDialog(
         ProjectFormDialog(
             editing = null,
             onDismiss = { showForm = false },
-            onConfirm = { name, phase, currency, est, won, wonAt, lostReason ->
-                onAdd(name, phase, currency, est, won, wonAt, lostReason)
+            onConfirm = { name, phase, currency, est, won, wonAt, lostReason, closeAt, prob ->
+                onAdd(name, phase, currency, est, won, wonAt, lostReason, closeAt, prob)
                 showForm = false
             }
         )
@@ -1022,8 +1048,8 @@ private fun ManageProjectsDialog(
         ProjectFormDialog(
             editing = p,
             onDismiss = { projectToEdit = null },
-            onConfirm = { name, phase, currency, est, won, wonAt, lostReason ->
-                onUpdate(p.id, name, phase, currency, est, won, wonAt, lostReason)
+            onConfirm = { name, phase, currency, est, won, wonAt, lostReason, closeAt, prob ->
+                onUpdate(p.id, name, phase, currency, est, won, wonAt, lostReason, closeAt, prob)
                 projectToEdit = null
             }
         )
@@ -1064,6 +1090,15 @@ private fun ProjectFormDialog(
     }
     var showDatePicker by remember { mutableStateOf(false) }
     var lostReason by remember { mutableStateOf(editing?.lostReason.orEmpty()) }
+    var probText by remember { mutableStateOf(editing?.probability?.toString().orEmpty()) }
+    var closeDate by remember {
+        mutableStateOf(
+            editing?.expectedCloseAt?.let {
+                java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            }
+        )
+    }
+    var showCloseDatePicker by remember { mutableStateOf(false) }
 
     val phaseOptions = buildList<Pair<DealPhase?, String>> {
         add(null to "設定なし")
@@ -1124,6 +1159,30 @@ private fun ProjectFormDialog(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (phase?.isActive != false) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { showCloseDatePicker = true }) {
+                            Text(
+                                closeDate?.let { "想定クローズ日: ${it.monthValue}月${it.dayOfMonth}日" }
+                                    ?: "想定クローズ日を設定"
+                            )
+                        }
+                        if (closeDate != null) {
+                            TextButton(onClick = { closeDate = null }) { Text("クリア") }
+                        }
+                    }
+                    androidx.compose.material3.OutlinedTextField(
+                        value = probText,
+                        onValueChange = { probText = it.filter { c -> c.isDigit() }.take(3) },
+                        label = { Text("受注確度 (%)") },
+                        placeholder = { Text("未入力なら ${(phase ?: DealPhase.FIRST_CONTACT).defaultProbability}%（フェーズ既定）") },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 if (phase == DealPhase.WON) {
                     TextButton(onClick = { showDatePicker = true }) {
                         Text("成約日: ${wonDate.monthValue}月${wonDate.dayOfMonth}日")
@@ -1152,12 +1211,16 @@ private fun ProjectFormDialog(
                     val wonAtMillis = if (phase == DealPhase.WON) {
                         wonDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
                     } else null
+                    val active = phase?.isActive != false
                     onConfirm(
                         name, phase, currency.code,
                         com.meetingnotes.util.parseMoneyInput(estText),
                         com.meetingnotes.util.parseMoneyInput(wonText),
                         wonAtMillis,
-                        if (phase == DealPhase.LOST) lostReason.trim().ifBlank { null } else null
+                        if (phase == DealPhase.LOST) lostReason.trim().ifBlank { null } else null,
+                        if (active) closeDate?.atStartOfDay(java.time.ZoneId.systemDefault())
+                            ?.toInstant()?.toEpochMilli() else null,
+                        if (active) probText.toIntOrNull() else null
                     )
                 },
                 enabled = name.isNotBlank()
@@ -1174,6 +1237,18 @@ private fun ProjectFormDialog(
             onConfirm = { dt, _ ->
                 wonDate = dt.toLocalDate()
                 showDatePicker = false
+            }
+        )
+    }
+
+    if (showCloseDatePicker) {
+        com.meetingnotes.ui.common.NextMeetingDateTimeDialog(
+            initial = (closeDate ?: java.time.LocalDate.now().plusWeeks(2)).atStartOfDay(),
+            initialHasTime = false,
+            onDismiss = { showCloseDatePicker = false },
+            onConfirm = { dt, _ ->
+                closeDate = dt.toLocalDate()
+                showCloseDatePicker = false
             }
         )
     }

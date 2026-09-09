@@ -127,6 +127,25 @@ fun ClientInfoContent(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        val ph = com.meetingnotes.data.model.DealPhase.fromWire(p.phase)
+                        if (ph?.isActive != false) {
+                            val prob = p.probability ?: ph?.defaultProbability
+                            val bits = buildList {
+                                if (prob != null) add("確度 ${prob}%")
+                                p.expectedCloseAt?.let {
+                                    val d = java.time.Instant.ofEpochMilli(it)
+                                        .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                                    add("想定クローズ ${d.monthValue}/${d.dayOfMonth}")
+                                }
+                            }
+                            if (bits.isNotEmpty()) {
+                                Text(
+                                    bits.joinToString(" ・ "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
             }

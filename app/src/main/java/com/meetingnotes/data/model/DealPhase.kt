@@ -5,15 +5,20 @@ package com.meetingnotes.data.model
  * ユーザーが必要に応じて上書きする(`MeetingEntity.phaseOverride`)。
  * DB・Worker・アプリで共通の識別子は [wireValue]。
  */
-enum class DealPhase(val wireValue: String, val label: String) {
-    FIRST_CONTACT("first_contact", "初回接触"),
-    HEARING("hearing", "ヒアリング"),
-    PROPOSAL("proposal", "提案"),
-    QUOTED("quoted", "見積提示"),
-    CONSIDERING("considering", "検討中"),
-    WON("won", "成約"),
-    ON_HOLD("on_hold", "保留"),
-    LOST("lost", "失注");
+enum class DealPhase(
+    val wireValue: String,
+    val label: String,
+    /** フェーズごとの既定の受注確度(%)。案件フォームで未入力のとき売上予測に使う。 */
+    val defaultProbability: Int
+) {
+    FIRST_CONTACT("first_contact", "初回接触", 10),
+    HEARING("hearing", "ヒアリング", 20),
+    PROPOSAL("proposal", "提案", 40),
+    QUOTED("quoted", "見積提示", 60),
+    CONSIDERING("considering", "検討中", 75),
+    WON("won", "成約", 100),
+    ON_HOLD("on_hold", "保留", 15),
+    LOST("lost", "失注", 0);
 
     /** 「まだ動いている案件」= フォロー対象になりうるフェーズ。 */
     val isActive: Boolean

@@ -25,7 +25,8 @@ class SalesRulesTest {
         estimated: Long? = null,
         won: Long? = null,
         wonAt: Long? = null,
-        lostReason: String? = null
+        lostReason: String? = null,
+        probability: Int? = null
     ) = ClientProjectEntity(
         id = id,
         clientId = 1,
@@ -36,7 +37,8 @@ class SalesRulesTest {
         estimatedAmount = estimated,
         wonAmount = won,
         wonAt = wonAt,
-        lostReason = lostReason
+        lostReason = lostReason,
+        probability = probability
     )
 
     @Test
@@ -138,6 +140,21 @@ class SalesRulesTest {
         )
         val reports = SalesRules.report(projects, SalesPeriod.ALL, now, zone)
         assertEquals(listOf("JPY", "USD"), reports.map { it.currencyCode })
+    }
+
+    @Test
+    fun `weighted pipeline uses explicit probability then phase default`() {
+        val projects = listOf(
+            // 明示確度 50%: 200 * 50 / 100 = 100
+            project(1, DealPhase.PROPOSAL, estimated = 200, probability = 50),
+            // 確度未入力 → PROPOSAL 既定 40%: 300 * 40 / 100 = 120
+            project(2, DealPhase.PROPOSAL, estimated = 300),
+            // 成約は加重パイプラインに含めない
+            project(3, DealPhase.WON, won = 999, wonAt = millisOf(2026, 9))
+        )
+        val report = SalesRules.report(projects, SalesPeriod.ALL, now, zone).single()
+        assertEquals(220L, report.weightedPipeline)
+        assertEquals(500L, report.pipelineTotal)
     }
 
     @Test

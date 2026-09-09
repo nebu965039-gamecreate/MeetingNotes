@@ -38,5 +38,9 @@ data class ClientProjectEntity(
     /** 成約日(epoch millis)。フェーズを成約にすると自動、フォームで手動変更も可。 */
     val wonAt: Long? = null,
     /** 失注理由(自由記述 or プリセット文言)。`phase == LOST` のときのみ意味を持つ。 */
-    val lostReason: String? = null
+    val lostReason: String? = null,
+    /** 想定クローズ日(受注見込み日、epoch millis)。任意。 */
+    val expectedCloseAt: Long? = null,
+    /** 受注確度(%、0..100)。未入力(null)なら `DealPhase.defaultProbability` を使う。 */
+    val probability: Int? = null
 )

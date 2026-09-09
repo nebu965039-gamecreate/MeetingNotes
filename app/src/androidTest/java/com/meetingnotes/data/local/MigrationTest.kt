@@ -215,6 +215,31 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate20To21_addsCloseDateAndProbabilityColumns() {
+        helper.createDatabase(dbName, 20).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL(
+                "INSERT INTO client_projects (clientId, name, createdAt, currency) VALUES (1, '案件A', 100, 'JPY')"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 21, true, MIGRATION_20_21)
+
+        db.query("SELECT expectedCloseAt, probability FROM client_projects WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertNull(c.getString(0))
+            assertNull(c.getString(1))
+        }
+        db.execSQL("UPDATE client_projects SET expectedCloseAt = 5000, probability = 65 WHERE id = 1")
+        db.query("SELECT expectedCloseAt, probability FROM client_projects WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getLong(0) == 5000L)
+            assertTrue(c.getInt(1) == 65)
+        }
+    }
+
+    @Test
     fun migrate19To20_addsLostReasonColumn_defaultsNull() {
         helper.createDatabase(dbName, 19).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

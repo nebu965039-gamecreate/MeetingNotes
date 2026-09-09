@@ -193,6 +193,9 @@ private fun CurrencyReportCard(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Stat("パイプライン", formatMoney(report.pipelineTotal, code), Modifier.weight(1f))
+                Stat("売上予測(加重)", formatMoney(report.weightedPipeline, code), Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Stat(
                     "成約率(全期間)",
                     buildString {
