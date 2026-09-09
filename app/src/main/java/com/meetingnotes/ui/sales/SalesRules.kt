@@ -16,6 +16,7 @@ enum class SalesPeriod(val label: String) {
 data class MonthlyAmount(val month: YearMonth, val amount: Long)
 data class PhaseAmount(val phase: DealPhase, val amount: Long)
 data class ReasonCount(val reason: String, val count: Int)
+data class PhaseDays(val phase: DealPhase, val days: Int)
 
 /**
  * 1通貨ぶんの売上集計。
@@ -47,7 +48,11 @@ data class SalesCurrencyReport(
     /** 平均成約単価(金額のある成約案件のみ)。0件なら null。 */
     val avgDealSize: Long?,
     /** 失注理由の内訳(理由が入力された失注案件のみ・件数降順)。 */
-    val lostReasonBreakdown: List<ReasonCount> = emptyList()
+    val lostReasonBreakdown: List<ReasonCount> = emptyList(),
+    /** 平均セールスサイクル日数(案件作成 → 成約 の日数、成約案件のみ)。0件なら null。 */
+    val avgCycleDays: Int? = null,
+    /** 進行中案件のフェーズ別 平均滞留日数(現在 − フェーズ最終変更日)・降順。 */
+    val avgDaysInPhase: List<PhaseDays> = emptyList()
 ) {
     /** 金額ベース成約率(%): 成約額 / (成約額 + 失注見積額)。母数0なら null。 */
     val winRateByAmount: Int?
@@ -64,6 +69,8 @@ data class SalesCurrencyReport(
 
 object SalesRules {
 
+    private const val DAY_MS = 86_400_000L
+
     private fun monthOf(millis: Long, zone: ZoneId): YearMonth =
         YearMonth.from(Instant.ofEpochMilli(millis).atZone(zone))
 
@@ -75,7 +82,8 @@ object SalesRules {
         projects: List<ClientProjectEntity>,
         period: SalesPeriod,
         now: YearMonth = YearMonth.now(),
-        zone: ZoneId = ZoneId.systemDefault()
+        zone: ZoneId = ZoneId.systemDefault(),
+        nowMillis: Long = System.currentTimeMillis()
     ): List<SalesCurrencyReport> {
         if (projects.isEmpty()) return emptyList()
 
@@ -115,6 +123,20 @@ object SalesRules {
                 (p.estimatedAmount ?: 0L) * prob / 100
             }
 
+            val cycleDays = won
+                .filter { it.wonAt != null }
+                .map { ((it.wonAt!! - it.createdAt) / DAY_MS).toInt().coerceAtLeast(0) }
+            val phaseAges = forCurrency
+                .filter { DealPhase.fromWire(it.phase)?.isActive == true }
+                .groupBy { DealPhase.fromWire(it.phase)!! }
+                .map { (phase, list) ->
+                    val ages = list.map {
+                        ((nowMillis - (it.phaseChangedAt ?: it.createdAt)) / DAY_MS).toInt().coerceAtLeast(0)
+                    }
+                    PhaseDays(phase, ages.sum() / ages.size)
+                }
+                .sortedByDescending { it.days }
+
             SalesCurrencyReport(
                 currencyCode = code,
                 monthlyWon = monthly,
@@ -132,7 +154,9 @@ object SalesRules {
                     .groupingBy { it }
                     .eachCount()
                     .map { (reason, count) -> ReasonCount(reason, count) }
-                    .sortedByDescending { it.count }
+                    .sortedByDescending { it.count },
+                avgCycleDays = cycleDays.takeIf { it.isNotEmpty() }?.let { it.sum() / it.size },
+                avgDaysInPhase = phaseAges
             )
         }
     }

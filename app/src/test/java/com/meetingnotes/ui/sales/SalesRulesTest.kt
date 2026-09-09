@@ -26,19 +26,22 @@ class SalesRulesTest {
         won: Long? = null,
         wonAt: Long? = null,
         lostReason: String? = null,
-        probability: Int? = null
+        probability: Int? = null,
+        createdAt: Long = 0L,
+        phaseChangedAt: Long? = null
     ) = ClientProjectEntity(
         id = id,
         clientId = 1,
         name = "P$id",
-        createdAt = 0L,
+        createdAt = createdAt,
         phase = phase?.wireValue,
         currency = currency,
         estimatedAmount = estimated,
         wonAmount = won,
         wonAt = wonAt,
         lostReason = lostReason,
-        probability = probability
+        probability = probability,
+        phaseChangedAt = phaseChangedAt
     )
 
     @Test
@@ -155,6 +158,31 @@ class SalesRulesTest {
         val report = SalesRules.report(projects, SalesPeriod.ALL, now, zone).single()
         assertEquals(220L, report.weightedPipeline)
         assertEquals(500L, report.pipelineTotal)
+    }
+
+    @Test
+    fun `avg cycle days is created-to-won average over won deals`() {
+        val d = 86_400_000L
+        val projects = listOf(
+            project(1, DealPhase.WON, won = 1, createdAt = 0L, wonAt = 10 * d),
+            project(2, DealPhase.WON, won = 1, createdAt = 0L, wonAt = 30 * d)
+        )
+        val report = SalesRules.report(projects, SalesPeriod.ALL, now, zone).single()
+        assertEquals(20, report.avgCycleDays)
+    }
+
+    @Test
+    fun `avg days in phase uses phaseChangedAt and only active phases`() {
+        val d = 86_400_000L
+        val nowMs = 100 * d
+        val projects = listOf(
+            project(1, DealPhase.PROPOSAL, estimated = 1, phaseChangedAt = 90 * d),  // 10日
+            project(2, DealPhase.PROPOSAL, estimated = 1, phaseChangedAt = 80 * d),  // 20日 → 平均15
+            project(3, DealPhase.WON, won = 1, wonAt = 5 * d, phaseChangedAt = 0L)   // 対象外
+        )
+        val report = SalesRules.report(projects, SalesPeriod.ALL, now, zone, nowMillis = nowMs).single()
+        assertEquals(listOf(DealPhase.PROPOSAL), report.avgDaysInPhase.map { it.phase })
+        assertEquals(15, report.avgDaysInPhase.single().days)
     }
 
     @Test

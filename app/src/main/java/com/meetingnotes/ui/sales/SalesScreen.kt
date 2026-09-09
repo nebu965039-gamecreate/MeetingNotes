@@ -232,6 +232,36 @@ private fun CurrencyReportCard(
                 }
             }
 
+            if (report.avgCycleDays != null || report.avgDaysInPhase.isNotEmpty()) {
+                SectionLabel("セールスサイクル")
+                report.avgCycleDays?.let {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "平均日数（作成→成約）",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            "$it 日",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                report.avgDaysInPhase.forEach { pd ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.width(84.dp)) { DealPhaseChip(phase = pd.phase) }
+                        Text(
+                            "平均 ${pd.days} 日 滞留",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                }
+            }
+
             if (report.pipelineByPhase.isNotEmpty()) {
                 SectionLabel("フェーズ別パイプライン")
                 val maxPhase = report.pipelineByPhase.maxOf { it.amount }.coerceAtLeast(1)
