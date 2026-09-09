@@ -22,6 +22,7 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -35,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -45,8 +47,6 @@ import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.client.ClientListScreen
 import com.meetingnotes.ui.client.FollowupListScreen
 import com.meetingnotes.ui.schedule.ScheduleScreen
-import com.meetingnotes.ui.theme.CreateActionBlue
-import com.meetingnotes.ui.theme.OnCreateActionBlue
 
 /** 下部ナビの4タブ。 */
 enum class MainTab(
@@ -116,8 +116,8 @@ fun MainTabsShell(
                         Surface(
                             onClick = onStartRecording,
                             shape = CircleShape,
-                            color = CreateActionBlue,
-                            contentColor = OnCreateActionBlue,
+                            color = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
                             shadowElevation = 3.dp
                         ) {
                             Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
@@ -181,6 +181,13 @@ private fun RowScope.NavTab(
                 Icon(iconVector, contentDescription = null)
             }
         },
-        label = { Text(tab.label) }
+        label = {
+            Text(
+                tab.label,
+                fontSize = 10.sp,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
     )
 }
