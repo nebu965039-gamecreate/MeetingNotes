@@ -62,7 +62,7 @@ import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
     val context = LocalContext.current
     val application = context.applicationContext as Application
     val app = context.applicationContext as MeetingNotesApp
@@ -212,6 +212,31 @@ fun SettingsScreen(onBack: () -> Unit) {
                             Text("Pro（サブスクリプション）", style = MaterialTheme.typography.titleSmall)
                             Text(
                                 if (isPro) "ご利用中・タップで管理" else "未登録・タップで詳細",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Filled.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenEmailTemplates)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("メール文面テンプレート", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "フォローアップの下書き画面から呼び出せます",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

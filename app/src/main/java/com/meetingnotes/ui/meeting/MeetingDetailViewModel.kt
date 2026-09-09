@@ -71,6 +71,11 @@ class MeetingDetailViewModel(
     private val _clientName = MutableStateFlow<String?>(null)
     val clientName: StateFlow<String?> = _clientName.asStateFlow()
 
+    /** フォローアップ下書き画面で使えるメール文面テンプレート。 */
+    val emailTemplates: StateFlow<List<com.meetingnotes.data.local.EmailTemplateEntity>> =
+        repository.observeEmailTemplates()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         viewModelScope.launch {
             val loaded = meeting.filterNotNull().first()

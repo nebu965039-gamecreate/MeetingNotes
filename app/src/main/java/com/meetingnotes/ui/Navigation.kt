@@ -20,6 +20,7 @@ import com.meetingnotes.ui.recording.RecordingScreen
 import com.meetingnotes.ui.result.ResultScreen
 import com.meetingnotes.ui.pipeline.PipelineScreen
 import com.meetingnotes.ui.sales.SalesScreen
+import com.meetingnotes.ui.settings.EmailTemplatesScreen
 import com.meetingnotes.ui.settings.SettingsScreen
 
 object Routes {
@@ -35,6 +36,7 @@ object Routes {
     const val SETTINGS = "settings"
     const val SALES = "sales"
     const val PIPELINE = "pipeline"
+    const val EMAIL_TEMPLATES = "emailTemplates"
     const val CLIENT_EDIT = "clientEdit/{clientId}"
 
     fun clientDetail(clientId: Long) = "clientDetail/$clientId"
@@ -77,7 +79,13 @@ fun MeetingNotesNavHost(
             )
         }
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = { navController.popBackStack() })
+            SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenEmailTemplates = { navController.navigate(Routes.EMAIL_TEMPLATES) }
+            )
+        }
+        composable(Routes.EMAIL_TEMPLATES) {
+            EmailTemplatesScreen(repository = repository, onBack = { navController.popBackStack() })
         }
         composable(Routes.SALES) {
             SalesScreen(repository = repository, onBack = { navController.popBackStack() })

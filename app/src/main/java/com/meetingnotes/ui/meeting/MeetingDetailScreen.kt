@@ -127,6 +127,7 @@ fun MeetingDetailScreen(
     val todos by viewModel.todos.collectAsState()
     val followupState by viewModel.followupState.collectAsState()
     val clientName by viewModel.clientName.collectAsState()
+    val emailTemplates by viewModel.emailTemplates.collectAsState()
     var showFollowup by remember { mutableStateOf(false) }
     var showNextMeetingPicker by remember { mutableStateOf(false) }
     var exportAction by remember { mutableStateOf<ExportAction?>(null) }
@@ -426,6 +427,9 @@ fun MeetingDetailScreen(
             state = followupState,
             generateNeedsAd = needsAd,
             adLoaded = adLoaded,
+            templates = emailTemplates,
+            clientName = clientName,
+            nextMeeting = meeting?.nextMeetingOriginalText ?: meeting?.nextMeetingDate,
             onGenerate = {
                 if (needsAd) viewModel.watchAdThenGenerateFollowup(activity)
                 else viewModel.generateFollowup()
@@ -441,11 +445,15 @@ fun MeetingDetailScreen(
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun FollowupDialog(
     state: FollowupState,
     generateNeedsAd: Boolean,
     adLoaded: Boolean,
+    templates: List<com.meetingnotes.data.local.EmailTemplateEntity>,
+    clientName: String?,
+    nextMeeting: String?,
     onGenerate: () -> Unit,
     onShare: (String) -> Unit,
     onDismiss: () -> Unit
@@ -456,6 +464,9 @@ private fun FollowupDialog(
         cm.setPrimaryClip(ClipData.newPlainText("フォローアップ", text))
         Toast.makeText(context, "コピーしました", Toast.LENGTH_SHORT).show()
     }
+    var selectedTemplate by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf<com.meetingnotes.data.local.EmailTemplateEntity?>(null)
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("フォローアップの下書き") },
@@ -464,6 +475,34 @@ private fun FollowupDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                if (templates.isNotEmpty()) {
+                    Text("テンプレート", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        templates.forEach { t ->
+                            androidx.compose.material3.FilterChip(
+                                selected = selectedTemplate?.id == t.id,
+                                onClick = {
+                                    selectedTemplate = if (selectedTemplate?.id == t.id) null else t
+                                },
+                                label = { Text(t.name) }
+                            )
+                        }
+                    }
+                    selectedTemplate?.let { t ->
+                        val filled = com.meetingnotes.util.TemplateVars.apply(t.body, clientName, nextMeeting)
+                        SelectionContainer {
+                            Text(filled, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { copy(filled) }) { Text("コピー") }
+                            TextButton(onClick = { onShare(filled) }) { Text("共有") }
+                        }
+                    }
+                    androidx.compose.material3.HorizontalDivider()
+                }
                 when (state) {
                     FollowupState.Idle -> Unit
                     FollowupState.Loading -> {

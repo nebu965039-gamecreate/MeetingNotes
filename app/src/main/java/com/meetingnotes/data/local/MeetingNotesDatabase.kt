@@ -16,9 +16,10 @@ import androidx.room.TypeConverters
         NotificationLogEntity::class,
         ClientContactEntity::class,
         ClientProjectEntity::class,
-        ScheduleEntity::class
+        ScheduleEntity::class,
+        EmailTemplateEntity::class
     ],
-    version = 25,
+    version = 26,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -34,4 +35,5 @@ abstract class MeetingNotesDatabase : RoomDatabase() {
     abstract fun clientContactDao(): ClientContactDao
     abstract fun clientProjectDao(): ClientProjectDao
     abstract fun scheduleDao(): ScheduleDao
+    abstract fun emailTemplateDao(): EmailTemplateDao
 }

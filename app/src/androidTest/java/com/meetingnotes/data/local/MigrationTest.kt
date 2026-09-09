@@ -215,6 +215,20 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate25To26_addsEmailTemplatesTable() {
+        helper.createDatabase(dbName, 25).apply { close() }
+
+        val db = helper.runMigrationsAndValidate(dbName, 26, true, MIGRATION_25_26)
+
+        db.execSQL("INSERT INTO email_templates (name, body, createdAt) VALUES ('お礼', 'ありがとうございました', 100)")
+        db.query("SELECT name, body FROM email_templates").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getString(0) == "お礼")
+            assertTrue(c.getString(1) == "ありがとうございました")
+        }
+    }
+
+    @Test
     fun migrate24To25_addsLeadSourceAndReferredByColumns() {
         helper.createDatabase(dbName, 24).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

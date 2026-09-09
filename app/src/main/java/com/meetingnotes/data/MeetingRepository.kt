@@ -32,7 +32,8 @@ class MeetingRepository(
     private val notificationLogDao: NotificationLogDao,
     private val clientContactDao: com.meetingnotes.data.local.ClientContactDao,
     private val clientProjectDao: com.meetingnotes.data.local.ClientProjectDao,
-    private val scheduleDao: com.meetingnotes.data.local.ScheduleDao
+    private val scheduleDao: com.meetingnotes.data.local.ScheduleDao,
+    private val emailTemplateDao: com.meetingnotes.data.local.EmailTemplateDao
 ) {
     fun observeClients(): Flow<List<ClientEntity>> = clientDao.observeAll()
 
@@ -360,6 +361,27 @@ class MeetingRepository(
 
     /** ToDo を削除する。 */
     suspend fun deleteTodo(todoId: Long) = todoDao.deleteById(todoId)
+
+    // --- メール文面テンプレート ---
+
+    fun observeEmailTemplates(): Flow<List<com.meetingnotes.data.local.EmailTemplateEntity>> =
+        emailTemplateDao.observeAll()
+
+    suspend fun addEmailTemplate(name: String, body: String): Long {
+        if (name.isBlank() || body.isBlank()) return -1L
+        return emailTemplateDao.insert(
+            com.meetingnotes.data.local.EmailTemplateEntity(
+                name = name.trim(), body = body.trim(), createdAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun updateEmailTemplate(id: Long, name: String, body: String) {
+        if (name.isBlank() || body.isBlank()) return
+        emailTemplateDao.updateContent(id, name.trim(), body.trim())
+    }
+
+    suspend fun deleteEmailTemplate(id: Long) = emailTemplateDao.deleteById(id)
 
     fun observeFolders(clientId: Long): Flow<List<FolderEntity>> = folderDao.observeByClient(clientId)
 
