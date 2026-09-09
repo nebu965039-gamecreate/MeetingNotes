@@ -91,6 +91,45 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private val repository
+        get() = (getApplication<Application>() as MeetingNotesApp).repository
+
+    fun exportClientsCsv(uri: Uri) {
+        _backupState.value = BackupState.Working
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val csv = repository.exportClientsCsv()
+                    getApplication<Application>().contentResolver.openOutputStream(uri, "wt")
+                        ?.use { it.write(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte())); it.write(csv.toByteArray(Charsets.UTF_8)) }
+                        ?: error("ファイルに書き込めませんでした。")
+                }
+            }
+            _backupState.value = result.fold(
+                onSuccess = { BackupState.Done("クライアント一覧を書き出しました。", restart = false) },
+                onFailure = { BackupState.Error(it.message ?: "書き出しに失敗しました。") }
+            )
+        }
+    }
+
+    fun importClientsCsv(uri: Uri) {
+        _backupState.value = BackupState.Working
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val text = getApplication<Application>().contentResolver.openInputStream(uri)
+                        ?.use { it.readBytes().toString(Charsets.UTF_8) }
+                        ?: error("ファイルを読み取れませんでした。")
+                    repository.importClientsCsv(text)
+                }
+            }
+            _backupState.value = result.fold(
+                onSuccess = { r -> BackupState.Done("取り込み完了: ${r.added}件を追加、${r.skipped}件は同名のためスキップ。", restart = false) },
+                onFailure = { BackupState.Error(it.message ?: "取り込みに失敗しました。") }
+            )
+        }
+    }
+
     companion object {
         fun factory(application: Application) = viewModelFactory {
             initializer { SettingsViewModel(application) }

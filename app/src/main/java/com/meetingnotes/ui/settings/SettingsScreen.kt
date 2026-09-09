@@ -89,6 +89,13 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
         ActivityResultContracts.OpenDocument()
     ) { uri -> if (uri != null) pendingImportUri = uri }
 
+    val createCsvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri -> if (uri != null) viewModel.exportClientsCsv(uri) }
+    val openCsvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> if (uri != null) viewModel.importClientsCsv(uri) }
+
     LaunchedEffect(backupState) {
         val s = backupState
         if (s is SettingsViewModel.BackupState.Done) {
@@ -255,7 +262,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(vertical = 4.dp)) {
                         Text(
-                            "データのバックアップ",
+                            "データのバックアップ・移行",
                             style = MaterialTheme.typography.titleSmall,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                         )
@@ -270,6 +277,22 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                             subtitle = "現在のデータをすべて置き換えます。機種変更・再インストール時に使います。",
                             enabled = !working,
                             onClick = { showRestoreWarning = true }
+                        )
+                        SettingActionRow(
+                            title = "クライアント一覧をCSVで書き出し",
+                            subtitle = "名前・グループ・連絡先・流入経路などをCSVに。表計算ソフトや他ツールへ。",
+                            enabled = !working,
+                            onClick = { createCsvLauncher.launch("商談メモ-クライアント-${LocalDate.now()}.csv") }
+                        )
+                        SettingActionRow(
+                            title = "CSVからクライアントを取り込み",
+                            subtitle = "「名前」列が必須。同名の既存クライアントはスキップします（上書きはしません）。",
+                            enabled = !working,
+                            onClick = {
+                                openCsvLauncher.launch(
+                                    arrayOf("text/csv", "text/comma-separated-values", "text/plain", "*/*")
+                                )
+                            }
                         )
                         if (working) {
                             Row(

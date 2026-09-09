@@ -19,6 +19,7 @@ import com.meetingnotes.data.local.UserCreditsDao
 import com.meetingnotes.data.local.UserCreditsEntity
 import com.meetingnotes.data.model.MeetingSummary
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 class MeetingRepository(
@@ -382,6 +383,62 @@ class MeetingRepository(
     }
 
     suspend fun deleteEmailTemplate(id: Long) = emailTemplateDao.deleteById(id)
+
+    // --- クライアント CSV 入出力 ---
+
+    data class CsvImportResult(val added: Int, val skipped: Int)
+
+    /** クライアント一覧を CSV 文字列にする(名前・グループ・連絡先・流入経路・紹介元・備考)。 */
+    suspend fun exportClientsCsv(): String {
+        val clients = clientDao.observeAll().first()
+        val groupName = clientGroupDao.observeAll().first()
+            .associate { it.id to it.name }
+        return com.meetingnotes.data.backup.ClientCsv.export(
+            clients.map {
+                com.meetingnotes.data.backup.ClientCsv.Row(
+                    name = it.name,
+                    group = it.groupId?.let(groupName::get),
+                    email = it.email,
+                    phone = it.phone,
+                    leadSource = it.leadSource,
+                    referredBy = it.referredBy,
+                    memo = it.memo
+                )
+            }
+        )
+    }
+
+    /** CSV からクライアントを取り込む。**同名の既存クライアントはスキップ**(上書き・削除はしない)。 */
+    suspend fun importClientsCsv(csv: String): CsvImportResult {
+        val rows = com.meetingnotes.data.backup.ClientCsv.parse(csv)
+        val existing = clientDao.observeAll().first()
+            .map { it.name }.toHashSet()
+        val groupIdByName = clientGroupDao.observeAll().first()
+            .associate { it.name to it.id }
+        var added = 0
+        var skipped = 0
+        for (r in rows) {
+            if (r.name in existing) {
+                skipped++
+                continue
+            }
+            clientDao.insert(
+                ClientEntity(
+                    name = r.name,
+                    groupId = r.group?.let { groupIdByName[it] },
+                    createdAt = System.currentTimeMillis(),
+                    email = r.email,
+                    phone = r.phone,
+                    memo = r.memo,
+                    leadSource = r.leadSource,
+                    referredBy = r.referredBy
+                )
+            )
+            existing.add(r.name)
+            added++
+        }
+        return CsvImportResult(added, skipped)
+    }
 
     fun observeFolders(clientId: Long): Flow<List<FolderEntity>> = folderDao.observeByClient(clientId)
 
