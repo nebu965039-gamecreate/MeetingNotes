@@ -12,6 +12,12 @@ enum class MeetingSortOrder(val label: String) {
     TITLE("タイトル順")
 }
 
+/** ToDo 一覧の並び替え。 */
+enum class TodoSortOrder(val label: String) {
+    DUE_DATE("期限順"),
+    CREATED("作成日順")
+}
+
 /** 検索結果。`snippet` が空文字ならタイトル一致(追加表示なし)、非空なら一致箇所のプレビュー。 */
 data class MeetingSearchResult(val meeting: MeetingEntity, val snippet: String)
 

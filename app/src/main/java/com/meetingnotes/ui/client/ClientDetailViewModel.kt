@@ -48,11 +48,22 @@ class ClientDetailViewModel(
         .map { list -> list.associate { it.id to it.projectId } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    /** このクライアントの未完了 ToDo(期限のあるものを先に、近い順)。プロジェクト絞り込み適用後。 */
+    private val _todoSort = MutableStateFlow(TodoSortOrder.DUE_DATE)
+    val todoSort: StateFlow<TodoSortOrder> = _todoSort.asStateFlow()
+
+    fun setTodoSort(order: TodoSortOrder) {
+        _todoSort.value = order
+    }
+
+    /** このクライアントの未完了 ToDo。プロジェクト絞り込み + 並び替え適用後。 */
     val openTodos: StateFlow<List<TodoEntity>> =
-        combine(todos, _projectFilter, meetingProjectById) { list, filter, projById ->
-            list.filter { !it.isDone && matchesProject(it.meetingId?.let(projById::get), filter) }
-                .sortedWith(compareBy({ it.dueDate == null }, { it.dueDate ?: "" }))
+        combine(todos, _projectFilter, meetingProjectById, _todoSort) { list, filter, projById, sort ->
+            val filtered = list.filter { !it.isDone && matchesProject(it.meetingId?.let(projById::get), filter) }
+            when (sort) {
+                TodoSortOrder.DUE_DATE ->
+                    filtered.sortedWith(compareBy({ it.dueDate == null }, { it.dueDate ?: "" }, { -it.id }))
+                TodoSortOrder.CREATED -> filtered.sortedByDescending { it.id }
+            }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** このクライアントの完了済み ToDo(id 降順)。プロジェクト絞り込み適用後。 */

@@ -11,10 +11,16 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -111,10 +117,26 @@ fun NextMeetingDateTimeDialog(
 
     if (showTimePicker) {
         val timeState = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = true)
+        var textInput by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showTimePicker = false },
-            title = { Text("時刻を選択") },
-            text = { TimeInput(state = timeState) },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("時刻を選択")
+                    IconButton(onClick = { textInput = !textInput }) {
+                        if (textInput) {
+                            Icon(Icons.Filled.Schedule, contentDescription = "ホイール入力に切り替え")
+                        } else {
+                            Icon(Icons.Filled.Keyboard, contentDescription = "キーボード入力に切り替え")
+                        }
+                    }
+                }
+            },
+            text = { if (textInput) TimeInput(state = timeState) else TimePicker(state = timeState) },
             confirmButton = {
                 TextButton(onClick = {
                     hour = timeState.hour

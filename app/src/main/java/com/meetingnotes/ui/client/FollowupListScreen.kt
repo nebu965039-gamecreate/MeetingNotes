@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Snooze
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -26,12 +25,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,6 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.ui.common.FolderTab
+import com.meetingnotes.ui.common.FolderTabRow
 import com.meetingnotes.ui.common.TabTopBar
 import com.meetingnotes.data.local.FollowedUpMeeting
 import com.meetingnotes.data.model.DealPhase
@@ -80,23 +78,15 @@ fun FollowupListScreen(
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             // 下部ナビの ToDo バッジ(= 未完了 ToDo 総数)と件数を揃える。
             val openTodoTotal = todo.sumOf { it.openTodoCount }
-            PrimaryTabRow(selectedTabIndex = tab) {
-                Tab(
-                    selected = tab == 0,
-                    onClick = { tab = 0 },
-                    text = { Text("ToDo ($openTodoTotal)") }
-                )
-                Tab(
-                    selected = tab == 1,
-                    onClick = { tab = 1 },
-                    text = { Text("スヌーズ (${snoozed.size})") }
-                )
-                Tab(
-                    selected = tab == 2,
-                    onClick = { tab = 2 },
-                    text = { Text("完了 (${done.size})") }
-                )
-            }
+            FolderTabRow(
+                tabs = listOf(
+                    FolderTab("ToDo", openTodoTotal),
+                    FolderTab("スヌーズ", snoozed.size),
+                    FolderTab("完了", done.size)
+                ),
+                selectedIndex = tab,
+                onSelect = { tab = it }
+            )
 
             when (tab) {
                 0 -> TodoList(

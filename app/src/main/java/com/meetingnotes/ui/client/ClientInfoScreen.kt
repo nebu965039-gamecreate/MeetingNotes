@@ -1,11 +1,13 @@
 package com.meetingnotes.ui.client
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -14,8 +16,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,20 +52,14 @@ fun ClientInfoContent(
     val projects by viewModel.projects.collectAsState()
 
     val c = client
-    Column(
-        modifier = modifier
+    Box(modifier = modifier.fillMaxSize()) {
+      Column(
+        modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            FilledTonalButton(onClick = onEdit) {
-                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.width(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("情報を編集")
-            }
-        }
 
         ElevatedCard {
             Column(
@@ -220,7 +216,14 @@ fun ClientInfoContent(
                 style = MaterialTheme.typography.bodyMedium
             )
         }
-        Spacer(Modifier.width(1.dp))
+        Spacer(Modifier.height(72.dp))
+    }
+      SmallFloatingActionButton(
+          onClick = onEdit,
+          modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)
+      ) {
+          Icon(Icons.Filled.Edit, contentDescription = "情報を編集")
+      }
     }
 }
 

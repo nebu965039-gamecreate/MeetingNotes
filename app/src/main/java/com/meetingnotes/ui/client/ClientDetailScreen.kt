@@ -117,6 +117,7 @@ fun ClientDetailScreen(
     val client by viewModel.client.collectAsState()
     val openTodos by viewModel.openTodos.collectAsState()
     val doneTodos by viewModel.doneTodos.collectAsState()
+    val todoSort by viewModel.todoSort.collectAsState()
     val meetings by viewModel.sortedMeetings.collectAsState()
     val folders by viewModel.folders.collectAsState()
     val projects by viewModel.projects.collectAsState()
@@ -225,6 +226,8 @@ fun ClientDetailScreen(
         1 -> TodoTab(
             openTodos = openTodos,
             doneTodos = doneTodos,
+            sortOrder = todoSort,
+            onSortChange = { viewModel.setTodoSort(it) },
             onOpenMeeting = onMeetingSelected,
             onComplete = { viewModel.completeTodo(it) },
             onReopen = { viewModel.reopenTodo(it) },
@@ -242,54 +245,48 @@ fun ClientDetailScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "アーカイブ", style = MaterialTheme.typography.titleMedium)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = {
-                            searchActive = !searchActive
-                            if (!searchActive) viewModel.setSearchQuery("")
-                        }) {
-                            Icon(
-                                if (searchActive) Icons.Filled.Close else Icons.Filled.Search,
-                                contentDescription = if (searchActive) "検索を閉じる" else "検索"
-                            )
-                        }
-                        IconButton(onClick = { showAddFolderDialog = true }) {
-                            Icon(
-                                Icons.Filled.CreateNewFolder,
-                                contentDescription = "フォルダを作成",
-                                tint = CreateActionBlue
-                            )
-                        }
-                        if (meetings.size > 1) {
-                            Box {
-                                TextButton(onClick = { sortMenuExpanded = true }) {
-                                    Icon(
-                                        Icons.Filled.SwapVert,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
+                    if (meetings.size > 1) {
+                        Box {
+                            TextButton(
+                                onClick = { sortMenuExpanded = true },
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
+                                Icon(Icons.Filled.SwapVert, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(sortOrder.label, style = MaterialTheme.typography.labelLarge)
+                            }
+                            DropdownMenu(
+                                expanded = sortMenuExpanded,
+                                onDismissRequest = { sortMenuExpanded = false }
+                            ) {
+                                MeetingSortOrder.entries.forEach { order ->
+                                    DropdownMenuItem(
+                                        text = { Text(order.label) },
+                                        onClick = { viewModel.setSortOrder(order); sortMenuExpanded = false }
                                     )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(sortOrder.label)
-                                }
-                                DropdownMenu(
-                                    expanded = sortMenuExpanded,
-                                    onDismissRequest = { sortMenuExpanded = false }
-                                ) {
-                                    MeetingSortOrder.entries.forEach { order ->
-                                        DropdownMenuItem(
-                                            text = { Text(order.label) },
-                                            onClick = {
-                                                viewModel.setSortOrder(order)
-                                                sortMenuExpanded = false
-                                            }
-                                        )
-                                    }
                                 }
                             }
                         }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = {
+                        searchActive = !searchActive
+                        if (!searchActive) viewModel.setSearchQuery("")
+                    }) {
+                        Icon(
+                            if (searchActive) Icons.Filled.Close else Icons.Filled.Search,
+                            contentDescription = if (searchActive) "検索を閉じる" else "検索"
+                        )
+                    }
+                    IconButton(onClick = { showAddFolderDialog = true }) {
+                        Icon(
+                            Icons.Filled.CreateNewFolder,
+                            contentDescription = "フォルダを作成",
+                            tint = CreateActionBlue
+                        )
                     }
                 }
             }
@@ -820,9 +817,9 @@ private fun ProjectFilterBar(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val label = when (selected) {
-        null -> "すべての商談"
-        ClientDetailViewModel.NO_PROJECT -> "プロジェクトなし"
-        else -> projects.firstOrNull { it.id == selected }?.name ?: "すべての商談"
+        null -> "すべて"
+        ClientDetailViewModel.NO_PROJECT -> "—"
+        else -> projects.firstOrNull { it.id == selected }?.name ?: "すべて"
     }
     Box(modifier) {
         TextButton(
@@ -836,12 +833,8 @@ private fun ProjectFilterBar(
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text("すべての商談") },
+                text = { Text("すべて") },
                 onClick = { onSelect(null); expanded = false }
-            )
-            DropdownMenuItem(
-                text = { Text("プロジェクトなし") },
-                onClick = { onSelect(ClientDetailViewModel.NO_PROJECT); expanded = false }
             )
             projects.forEach { project ->
                 DropdownMenuItem(
@@ -849,6 +842,10 @@ private fun ProjectFilterBar(
                     onClick = { onSelect(project.id); expanded = false }
                 )
             }
+            DropdownMenuItem(
+                text = { Text("—") },
+                onClick = { onSelect(ClientDetailViewModel.NO_PROJECT); expanded = false }
+            )
         }
     }
 }
@@ -867,7 +864,7 @@ private fun ProjectPickerDialog(
         text = {
             Column {
                 FolderOptionRow(
-                    label = "なし",
+                    label = "—（プロジェクトなし）",
                     selected = currentProjectId == null,
                     onClick = { onSelect(null) }
                 )
@@ -1232,6 +1229,8 @@ private fun ProjectFormDialog(
 private fun TodoTab(
     openTodos: List<TodoEntity>,
     doneTodos: List<TodoEntity>,
+    sortOrder: TodoSortOrder,
+    onSortChange: (TodoSortOrder) -> Unit,
     onOpenMeeting: (Long) -> Unit,
     onComplete: (Long) -> Unit,
     onReopen: (Long) -> Unit,
@@ -1242,6 +1241,7 @@ private fun TodoTab(
     var sub by rememberSaveable { mutableIntStateOf(0) }
     var showAdd by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<TodoEntity?>(null) }
+    var sortMenu by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         PrimaryTabRow(selectedTabIndex = sub) {
@@ -1250,13 +1250,31 @@ private fun TodoTab(
         }
 
         if (sub == 0) {
-            TextButton(
-                onClick = { showAdd = true },
-                modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("ToDoを追加")
+                Box {
+                    TextButton(onClick = { sortMenu = true }) {
+                        Icon(Icons.Filled.SwapVert, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(sortOrder.label)
+                    }
+                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                        TodoSortOrder.entries.forEach { o ->
+                            DropdownMenuItem(
+                                text = { Text(o.label) },
+                                onClick = { onSortChange(o); sortMenu = false }
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { showAdd = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("ToDoを追加")
+                }
             }
         }
 
