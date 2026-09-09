@@ -1,6 +1,7 @@
 package com.meetingnotes.ui.schedule
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -503,12 +504,14 @@ private fun MonthCalendar(
                             if (dayNum in 1..daysInMonth) {
                                 val date = month.atDay(dayNum)
                                 val isSelected = date == selectedDate
+                                val isToday = date == LocalDate.now()
                                 val hasMark = date in markedDates
                                 val isSunday = date.dayOfWeek == DayOfWeek.SUNDAY
                                 val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
                                 val isHoliday = date in holidays
                                 val numberColor = when {
                                     isSelected -> MaterialTheme.colorScheme.onPrimary
+                                    isToday -> MaterialTheme.colorScheme.primary
                                     isSunday || isHoliday -> MaterialTheme.colorScheme.error
                                     isSaturday -> SATURDAY_COLOR
                                     else -> MaterialTheme.colorScheme.onSurface
@@ -524,10 +527,12 @@ private fun MonthCalendar(
                                         modifier = Modifier
                                             .size(24.dp)
                                             .then(
-                                                if (isSelected) {
-                                                    Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
-                                                } else {
-                                                    Modifier
+                                                when {
+                                                    isSelected ->
+                                                        Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
+                                                    isToday ->
+                                                        Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                                    else -> Modifier
                                                 }
                                             ),
                                         contentAlignment = Alignment.Center
@@ -535,6 +540,7 @@ private fun MonthCalendar(
                                         Text(
                                             text = dayNum.toString(),
                                             style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = if (isToday || isSelected) FontWeight.Bold else null,
                                             color = numberColor
                                         )
                                     }
