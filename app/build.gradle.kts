@@ -94,6 +94,16 @@ android {
         // から取得する。エミュレータは登録不要。
         val admobTestDeviceIds = localProperties.getProperty("ADMOB_TEST_DEVICE_IDS") ?: ""
         buildConfigField("String", "ADMOB_TEST_DEVICE_IDS", "\"$admobTestDeviceIds\"")
+
+        // --- Pro (Google Play Billing) ---
+        // Pro 機能のロック表示(gating)。既定 OFF。Play Console でサブスク商品 meetingnotes_pro を
+        // 登録し、ライセンステストが通ることを確認してから local.properties に
+        //   PRO_GATING_ENABLED=true
+        // を設定する。OFF の間は BillingManager は動くが shouldLock は常に false。
+        val proGatingEnabled =
+            (localProperties.getProperty("PRO_GATING_ENABLED") ?: "false").toBoolean()
+        logger.lifecycle("Pro gating: ${if (proGatingEnabled) "ON" else "OFF"}")
+        buildConfigField("Boolean", "PRO_GATING_ENABLED", "$proGatingEnabled")
     }
 
     signingConfigs {
@@ -159,6 +169,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.pdfbox.android)
+    implementation(libs.billing)
 
     debugImplementation(libs.androidx.ui.tooling)
 

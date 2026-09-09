@@ -32,4 +32,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        // 別端末での購入・解約・払い戻しに追従する。
+        (application as MeetingNotesApp).billingManager.refreshPurchases()
+    }
 }

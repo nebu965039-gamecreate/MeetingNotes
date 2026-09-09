@@ -67,7 +67,8 @@ private val monthLabelFormatter = DateTimeFormatter.ofPattern("yy/M", Locale.JAP
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SalesScreen(repository: MeetingRepository, onBack: () -> Unit) {
-    val locked = ProAccess.shouldLock
+    val isPro by ProAccess.isProFlow.collectAsState()
+    val locked = ProAccess.gatingEnabled && !isPro
     var showPaywall by remember { mutableStateOf(false) }
 
     Scaffold(

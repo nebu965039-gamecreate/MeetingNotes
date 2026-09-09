@@ -47,7 +47,7 @@
 ### 課金・広告
 
 - **無料枠クレジット制**: 月5回まで無料で要約（`CreditPolicy.MONTHLY_FREE_CREDITS`）。リワード広告視聴で追加、要約失敗時は自動返却。1回の文字起こしは約20,000字（60〜80分）まで
-- **Pro（未実装）**: 要約→文字起こしの根拠リンク、ヒアリング分析、エクスポート形式・透かし・PDFパスワードの解放を想定。月¥980／年¥7,800（Billing 実装時に確定）。ゲート機構（`billing/ProAccess`・`ui/common/ProGate`）は実装済みだが `gatingEnabled = false` で無効
+- **Pro（サブスクリプション）**: 要約→文字起こしの根拠リンク、ヒアリング分析、売上・実績ビュー、エクスポート形式・透かし・PDFパスワードの解放を想定。Google Play Billing の基盤（`billing/BillingManager`、商品 `meetingnotes_pro`、購入フロー／復元／acknowledge、ペイウォール）は実装済み。ロック表示は `local.properties` の `PRO_GATING_ENABLED`（既定 false）で切替。Play Console でのサブスク商品登録・ライセンステスト後に有効化する
 - **広告**: AdMob。バナー（各一覧の下部・商談詳細の300x250）、インタースティシャル（要約リクエスト直後）、リワード（クレジット切れ時）。既定はGoogle公式テスト広告。`local.properties` の `ADMOB_USE_PRODUCTION_ADS=true` で本番ユニットに切替
 
 ## 技術スタック
@@ -63,6 +63,7 @@
 | 要約AI | Anthropic Claude（Messages API、tool_use、モデル `claude-haiku-4-5-20251001`）。APIキーはアプリに持たず自前の中継 Cloudflare Worker（`server/`）経由 |
 | 音声認識 | Android標準 `SpeechRecognizer` のオンデバイス版（`createOnDeviceSpeechRecognizer`）。音声は保存しない |
 | 広告 | AdMob（`play-services-ads` 25.4.0） |
+| 課金 | Google Play Billing（`com.android.billingclient:billing` 7.1.1） |
 | 不正対策 | Play Integrity API（Standard。`server/` 側で decode。コード実装済み・未有効化） |
 | ビルド | AGP 9.1.0 / Gradle 9.3.1 / KSP 2.3.11 |
 | DI | 無し（手動DI、`MeetingNotesApp` で lazy 生成） |
@@ -78,7 +79,7 @@ app/src/main/java/com/meetingnotes/
 ├── MainActivity.kt          # エントリーポイント。テーマ出し分け + NavHost
 ├── MeetingNotesApp.kt       # Applicationクラス。Room DB・Repository・AdMob・リマインダ登録(lazy)
 ├── ads/                     # AdMob(Rewarded/Interstitial/Banner)
-├── billing/                 # Pro ゲート機構(ProAccess。現状 無効)
+├── billing/                 # Google Play Billing(BillingManager)+ Pro ゲート判定(ProAccess)
 ├── data/
 │   ├── CreditPolicy.kt      # 無料枠クレジットの月次リセット判定
 │   ├── RecordingDraftStore.kt  # 録音下書きの自動保存(SharedPreferences)
@@ -144,4 +145,4 @@ adb shell am start -n com.manaapps.meetingnotes/com.meetingnotes.MainActivity
 Claude Code で開発を継続する場合は `CLAUDE.md` を参照。現在の実装状況・未完了タスク・既知の問題もそちらにまとめている。
 
 - Google Play Console でクローズドテスト中。無料の 1人CRM 機能一式を次回配信予定
-- 未完了: Google Play Billing（定期購入）、APIキープロキシ フェーズ2 の有効化、Pro 機能（F4 根拠リンク・F6 ヒアリング分析）
+- 未完了: Google Play Billing の有効化（基盤は実装済み、Play Console 商品登録＋`PRO_GATING_ENABLED=true`）、APIキープロキシ フェーズ2 の有効化、Pro 機能（F4 根拠リンク・F6 ヒアリング分析）

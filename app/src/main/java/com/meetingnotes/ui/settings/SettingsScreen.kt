@@ -2,8 +2,10 @@ package com.meetingnotes.ui.settings
 
 import android.Manifest
 import android.app.Application
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.core.net.toUri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -51,8 +53,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.ads.BannerAdView
+import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.data.backup.BackupManager
 import com.meetingnotes.notifications.NotificationHelper
+import com.meetingnotes.ui.common.ProPaywallDialog
 import com.meetingnotes.ui.theme.ThemeMode
 import java.time.LocalDate
 
@@ -67,6 +71,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     val themeMode = app.themeModeState.value
 
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showPaywall by remember { mutableStateOf(false) }
 
     val backupState by viewModel.backupState.collectAsState()
     var exportPassword by remember { mutableStateOf("") }
@@ -178,6 +183,49 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
 
             item {
+                val isPro by ProAccess.isProFlow.collectAsState()
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            if (isPro) {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(
+                                            Intent.ACTION_VIEW,
+                                            ("https://play.google.com/store/account/subscriptions" +
+                                                "?sku=${com.meetingnotes.billing.BillingManager.PRODUCT_ID}" +
+                                                "&package=${context.packageName}").toUri()
+                                        )
+                                    )
+                                }
+                            } else {
+                                showPaywall = true
+                            }
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Pro（サブスクリプション）", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                if (isPro) "ご利用中・タップで管理" else "未登録・タップで詳細",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Filled.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            item {
                 val working = backupState is SettingsViewModel.BackupState.Working
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(vertical = 4.dp)) {
@@ -223,6 +271,10 @@ fun SettingsScreen(onBack: () -> Unit) {
                 showThemeDialog = false
             }
         )
+    }
+
+    if (showPaywall) {
+        ProPaywallDialog(featureName = "Pro", onDismiss = { showPaywall = false })
     }
 
     if (showExportPasswordDialog) {

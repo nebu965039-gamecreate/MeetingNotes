@@ -13,3 +13,8 @@ ADMOB_USE_PRODUCTION_ADS=false
 # アプリ起動時の logcat の "setTestDeviceIds(Arrays.asList("XXXX"))" の XXXX を追記する。
 # テスト広告のうち・エミュレータは設定不要。
 ADMOB_TEST_DEVICE_IDS=
+# Pro(Google Play Billing)のロック表示。既定 OFF。
+# Play Console でサブスク商品 meetingnotes_pro を登録し、ライセンステストが
+# 通ることを確認してから true にする。OFF の間は BillingManager は動くが
+# ロック(ProGate)は一切表示されない。
+PRO_GATING_ENABLED=false

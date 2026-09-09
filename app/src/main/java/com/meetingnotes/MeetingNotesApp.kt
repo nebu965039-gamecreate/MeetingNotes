@@ -7,6 +7,8 @@ import androidx.core.content.edit
 import androidx.room.Room
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
+import com.meetingnotes.billing.BillingManager
+import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.RecordingDraftStore
 import com.meetingnotes.data.local.MeetingNotesDatabase
@@ -40,6 +42,9 @@ class MeetingNotesApp : Application() {
     val recordingDraftStore: RecordingDraftStore by lazy {
         RecordingDraftStore(this)
     }
+
+    /** Google Play Billing(Pro サブスクリプション)。 */
+    val billingManager: BillingManager by lazy { BillingManager(this) }
 
     private val themePrefs: ThemePrefs by lazy { ThemePrefs(this) }
 
@@ -92,6 +97,10 @@ class MeetingNotesApp : Application() {
         }
 
         MobileAds.initialize(this) {}
+
+        // Google Play Billing を起動し、購入状態を ProAccess に流し込む。
+        billingManager.start()
+        appScope.launch { billingManager.isPro.collect { ProAccess.setPro(it) } }
 
         // F7: 次回打ち合わせのリマインドチェック(周期ジョブ)。
         NotificationHelper.ensureChannel(this)
