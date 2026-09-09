@@ -1,10 +1,20 @@
 package com.meetingnotes.data.model
 
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 
 /** `MeetingEntity.nextMeetingDate`(ISO 文字列)の解釈。F7 予定カレンダー・リマインドで共通利用。 */
 object NextMeetingTime {
+
+    /** LocalDateTime → epoch millis(端末のタイムゾーン)。 */
+    fun toMillis(dateTime: LocalDateTime): Long =
+        dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+    /** epoch millis → LocalDateTime(端末のタイムゾーン)。 */
+    fun toLocalDateTime(millis: Long): LocalDateTime =
+        Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDateTime()
 
     private val DATE_ONLY = Regex("""^(\d{4})-(\d{2})-(\d{2})$""")
     private val DATE_TIME = Regex("""^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})""")

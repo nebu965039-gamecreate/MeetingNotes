@@ -215,6 +215,28 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate16To17_addsSchedulesTable() {
+        helper.createDatabase(dbName, 16).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 17, true, MIGRATION_16_17)
+
+        db.execSQL(
+            "INSERT INTO schedules " +
+                "(clientId, sourceMeetingId, startAtMillis, hasTime, title, note, participants, phase, createdAt) " +
+                "VALUES (1, NULL, 1000, 1, '打ち合わせ', 'メモ', '田中', 'hearing', 100)"
+        )
+        db.query("SELECT title, participants, phase FROM schedules WHERE clientId = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getString(0) == "打ち合わせ")
+            assertTrue(c.getString(1) == "田中")
+            assertTrue(c.getString(2) == "hearing")
+        }
+    }
+
+    @Test
     fun migrate15To16_addsClientProjectsAndMeetingProjectId() {
         helper.createDatabase(dbName, 15).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

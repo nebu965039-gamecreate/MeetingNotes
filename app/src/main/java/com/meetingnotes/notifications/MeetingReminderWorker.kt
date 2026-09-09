@@ -7,6 +7,7 @@ import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.data.local.NotificationLogEntity
 import com.meetingnotes.data.model.NextMeetingTime
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -29,33 +30,38 @@ class MeetingReminderWorker(
         val today = LocalDate.now()
         val tomorrow = today.plusDays(1)
 
-        val candidates = runCatching { repository.getNextMeetingCandidates() }.getOrDefault(emptyList())
-        for (c in candidates) {
-            val parsed = NextMeetingTime.parse(c.nextMeetingDate) ?: continue
-            val date = parsed.date
+        // 今日・明日ぶんの予定(schedules)を拾う。
+        val zone = ZoneId.systemDefault()
+        val fromMillis = today.atStartOfDay(zone).toInstant().toEpochMilli()
+        val toMillis = tomorrow.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+        val schedules = runCatching { repository.getSchedulesForReminder(fromMillis, toMillis) }
+            .getOrDefault(emptyList())
+        for (s in schedules) {
+            val start = NextMeetingTime.toLocalDateTime(s.startAtMillis)
+            val date = start.toLocalDate()
             if (date != today && date != tomorrow) continue
-            if (repository.notificationAlreadyFired(c.meetingId, c.nextMeetingDate)) continue
+            val key = "sch-${s.id}-$date"
+            if (repository.notificationAlreadyFired(0, key)) continue
 
             val whenLabel = date.format(DATE_LABEL)
             val lead = if (date == today) "本日" else "明日"
-            val title = "$lead の打ち合わせ: ${c.clientName}"
-            val body = "$whenLabel" + (if (!parsed.allDay) " %02d:%02d".format(
-                parsed.start.hour, parsed.start.minute
-            ) else "") + " に ${c.clientName} との打ち合わせがあります。"
+            val title = "$lead の予定: ${s.clientName}"
+            val timePart = if (s.hasTime) " %02d:%02d".format(start.hour, start.minute) else ""
+            val body = "$whenLabel$timePart ・ ${s.title}(${s.clientName})"
 
             NotificationHelper.notify(
                 context = applicationContext,
-                notificationId = c.meetingId.toInt(),
+                notificationId = ("sch${s.id}").hashCode(),
                 title = title,
                 body = body
             )
             repository.logNotification(
                 NotificationLogEntity(
-                    meetingId = c.meetingId,
-                    clientId = c.clientId,
+                    meetingId = 0,
+                    clientId = s.clientId,
                     title = title,
                     body = body,
-                    scheduledFor = c.nextMeetingDate,
+                    scheduledFor = key,
                     firedAt = System.currentTimeMillis()
                 )
             )

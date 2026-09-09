@@ -11,7 +11,6 @@ import com.meetingnotes.data.local.FolderDao
 import com.meetingnotes.data.local.FolderEntity
 import com.meetingnotes.data.local.MeetingDao
 import com.meetingnotes.data.local.MeetingEntity
-import com.meetingnotes.data.local.NextMeetingCandidate
 import com.meetingnotes.data.local.NotificationLogDao
 import com.meetingnotes.data.local.NotificationLogEntity
 import com.meetingnotes.data.local.TodoDao
@@ -32,7 +31,8 @@ class MeetingRepository(
     private val clientBriefingDao: ClientBriefingDao,
     private val notificationLogDao: NotificationLogDao,
     private val clientContactDao: com.meetingnotes.data.local.ClientContactDao,
-    private val clientProjectDao: com.meetingnotes.data.local.ClientProjectDao
+    private val clientProjectDao: com.meetingnotes.data.local.ClientProjectDao,
+    private val scheduleDao: com.meetingnotes.data.local.ScheduleDao
 ) {
     fun observeClients(): Flow<List<ClientEntity>> = clientDao.observeAll()
 
@@ -107,8 +107,134 @@ class MeetingRepository(
     suspend fun setMeetingPhaseOverride(meetingId: Long, phase: com.meetingnotes.data.model.DealPhase?) =
         meetingDao.updatePhaseOverride(meetingId, phase?.wireValue)
 
-    suspend fun setNextMeeting(meetingId: Long, dateIso: String?, originalText: String? = null) =
+    /**
+     * 商談の「次回打ち合わせ」を設定/解除する。連動して `schedules` の該当行(`sourceMeetingId == meetingId`)も
+     * upsert / 削除する。
+     */
+    suspend fun setNextMeeting(meetingId: Long, dateIso: String?, originalText: String? = null) {
         meetingDao.updateNextMeeting(meetingId, dateIso, originalText)
+        syncNextMeetingSchedule(meetingId, dateIso)
+    }
+
+    private suspend fun syncNextMeetingSchedule(meetingId: Long, dateIso: String?) {
+        val parsed = dateIso?.let { com.meetingnotes.data.model.NextMeetingTime.parse(it) }
+        if (parsed == null) {
+            scheduleDao.deleteBySourceMeeting(meetingId)
+            return
+        }
+        val meeting = meetingDao.getById(meetingId) ?: return
+        val millis = com.meetingnotes.data.model.NextMeetingTime.toMillis(parsed.start)
+        val phase = meeting.phaseOverride ?: meeting.dealPhase
+        val existing = scheduleDao.getBySourceMeeting(meetingId)
+        if (existing == null) {
+            scheduleDao.insert(
+                com.meetingnotes.data.local.ScheduleEntity(
+                    clientId = meeting.clientId,
+                    sourceMeetingId = meetingId,
+                    startAtMillis = millis,
+                    hasTime = !parsed.allDay,
+                    title = "次回打ち合わせ",
+                    phase = phase,
+                    createdAt = System.currentTimeMillis()
+                )
+            )
+        } else {
+            scheduleDao.update(
+                existing.copy(startAtMillis = millis, hasTime = !parsed.allDay, phase = phase)
+            )
+        }
+    }
+
+    // --- 予定(schedules) ---
+
+    fun observeSchedules(): Flow<List<com.meetingnotes.data.local.ScheduleWithClient>> =
+        scheduleDao.observeAll()
+
+    fun observeClientSchedules(clientId: Long): Flow<List<com.meetingnotes.data.local.ScheduleEntity>> =
+        scheduleDao.observeByClient(clientId)
+
+    suspend fun addSchedule(
+        clientId: Long,
+        startAtMillis: Long,
+        hasTime: Boolean,
+        title: String,
+        note: String,
+        participants: String,
+        phase: com.meetingnotes.data.model.DealPhase?
+    ): Long = scheduleDao.insert(
+        com.meetingnotes.data.local.ScheduleEntity(
+            clientId = clientId,
+            sourceMeetingId = null,
+            startAtMillis = startAtMillis,
+            hasTime = hasTime,
+            title = title.trim().ifBlank { "打ち合わせ" },
+            note = note.trim(),
+            participants = participants.trim(),
+            phase = phase?.wireValue,
+            createdAt = System.currentTimeMillis()
+        )
+    )
+
+    suspend fun updateSchedule(
+        id: Long,
+        startAtMillis: Long,
+        hasTime: Boolean,
+        title: String,
+        note: String,
+        participants: String,
+        phase: com.meetingnotes.data.model.DealPhase?
+    ) {
+        val row = scheduleDao.getById(id) ?: return
+        scheduleDao.update(
+            row.copy(
+                startAtMillis = startAtMillis,
+                hasTime = hasTime,
+                title = title.trim().ifBlank { "打ち合わせ" },
+                note = note.trim(),
+                participants = participants.trim(),
+                phase = phase?.wireValue
+            )
+        )
+        // AI 由来なら商談側の nextMeetingDate も合わせる。
+        if (row.sourceMeetingId != null) {
+            val iso = com.meetingnotes.data.model.NextMeetingTime.toIso(
+                com.meetingnotes.data.model.NextMeetingTime.toLocalDateTime(startAtMillis),
+                includeTime = hasTime
+            )
+            meetingDao.updateNextMeeting(row.sourceMeetingId, iso, null)
+        }
+    }
+
+    /** 予定を削除。AI 由来(sourceMeetingId あり)なら商談の nextMeetingDate も消す。 */
+    suspend fun deleteSchedule(id: Long) {
+        val row = scheduleDao.getById(id)
+        scheduleDao.deleteById(id)
+        if (row?.sourceMeetingId != null) {
+            meetingDao.updateNextMeeting(row.sourceMeetingId, null, null)
+        }
+    }
+
+    suspend fun getSchedulesForReminder(fromMillis: Long, toMillis: Long) =
+        scheduleDao.getBetween(fromMillis, toMillis)
+
+    /** 起動時に呼ぶ。既存 `meetings.nextMeetingDate` を `schedules` に取り込む(冪等)。 */
+    suspend fun backfillSchedules() {
+        meetingDao.getAll().forEach { m ->
+            val parsed = com.meetingnotes.data.model.NextMeetingTime.parse(m.nextMeetingDate) ?: return@forEach
+            if (scheduleDao.getBySourceMeeting(m.id) != null) return@forEach
+            scheduleDao.insert(
+                com.meetingnotes.data.local.ScheduleEntity(
+                    clientId = m.clientId,
+                    sourceMeetingId = m.id,
+                    startAtMillis = com.meetingnotes.data.model.NextMeetingTime.toMillis(parsed.start),
+                    hasTime = !parsed.allDay,
+                    title = "次回打ち合わせ",
+                    phase = m.phaseOverride ?: m.dealPhase,
+                    createdAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
 
     /**
      * この商談のフォロー(お礼・確認メール)を「完了」にする(ホーム/ToDo一覧のボードから除外)。
@@ -134,8 +260,6 @@ class MeetingRepository(
         meetingDao.observeFollowedUpMeetings()
 
     // --- F7: 予定・リマインド ---
-
-    suspend fun getNextMeetingCandidates(): List<NextMeetingCandidate> = meetingDao.getNextMeetingCandidates()
 
     fun observeNotificationLog(): Flow<List<NotificationLogEntity>> = notificationLogDao.observeRecent()
 
@@ -265,6 +389,8 @@ class MeetingRepository(
             )
         } + followupEmailTodo(meetingId, recordedAt)
         todoDao.insertAll(todos)
+        // AI が「次回打ち合わせ」を拾っていれば、予定(schedules)にも1件作る。
+        summary.nextMeeting.date?.let { syncNextMeetingSchedule(meetingId, it) }
         return meetingId
     }
 

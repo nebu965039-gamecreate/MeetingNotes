@@ -2,6 +2,8 @@ package com.meetingnotes.ui.schedule
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,8 +53,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.OutlinedTextField
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.NextMeetingTime
 import com.meetingnotes.ui.client.UpcomingItem
 import com.meetingnotes.ui.common.ConfirmDialog
@@ -77,25 +81,29 @@ fun ScheduleScreen(
     onOpenClient: (Long) -> Unit
 ) {
     val viewModel: ScheduleViewModel = viewModel(factory = ScheduleViewModel.factory(repository))
-    val items by viewModel.upcoming.collectAsState()
-    val schedulableClients by viewModel.schedulableClients.collectAsState()
+    val allSchedules by viewModel.schedules.collectAsState()
+    val clients by viewModel.clients.collectAsState()
     val dueTodos by viewModel.dueTodos.collectAsState()
 
     var viewedMonth by remember { mutableStateOf(YearMonth.now()) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
-    var meetingToReschedule by remember { mutableStateOf<UpcomingItem?>(null) }
-    var meetingToClear by remember { mutableStateOf<UpcomingItem?>(null) }
+    var scheduleToEdit by remember { mutableStateOf<UpcomingItem?>(null) }
+    var scheduleToDelete by remember { mutableStateOf<UpcomingItem?>(null) }
+
+    val today = LocalDate.now()
+    val futureSchedules = allSchedules.filter { !it.start.toLocalDate().isBefore(today) }
 
     val todoDatesByDay = remember(dueTodos) {
         dueTodos.groupBy { runCatching { LocalDate.parse(it.dueDate) }.getOrNull() }
             .filterKeys { it != null }
             .mapKeys { it.key!! }
     }
-    val markedDates = remember(items, todoDatesByDay) {
-        items.map { it.start.toLocalDate() }.toSet() + todoDatesByDay.keys
+    val markedDates = remember(allSchedules, todoDatesByDay) {
+        allSchedules.map { it.start.toLocalDate() }.toSet() + todoDatesByDay.keys
     }
-    val filteredItems = selectedDate?.let { d -> items.filter { it.start.toLocalDate() == d } } ?: items
+    val filteredItems = selectedDate?.let { d -> allSchedules.filter { it.start.toLocalDate() == d } }
+        ?: futureSchedules
     val selectedDayTodos = selectedDate?.let { todoDatesByDay[it].orEmpty() } ?: emptyList()
 
     Scaffold(
@@ -155,7 +163,7 @@ fun ScheduleScreen(
                         text = if (date != null) {
                             "${date.monthValue}月${date.dayOfMonth}日の予定 (${filteredItems.size}件)"
                         } else {
-                            "予定一覧 (全${items.size}件)"
+                            "これからの予定 (${futureSchedules.size}件)"
                         },
                         style = MaterialTheme.typography.titleSmall
                     )
@@ -168,18 +176,18 @@ fun ScheduleScreen(
             if (filteredItems.isEmpty()) {
                 item {
                     Text(
-                        "次回打ち合わせが設定されている商談はありません。",
+                        "予定はありません。右下の＋から追加できます。",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
-                items(filteredItems, key = { it.meetingId }) { item ->
+                items(filteredItems, key = { it.scheduleId }) { item ->
                     ScheduleRow(
                         item = item,
-                        onClick = { onOpenClient(item.client.id) },
-                        onReschedule = { meetingToReschedule = item },
-                        onDelete = { meetingToClear = item }
+                        onClick = { onOpenClient(item.clientId) },
+                        onEdit = { scheduleToEdit = item },
+                        onDelete = { scheduleToDelete = item }
                     )
                 }
             }
@@ -220,36 +228,38 @@ fun ScheduleScreen(
     }
 
     if (showAddDialog) {
-        AddScheduleDialog(
-            clients = schedulableClients,
+        ScheduleFormDialog(
+            clients = clients,
+            editing = null,
             onDismiss = { showAddDialog = false },
-            onConfirm = { clientId, dateTime, hasTime ->
-                viewModel.scheduleForClient(clientId, NextMeetingTime.toIso(dateTime, includeTime = hasTime))
+            onConfirm = { clientId, millis, hasTime, title, participants, note, phase ->
+                viewModel.addSchedule(clientId, millis, hasTime, title, note, participants, phase)
                 showAddDialog = false
             }
         )
     }
 
-    meetingToReschedule?.let { item ->
-        NextMeetingDateTimeDialog(
-            initial = item.start,
-            initialHasTime = !item.allDay,
-            onDismiss = { meetingToReschedule = null },
-            onConfirm = { dateTime, hasTime ->
-                viewModel.rescheduleMeeting(item.meetingId, NextMeetingTime.toIso(dateTime, includeTime = hasTime))
-                meetingToReschedule = null
+    scheduleToEdit?.let { item ->
+        ScheduleFormDialog(
+            clients = clients,
+            editing = item,
+            onDismiss = { scheduleToEdit = null },
+            onConfirm = { _, millis, hasTime, title, participants, note, phase ->
+                viewModel.updateSchedule(item.scheduleId, millis, hasTime, title, note, participants, phase)
+                scheduleToEdit = null
             }
         )
     }
 
-    meetingToClear?.let { item ->
+    scheduleToDelete?.let { item ->
         ConfirmDialog(
             title = "予定を削除",
-            text = "「${item.client.name}」の次回打ち合わせの予定を削除します。商談の記録は削除されません。",
-            onDismiss = { meetingToClear = null },
+            text = "「${item.clientName}」の予定「${item.title}」を削除します。" +
+                if (item.fromAi) "商談の「次回打ち合わせ」も未設定に戻ります。" else "",
+            onDismiss = { scheduleToDelete = null },
             onConfirm = {
-                viewModel.clearSchedule(item.meetingId)
-                meetingToClear = null
+                viewModel.deleteSchedule(item.scheduleId)
+                scheduleToDelete = null
             }
         )
     }
@@ -259,7 +269,7 @@ fun ScheduleScreen(
 private fun ScheduleRow(
     item: UpcomingItem,
     onClick: () -> Unit,
-    onReschedule: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -273,47 +283,56 @@ private fun ScheduleRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                .padding(start = 14.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     relativeDateTimeLabel(item.start, item.allDay),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    item.client.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (item.phase != null) {
-                    DealPhaseChip(phase = item.phase)
-                    Spacer(Modifier.width(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        item.title.ifBlank { "打ち合わせ" },
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (item.phase != null) {
+                        Spacer(Modifier.width(6.dp))
+                        DealPhaseChip(phase = item.phase)
+                    }
                 }
-                Box {
-                    IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "メニュー")
-                    }
-                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                        DropdownMenuItem(
-                            text = { Text("日程を変更") },
-                            onClick = {
-                                menuExpanded = false
-                                onReschedule()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("削除") },
-                            onClick = {
-                                menuExpanded = false
-                                onDelete()
-                            }
-                        )
-                    }
+                Text(
+                    item.clientName + (if (item.participants.isNotBlank()) " ・ ${item.participants}" else ""),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+                if (item.note.isNotBlank()) {
+                    Text(
+                        item.note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2
+                    )
+                }
+            }
+            Box {
+                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "メニュー")
+                }
+                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("編集") },
+                        onClick = { menuExpanded = false; onEdit() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("削除") },
+                        onClick = { menuExpanded = false; onDelete() }
+                    )
                 }
             }
         }
@@ -448,24 +467,42 @@ private fun MonthCalendar(
 }
 
 @Composable
-private fun AddScheduleDialog(
+private fun ScheduleFormDialog(
     clients: List<Pair<Long, String>>,
+    editing: UpcomingItem?,
     onDismiss: () -> Unit,
-    onConfirm: (clientId: Long, dateTime: LocalDateTime, hasTime: Boolean) -> Unit
+    onConfirm: (
+        clientId: Long, startAtMillis: Long, hasTime: Boolean,
+        title: String, participants: String, note: String, phase: DealPhase?
+    ) -> Unit
 ) {
-    var clientId by remember { mutableStateOf(clients.firstOrNull()?.first) }
-    var dateTime by remember { mutableStateOf(LocalDate.now().plusDays(1).atStartOfDay()) }
-    var hasTime by remember { mutableStateOf(false) }
+    var clientId by remember { mutableStateOf(editing?.clientId ?: clients.firstOrNull()?.first) }
+    var dateTime by remember {
+        mutableStateOf(editing?.start ?: LocalDate.now().plusDays(1).atTime(10, 0))
+    }
+    var hasTime by remember { mutableStateOf(editing?.allDay == false) }
+    var title by remember { mutableStateOf(editing?.title?.takeIf { it.isNotBlank() } ?: "打ち合わせ") }
+    var participants by remember { mutableStateOf(editing?.participants.orEmpty()) }
+    var note by remember { mutableStateOf(editing?.note.orEmpty()) }
+    var phase by remember { mutableStateOf(editing?.phase) }
     var showPicker by remember { mutableStateOf(false) }
+
+    val phaseOptions = buildList<Pair<DealPhase?, String>> {
+        add(null to "設定なし")
+        DealPhase.entries.forEach { add(it to it.label) }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("予定を追加") },
+        title = { Text(if (editing == null) "予定を追加" else "予定を編集") },
         text = {
             if (clients.isEmpty()) {
-                Text("商談記録のあるクライアントがいません。まず録音してから設定できます。")
+                Text("クライアントがいません。先にクライアントを追加してください。")
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     LabeledDropdownField(
                         label = "クライアント",
                         options = clients,
@@ -475,18 +512,52 @@ private fun AddScheduleDialog(
                     )
                     TextButton(onClick = { showPicker = true }) {
                         Text(
-                            "日程: ${dateTime.monthValue}月${dateTime.dayOfMonth}日" +
-                                if (hasTime) " %02d:%02d".format(dateTime.hour, dateTime.minute) else ""
+                            "日時: ${dateTime.monthValue}月${dateTime.dayOfMonth}日" +
+                                if (hasTime) " %02d:%02d".format(dateTime.hour, dateTime.minute) else "（終日）"
                         )
                     }
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("内容・タイトル") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = participants,
+                        onValueChange = { participants = it },
+                        label = { Text("参加者") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        label = { Text("メモ") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    LabeledDropdownField(
+                        label = "進捗ラベル",
+                        options = phaseOptions,
+                        selected = phase,
+                        onSelect = { phase = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { clientId?.let { onConfirm(it, dateTime, hasTime) } },
+                onClick = {
+                    clientId?.let {
+                        onConfirm(
+                            it, NextMeetingTime.toMillis(dateTime), hasTime,
+                            title, participants, note, phase
+                        )
+                    }
+                },
                 enabled = clients.isNotEmpty() && clientId != null
-            ) { Text("追加") }
+            ) { Text(if (editing == null) "追加" else "保存") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("キャンセル") }

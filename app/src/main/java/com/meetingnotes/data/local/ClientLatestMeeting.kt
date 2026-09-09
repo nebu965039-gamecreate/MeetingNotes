@@ -1,13 +1,5 @@
 package com.meetingnotes.data.local
 
-/** `MeetingDao.getNextMeetingCandidates` の射影結果(リマインド用)。 */
-data class NextMeetingCandidate(
-    val meetingId: Long,
-    val clientId: Long,
-    val clientName: String,
-    val nextMeetingDate: String
-)
-
 /** `TodoDao.observeOpenTodoCountByClient` の射影結果。 */
 data class ClientTodoCount(val clientId: Long, val count: Int)
 

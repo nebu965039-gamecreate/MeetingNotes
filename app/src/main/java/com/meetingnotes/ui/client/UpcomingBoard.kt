@@ -28,8 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.meetingnotes.data.local.ClientEntity
-import com.meetingnotes.data.local.ClientLatestMeeting
+import com.meetingnotes.data.local.ScheduleWithClient
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.NextMeetingTime
 import com.meetingnotes.ui.common.DealPhaseChip
@@ -37,37 +36,46 @@ import com.meetingnotes.ui.common.relativeDateTimeLabel
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-/** 予定カレンダー(F7)の1行。 */
+/** 予定(schedules)の1行。 */
 data class UpcomingItem(
-    val client: ClientEntity,
-    val meetingId: Long,
+    val scheduleId: Long,
+    val clientId: Long,
+    val clientName: String,
     val start: LocalDateTime,
     val allDay: Boolean,
-    val phase: DealPhase?
+    val title: String,
+    val note: String,
+    val participants: String,
+    val phase: DealPhase?,
+    /** AI が要約から拾った「次回打ち合わせ」由来か(手動追加でない)。 */
+    val fromAi: Boolean
 )
 
-/** 未来の「次回打ち合わせ」を日付順に拾うロジック。純粋関数で単体テスト可能。 */
+fun ScheduleWithClient.toUpcomingItem(): UpcomingItem = UpcomingItem(
+    scheduleId = id,
+    clientId = clientId,
+    clientName = clientName,
+    start = NextMeetingTime.toLocalDateTime(startAtMillis),
+    allDay = !hasTime,
+    title = title,
+    note = note,
+    participants = participants,
+    phase = DealPhase.fromWire(phase),
+    fromAi = sourceMeetingId != null
+)
+
+/** 予定を日付順に並べるロジック。 */
 object UpcomingRules {
 
-    fun compute(
-        clients: List<ClientEntity>,
-        latest: List<ClientLatestMeeting>,
-        today: LocalDate = LocalDate.now()
-    ): List<UpcomingItem> {
-        val byClient = latest.associateBy { it.clientId }
-        return clients.mapNotNull { client ->
-            val m = byClient[client.id] ?: return@mapNotNull null
-            val parsed = NextMeetingTime.parse(m.nextMeetingDate) ?: return@mapNotNull null
-            if (parsed.date.isBefore(today)) return@mapNotNull null
-            UpcomingItem(
-                client = client,
-                meetingId = m.meetingId,
-                start = parsed.start,
-                allDay = parsed.allDay,
-                phase = DealPhase.fromWire(m.phaseOverride ?: m.dealPhase)
-            )
-        }.sortedBy { it.start }
-    }
+    /** 今日以降(または [includePast])の予定を開始日時順に。 */
+    fun order(
+        schedules: List<ScheduleWithClient>,
+        today: LocalDate = LocalDate.now(),
+        includePast: Boolean = false
+    ): List<UpcomingItem> =
+        schedules.map { it.toUpcomingItem() }
+            .filter { includePast || !it.start.toLocalDate().isBefore(today) }
+            .sortedBy { it.start }
 }
 
 private const val PREVIEW_COUNT = 3
@@ -140,7 +148,7 @@ fun UpcomingBoard(
                 ) {
                     val preview = items.take(PREVIEW_COUNT)
                     preview.forEachIndexed { index, item ->
-                        UpcomingRow(item = item, onClick = { onOpenClient(item.client.id) })
+                        UpcomingRow(item = item, onClick = { onOpenClient(item.clientId) })
                         if (index != preview.lastIndex) {
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
@@ -168,12 +176,21 @@ private fun UpcomingRow(item: UpcomingItem, onClick: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                item.client.name,
+                item.clientName,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            if (item.title.isNotBlank() && item.title != "打ち合わせ" && item.title != "次回打ち合わせ") {
+                Text(
+                    item.title,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (item.phase != null) {

@@ -54,7 +54,8 @@ private val upcomingFormat = DateTimeFormatter.ofPattern("M月d日(E)", Locale.J
 fun NotificationScreen(
     repository: MeetingRepository,
     onBack: () -> Unit,
-    onOpenMeeting: (Long) -> Unit
+    onOpenMeeting: (Long) -> Unit,
+    onOpenClient: (Long) -> Unit
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as Application
@@ -117,11 +118,11 @@ fun NotificationScreen(
                     )
                 }
             } else {
-                items(upcoming, key = { "up_${it.meetingId}" }) { item ->
+                items(upcoming, key = { "up_${it.scheduleId}" }) { item ->
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onOpenMeeting(item.meetingId) },
+                            .clickable { onOpenClient(item.clientId) },
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainer
                         )
@@ -136,7 +137,7 @@ fun NotificationScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                item.clientName,
+                                "${item.clientName} ・ ${item.title}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium
                             )
@@ -162,7 +163,13 @@ fun NotificationScreen(
                 }
             } else {
                 items(history, key = { it.id }) { log ->
-                    HistoryRow(log = log, onClick = { onOpenMeeting(log.meetingId) })
+                    HistoryRow(
+                        log = log,
+                        onClick = {
+                            if (log.meetingId > 0) onOpenMeeting(log.meetingId)
+                            else onOpenClient(log.clientId)
+                        }
+                    )
                 }
             }
         }

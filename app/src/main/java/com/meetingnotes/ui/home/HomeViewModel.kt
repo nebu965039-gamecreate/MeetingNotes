@@ -61,7 +61,8 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val upcoming: StateFlow<List<UpcomingItem>> =
-        combine(clients, latestMeetings) { clientList, latest -> UpcomingRules.compute(clientList, latest) }
+        repository.observeSchedules()
+            .map { UpcomingRules.order(it) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** 通知一覧を最後に開いてから発火した通知があれば true(ホームの通知タイルの赤マーク)。 */

@@ -3,6 +3,7 @@ package com.meetingnotes
 import android.app.Application
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.core.content.edit
 import androidx.room.Room
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
@@ -18,6 +19,7 @@ import com.meetingnotes.speech.restoreLeftoverMediaVolume
 import com.meetingnotes.util.DiagnosticsLog
 import com.meetingnotes.ui.theme.ThemeMode
 import com.meetingnotes.ui.theme.ThemePrefs
+import kotlinx.coroutines.launch
 
 class MeetingNotesApp : Application() {
 
@@ -60,9 +62,14 @@ class MeetingNotesApp : Application() {
             database.clientBriefingDao(),
             database.notificationLogDao(),
             database.clientContactDao(),
-            database.clientProjectDao()
+            database.clientProjectDao(),
+            database.scheduleDao()
         )
     }
+
+    private val appScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+    )
 
     override fun onCreate() {
         super.onCreate()
@@ -90,5 +97,15 @@ class MeetingNotesApp : Application() {
         NotificationHelper.ensureChannel(this)
         ReminderScheduler.schedule(this)
         NotificationSeenState.init(this)
+
+        // 既存の meetings.nextMeetingDate を schedules に取り込む(v17 移行の一度きり。以降は saveMeeting/
+        // setNextMeeting が連動して作るので不要)。
+        val prefs = getSharedPreferences("app_migrations", MODE_PRIVATE)
+        if (!prefs.getBoolean("schedules_backfilled", false)) {
+            appScope.launch {
+                runCatching { repository.backfillSchedules() }
+                    .onSuccess { prefs.edit { putBoolean("schedules_backfilled", true) } }
+            }
+        }
     }
 }
