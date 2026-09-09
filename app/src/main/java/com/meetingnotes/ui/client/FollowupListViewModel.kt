@@ -9,19 +9,31 @@ import com.meetingnotes.data.local.FollowedUpMeeting
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class FollowupListViewModel(private val repository: MeetingRepository) : ViewModel() {
 
+    private val boardSource = combine(
+        repository.observeClients(),
+        repository.observeLatestMeetingPerClient(),
+        repository.observeOpenTodoCountByClient()
+    ) { clients, latest, counts -> Triple(clients, latest, counts) }
+
     val followups: StateFlow<List<FollowupItem>> =
-        combine(
-            repository.observeClients(),
-            repository.observeLatestMeetingPerClient(),
-            repository.observeOpenTodoCountByClient()
-        ) { clients, latest, counts ->
-            FollowupRules.compute(clients, latest, openTodoCountByClient = counts)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        boardSource
+            .map { (clients, latest, counts) ->
+                FollowupRules.compute(clients, latest, openTodoCountByClient = counts)
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val snoozed: StateFlow<List<FollowupItem>> =
+        boardSource
+            .map { (clients, latest, counts) ->
+                FollowupRules.computeSnoozed(clients, latest, openTodoCountByClient = counts)
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val followedUp: StateFlow<List<FollowedUpMeeting>> =
         repository.observeFollowedUpMeetings()
@@ -30,6 +42,16 @@ class FollowupListViewModel(private val repository: MeetingRepository) : ViewMod
     /** 「完了」タブから ToDo に戻す(フォローアップメール ToDo も未完了へ)。 */
     fun unmarkFollowedUp(meetingId: Long) {
         viewModelScope.launch { repository.clearMeetingFollowedUp(meetingId) }
+    }
+
+    /** このクライアントを [days] 日後まで ToDo ボードから伏せる。 */
+    fun snooze(clientId: Long, days: Long) {
+        val until = System.currentTimeMillis() + days * 24L * 60 * 60 * 1000
+        viewModelScope.launch { repository.setClientFollowSnooze(clientId, until) }
+    }
+
+    fun unsnooze(clientId: Long) {
+        viewModelScope.launch { repository.setClientFollowSnooze(clientId, null) }
     }
 
     companion object {

@@ -16,8 +16,8 @@ class FollowupRulesTest {
     private val now = 1_757_000_000_000L
     private val day = 86_400_000L
 
-    private fun client(id: Long, name: String = "C$id") =
-        ClientEntity(id = id, name = name, createdAt = 0L)
+    private fun client(id: Long, name: String = "C$id", snoozedUntil: Long? = null) =
+        ClientEntity(id = id, name = name, createdAt = 0L, followBoardSnoozedUntil = snoozedUntil)
 
     private fun latest(clientId: Long, daysAgo: Long, phase: String? = null) = ClientLatestMeeting(
         clientId = clientId,
@@ -98,5 +98,36 @@ class FollowupRulesTest {
             openTodoCountByClient = mapOf(1L to 1, 2L to 1, 3L to 1)
         )
         assertEquals(listOf(1L, 3L, 2L), items.map { it.client.id })
+    }
+
+    @Test
+    fun `snoozed client is hidden from the board until the snooze expires`() {
+        val future = now + 10 * day
+        val past = now - day
+        val items = FollowupRules.compute(
+            listOf(client(1, snoozedUntil = future), client(2, snoozedUntil = past), client(3)),
+            listOf(latest(1, 1), latest(2, 1), latest(3, 1)),
+            openTodoCountByClient = mapOf(1L to 1, 2L to 1, 3L to 1),
+            nowMillis = now
+        )
+        assertEquals(setOf(2L, 3L), items.map { it.client.id }.toSet())
+        assertTrue(items.all { it.snoozedUntil == null })
+    }
+
+    @Test
+    fun `computeSnoozed lists only currently-snoozed clients with open todos, nearest first`() {
+        val items = FollowupRules.computeSnoozed(
+            listOf(
+                client(1, snoozedUntil = now + 30 * day),
+                client(2, snoozedUntil = now + 5 * day),
+                client(3, snoozedUntil = now - day),   // 期限切れ → 対象外
+                client(4, snoozedUntil = now + 3 * day) // ToDo 0 件 → 対象外
+            ),
+            listOf(latest(1, 1), latest(2, 1)),
+            openTodoCountByClient = mapOf(1L to 2, 2L to 1, 3L to 1),
+            nowMillis = now
+        )
+        assertEquals(listOf(2L, 1L), items.map { it.client.id })
+        assertEquals(now + 5 * day, items[0].snoozedUntil)
     }
 }

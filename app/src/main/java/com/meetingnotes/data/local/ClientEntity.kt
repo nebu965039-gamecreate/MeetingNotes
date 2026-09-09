@@ -24,5 +24,7 @@ data class ClientEntity(
     val groupId: Long? = null,
     val createdAt: Long,
     val email: String? = null,
-    val phone: String? = null
+    val phone: String? = null,
+    /** ホーム/一覧の「ToDo」ボードでこのクライアントを一時的に伏せる期限(epoch millis)。null で通常表示。 */
+    val followBoardSnoozedUntil: Long? = null
 )

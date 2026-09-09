@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
@@ -28,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,6 +54,7 @@ fun FollowupListScreen(
 ) {
     val viewModel: FollowupListViewModel = viewModel(factory = FollowupListViewModel.factory(repository))
     val todo by viewModel.followups.collectAsState()
+    val snoozed by viewModel.snoozed.collectAsState()
     val done by viewModel.followedUp.collectAsState()
 
     var tab by remember { mutableIntStateOf(0) }
@@ -73,17 +77,27 @@ fun FollowupListScreen(
                 Tab(
                     selected = tab == 1,
                     onClick = { tab = 1 },
+                    text = { Text("スヌーズ (${snoozed.size})") }
+                )
+                Tab(
+                    selected = tab == 2,
+                    onClick = { tab = 2 },
                     text = { Text("完了 (${done.size})") }
                 )
             }
 
-            if (tab == 0) {
-                TodoList(
+            when (tab) {
+                0 -> TodoList(
                     items = todo,
-                    onOpen = onOpenClient
+                    onOpen = onOpenClient,
+                    onSnooze = { clientId, days -> viewModel.snooze(clientId, days) }
                 )
-            } else {
-                DoneList(
+                1 -> SnoozedList(
+                    items = snoozed,
+                    onOpen = onOpenClient,
+                    onUnsnooze = { viewModel.unsnooze(it) }
+                )
+                else -> DoneList(
                     items = done,
                     onOpen = onOpenClient,
                     onReopen = { viewModel.unmarkFollowedUp(it) }
@@ -96,7 +110,8 @@ fun FollowupListScreen(
 @Composable
 private fun TodoList(
     items: List<FollowupItem>,
-    onOpen: (Long) -> Unit
+    onOpen: (Long) -> Unit,
+    onSnooze: (clientId: Long, days: Long) -> Unit
 ) {
     if (items.isEmpty()) {
         EmptyMessage("未完了のToDoはありません。")
@@ -114,7 +129,56 @@ private fun TodoList(
                 phase = item.phase,
                 todoCount = item.openTodoCount,
                 onClick = { onOpen(item.client.id) },
-                trailing = {}
+                trailing = { SnoozeMenu(onSnooze = { days -> onSnooze(item.client.id, days) }) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SnoozeMenu(onSnooze: (days: Long) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }) {
+            Text("スヌーズ", style = MaterialTheme.typography.labelLarge)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            listOf("1週間" to 7L, "2週間" to 14L, "1ヶ月" to 30L, "3ヶ月" to 90L).forEach { (label, days) ->
+                DropdownMenuItem(
+                    text = { Text("$label 後に再表示") },
+                    onClick = { onSnooze(days); open = false }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SnoozedList(
+    items: List<FollowupItem>,
+    onOpen: (Long) -> Unit,
+    onUnsnooze: (Long) -> Unit
+) {
+    if (items.isEmpty()) {
+        EmptyMessage("スヌーズ中のクライアントはありません。")
+        return
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(items, key = { it.client.id }) { item ->
+            FollowupCard(
+                name = item.client.name,
+                subtitle = "${monthDay(item.snoozedUntil ?: 0L)} に再表示・ToDo ${item.openTodoCount}件",
+                phase = item.phase,
+                onClick = { onOpen(item.client.id) },
+                trailing = {
+                    TextButton(onClick = { onUnsnooze(item.client.id) }) {
+                        Text("解除", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
             )
         }
     }

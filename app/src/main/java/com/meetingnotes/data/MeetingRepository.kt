@@ -45,6 +45,10 @@ class MeetingRepository(
 
     suspend fun renameClient(clientId: Long, name: String) = clientDao.rename(clientId, name)
 
+    /** ToDo ボードでこのクライアントを [untilMillis] まで一時的に伏せる(スヌーズ)。null で解除。 */
+    suspend fun setClientFollowSnooze(clientId: Long, untilMillis: Long?) =
+        clientDao.updateFollowBoardSnooze(clientId, untilMillis)
+
     suspend fun updateClientInfo(clientId: Long, name: String, email: String?, phone: String?, memo: String?) =
         clientDao.updateInfo(
             clientId, name.trim(),

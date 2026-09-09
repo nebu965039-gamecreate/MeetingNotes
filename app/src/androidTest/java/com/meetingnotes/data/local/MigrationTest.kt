@@ -215,6 +215,26 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate22To23_addsFollowBoardSnoozeColumn_defaultsNull() {
+        helper.createDatabase(dbName, 22).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 23, true, MIGRATION_22_23)
+
+        db.query("SELECT followBoardSnoozedUntil FROM clients WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertNull(c.getString(0))
+        }
+        db.execSQL("UPDATE clients SET followBoardSnoozedUntil = 9999 WHERE id = 1")
+        db.query("SELECT followBoardSnoozedUntil FROM clients WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getLong(0) == 9999L)
+        }
+    }
+
+    @Test
     fun migrate21To22_addsPhaseChangedAt_backfilledFromCreatedAt() {
         helper.createDatabase(dbName, 21).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

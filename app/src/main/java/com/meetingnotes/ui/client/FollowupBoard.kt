@@ -44,7 +44,9 @@ data class FollowupItem(
     val lastRecordedAt: Long,
     val phase: DealPhase?,
     /** このクライアントの未完了 ToDo 件数(0 なら未表示)。 */
-    val openTodoCount: Int = 0
+    val openTodoCount: Int = 0,
+    /** スヌーズ中の場合の再表示日時(epoch millis)。通常の ToDo 行は null。 */
+    val snoozedUntil: Long? = null
 )
 
 /**
@@ -57,25 +59,55 @@ data class FollowupItem(
  */
 object FollowupRules {
 
+    private fun buildItem(
+        client: ClientEntity,
+        latestByClient: Map<Long, ClientLatestMeeting>,
+        count: Int,
+        snoozedUntil: Long?
+    ): FollowupItem {
+        val m = latestByClient[client.id]
+        return FollowupItem(
+            client = client,
+            meetingId = m?.meetingId ?: 0L,
+            lastRecordedAt = m?.lastRecordedAt ?: client.createdAt,
+            phase = m?.let { DealPhase.fromWire(it.phaseOverride ?: it.dealPhase) },
+            openTodoCount = count,
+            snoozedUntil = snoozedUntil
+        )
+    }
+
+    /** ToDo ボードに出すクライアント。スヌーズ期限が未来のクライアントは除外する。 */
     fun compute(
         clients: List<ClientEntity>,
         latest: List<ClientLatestMeeting>,
-        openTodoCountByClient: Map<Long, Int> = emptyMap()
+        openTodoCountByClient: Map<Long, Int> = emptyMap(),
+        nowMillis: Long = System.currentTimeMillis()
     ): List<FollowupItem> {
         val byClient = latest.associateBy { it.clientId }
         return clients.mapNotNull { client ->
             val count = openTodoCountByClient[client.id] ?: 0
             if (count == 0) return@mapNotNull null
-            val m = byClient[client.id]
-            val phase = m?.let { DealPhase.fromWire(it.phaseOverride ?: it.dealPhase) }
-            FollowupItem(
-                client = client,
-                meetingId = m?.meetingId ?: 0L,
-                lastRecordedAt = m?.lastRecordedAt ?: client.createdAt,
-                phase = phase,
-                openTodoCount = count
-            )
+            val snooze = client.followBoardSnoozedUntil
+            if (snooze != null && snooze > nowMillis) return@mapNotNull null
+            buildItem(client, byClient, count, snoozedUntil = null)
         }.sortedByDescending { it.lastRecordedAt }
+    }
+
+    /** 現在スヌーズ中(未完了 ToDo あり かつ 再表示日が未来)のクライアント。再表示が近い順。 */
+    fun computeSnoozed(
+        clients: List<ClientEntity>,
+        latest: List<ClientLatestMeeting>,
+        openTodoCountByClient: Map<Long, Int> = emptyMap(),
+        nowMillis: Long = System.currentTimeMillis()
+    ): List<FollowupItem> {
+        val byClient = latest.associateBy { it.clientId }
+        return clients.mapNotNull { client ->
+            val snooze = client.followBoardSnoozedUntil ?: return@mapNotNull null
+            if (snooze <= nowMillis) return@mapNotNull null
+            val count = openTodoCountByClient[client.id] ?: 0
+            if (count == 0) return@mapNotNull null
+            buildItem(client, byClient, count, snoozedUntil = snooze)
+        }.sortedBy { it.snoozedUntil }
     }
 }
 

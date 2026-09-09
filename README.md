@@ -27,7 +27,7 @@
 ### 1人CRM
 
 - **商談フェーズ（8段階）**: 初回接触／ヒアリング／提案／見積提示／検討中／成約／保留／失注。AI が推定し、タップで手動変更可。フェーズごとに色分けタグ表示
-- **ToDo ボード**（`ui/client/FollowupListScreen`）: 「ToDo」「完了」の2タブ。完了にした項目は「ToDoに戻す」で戻せる
+- **ToDo ボード**（`ui/client/FollowupListScreen`）: 「ToDo」「スヌーズ」「完了」の3タブ。ToDo 行から「1週間／1ヶ月／3ヶ月後に再表示」でスヌーズでき、期日が来ると自動で戻る（「解除」で即戻す）。完了にした項目は「ToDoに戻す」で戻せる
 - **前回のおさらい（ブリーフィング）**: 2回目以降の録音前に、そのクライアントとの「ここまでの流れ」を過去要約から自動生成して表示
 - **予定表**: 月カレンダー（土日祝を色分け、予定がある日に印）＋ 予定一覧。**1クライアントに複数の予定**を作成でき（既存を上書きしない）、各予定に 内容・参加者・メモ・進捗ラベル を記録。AI が要約から拾った「次回打ち合わせ」も予定として並ぶ
 - **リマインド通知**: 予定の当日・前日に通知（WorkManager、12時間周期）。設定でON/OFF
@@ -56,7 +56,7 @@
 | 言語 | Kotlin 2.4.0 |
 | UI | Jetpack Compose（Material3、Compose BOM 2026.08.00）。配色は M3 baseline purple。ダークテーマ対応 |
 | 画面遷移 | Navigation Compose 2.9.8 |
-| DB | Room 2.8.4（KSPでコード生成）。現在 version 22 |
+| DB | Room 2.8.4（KSPでコード生成）。現在 version 23 |
 | バックグラウンド | WorkManager（リマインド通知の周期実行） |
 | 通信 | OkHttp 5.5.0 + kotlinx.serialization.json 1.11.0（Retrofit不使用、手組みHTTP） |
 | 要約AI | Anthropic Claude（Messages API、tool_use、モデル `claude-haiku-4-5-20251001`）。APIキーはアプリに持たず自前の中継 Cloudflare Worker（`server/`）経由 |
