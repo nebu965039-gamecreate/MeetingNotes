@@ -80,6 +80,11 @@ class ClientDetailViewModel(
     val projects: StateFlow<List<ClientProjectEntity>> = repository.observeClientProjects(clientId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** プロジェクトID(null = プロジェクトなし)→ 商談件数。絞り込み前の全商談から集計(フィルターチップの件数表示用)。 */
+    val projectMeetingCounts: StateFlow<Map<Long?, Int>> = meetings
+        .map { list -> list.groupingBy { it.projectId }.eachCount() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
     private val _sortOrder = MutableStateFlow(MeetingSortOrder.NEWEST)
     val sortOrder: StateFlow<MeetingSortOrder> = _sortOrder.asStateFlow()
 

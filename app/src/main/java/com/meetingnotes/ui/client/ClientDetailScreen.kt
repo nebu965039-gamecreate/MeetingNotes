@@ -1,5 +1,6 @@
 package com.meetingnotes.ui.client
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -24,12 +26,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -41,6 +41,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -66,6 +67,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -122,12 +124,17 @@ fun ClientDetailScreen(
     val folders by viewModel.folders.collectAsState()
     val projects by viewModel.projects.collectAsState()
     val projectFilter by viewModel.projectFilter.collectAsState()
+    val projectCounts by viewModel.projectMeetingCounts.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
 
     val projectNameOf: (MeetingEntity) -> String? = { m ->
         m.projectId?.let { pid -> projects.firstOrNull { it.id == pid }?.name }
+    }
+    // 行の「📁 案件名」タップでその案件に絞り込む(案C)。すでにその案件で絞り込み中なら非リンク。
+    val projectClickOf: (MeetingEntity) -> (() -> Unit)? = { m ->
+        m.projectId?.takeIf { it != projectFilter }?.let { pid -> { viewModel.setProjectFilter(pid) } }
     }
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -216,10 +223,36 @@ fun ClientDetailScreen(
        if (projects.isNotEmpty() && selectedTab != 2) {
            ProjectFilterBar(
                projects = projects,
+               counts = projectCounts,
                selected = projectFilter,
-               onSelect = { viewModel.setProjectFilter(it) },
-               modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+               onSelect = { viewModel.setProjectFilter(it) }
            )
+           if (projectFilter != null) {
+               val filterLabel = when (val f = projectFilter) {
+                   ClientDetailViewModel.NO_PROJECT -> "プロジェクトなし"
+                   else -> projects.firstOrNull { it.id == f }?.name ?: ""
+               }
+               Row(
+                   modifier = Modifier
+                       .fillMaxWidth()
+                       .padding(horizontal = 12.dp, vertical = 2.dp)
+                       .clip(RoundedCornerShape(8.dp))
+                       .background(MaterialTheme.colorScheme.primaryContainer)
+                       .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                   verticalAlignment = Alignment.CenterVertically,
+                   horizontalArrangement = Arrangement.SpaceBetween
+               ) {
+                   Text(
+                       "📁 $filterLabel で絞り込み中",
+                       style = MaterialTheme.typography.labelLarge,
+                       color = MaterialTheme.colorScheme.onPrimaryContainer,
+                       maxLines = 1,
+                       overflow = TextOverflow.Ellipsis,
+                       modifier = Modifier.weight(1f)
+                   )
+                   TextButton(onClick = { viewModel.setProjectFilter(null) }) { Text("解除") }
+               }
+           }
        }
        Box(modifier = Modifier.fillMaxSize()) {
        when (selectedTab) {
@@ -323,7 +356,8 @@ fun ClientDetailScreen(
                             onDelete = { meetingToDelete = result.meeting },
                             onChangePhase = { meetingToPhase = result.meeting },
                             onChangeProject = { meetingToProject = result.meeting },
-                            projectName = projectNameOf(result.meeting)
+                            projectName = projectNameOf(result.meeting),
+                            onProjectClick = projectClickOf(result.meeting)
                         )
                     }
                 }
@@ -353,7 +387,8 @@ fun ClientDetailScreen(
                         onDelete = { meetingToDelete = meeting },
                         onChangePhase = { meetingToPhase = meeting },
                         onChangeProject = { meetingToProject = meeting },
-                        projectName = projectNameOf(meeting)
+                        projectName = projectNameOf(meeting),
+                        onProjectClick = projectClickOf(meeting)
                     )
                 }
             } else {
@@ -382,7 +417,8 @@ fun ClientDetailScreen(
                                     onDelete = { meetingToDelete = meeting },
                                     onChangePhase = { meetingToPhase = meeting },
                                     onChangeProject = { meetingToProject = meeting },
-                                    projectName = projectNameOf(meeting)
+                                    projectName = projectNameOf(meeting),
+                                    onProjectClick = projectClickOf(meeting)
                                 )
                             }
                         }
@@ -407,7 +443,8 @@ fun ClientDetailScreen(
                             onDelete = { meetingToDelete = meeting },
                             onChangePhase = { meetingToPhase = meeting },
                             onChangeProject = { meetingToProject = meeting },
-                            projectName = projectNameOf(meeting)
+                            projectName = projectNameOf(meeting),
+                            onProjectClick = projectClickOf(meeting)
                         )
                     }
                 }
@@ -674,6 +711,7 @@ private fun MeetingRow(
     onChangePhase: () -> Unit,
     onChangeProject: () -> Unit,
     projectName: String? = null,
+    onProjectClick: (() -> Unit)? = null,
     matchPreview: String? = null
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -716,12 +754,20 @@ private fun MeetingRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(text = recordedAt.format(dateFormatter), style = MaterialTheme.typography.bodySmall)
                     if (!projectName.isNullOrBlank()) {
+                        Text(text = "・", style = MaterialTheme.typography.bodySmall)
                         Text(
-                            text = "・📁 $projectName",
+                            text = "📁 $projectName",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (onProjectClick != null) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            textDecoration = if (onProjectClick != null) TextDecoration.Underline else null,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = if (onProjectClick != null) {
+                                Modifier.clickable(onClick = onProjectClick)
+                            } else {
+                                Modifier
+                            }
                         )
                     }
                 }
@@ -818,45 +864,50 @@ private fun FolderOptionRow(label: String, selected: Boolean, onClick: () -> Uni
     }
 }
 
-/** アーカイブ/ToDo の上に置くコンパクトなプロジェクト絞り込みバー。 */
+/**
+ * アーカイブ/ToDo の上に置くプロジェクト絞り込みバー。横スクロールの `FilterChip` 行。
+ * すべて / 各プロジェクト / 「—」(= プロジェクトなし。該当商談が1件以上あるときだけ)。
+ * [counts] はプロジェクトID(null = なし)→ 商談件数。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProjectFilterBar(
     projects: List<ClientProjectEntity>,
+    counts: Map<Long?, Int>,
     selected: Long?,
     onSelect: (Long?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    val label = when (selected) {
-        null -> "すべて"
-        ClientDetailViewModel.NO_PROJECT -> "—"
-        else -> projects.firstOrNull { it.id == selected }?.name ?: "すべて"
-    }
-    Box(modifier) {
-        TextButton(
-            onClick = { expanded = true },
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-        ) {
-            Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("すべて") },
-                onClick = { onSelect(null); expanded = false }
+    val total = counts.values.sum()
+    val noProjectCount = counts[null] ?: 0
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        item(key = "all") {
+            FilterChip(
+                selected = selected == null,
+                onClick = { onSelect(null) },
+                label = { Text("すべて" + if (total > 0) "  $total" else "") }
             )
-            projects.forEach { project ->
-                DropdownMenuItem(
-                    text = { Text(project.name) },
-                    onClick = { onSelect(project.id); expanded = false }
+        }
+        items(projects, key = { it.id }) { project ->
+            val c = counts[project.id] ?: 0
+            FilterChip(
+                selected = selected == project.id,
+                onClick = { onSelect(project.id) },
+                label = { Text(project.name + if (c > 0) "  $c" else "") }
+            )
+        }
+        if (noProjectCount > 0) {
+            item(key = "none") {
+                FilterChip(
+                    selected = selected == ClientDetailViewModel.NO_PROJECT,
+                    onClick = { onSelect(ClientDetailViewModel.NO_PROJECT) },
+                    label = { Text("—  $noProjectCount") }
                 )
             }
-            DropdownMenuItem(
-                text = { Text("—") },
-                onClick = { onSelect(ClientDetailViewModel.NO_PROJECT); expanded = false }
-            )
         }
     }
 }
