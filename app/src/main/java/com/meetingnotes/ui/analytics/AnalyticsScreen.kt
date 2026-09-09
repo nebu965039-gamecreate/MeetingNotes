@@ -99,20 +99,24 @@ fun AnalyticsScreen(repository: MeetingRepository, onHome: () -> Unit) {
                 ThemeMode.DARK -> true
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
             }
-            val barColor = AnalyticsChartColors.bar(darkTheme)
             when (tab) {
                 0 -> SalesReportTab(repository, contentMod)
                 1 -> {
                     val stats by viewModel.activity.collectAsState()
-                    ActivityTab(stats, barColor, contentMod)
+                    ActivityTab(stats, AnalyticsChartColors.activity(darkTheme), contentMod)
                 }
                 2 -> {
                     val stats by viewModel.customers.collectAsState()
-                    CustomerTab(stats, barColor, contentMod)
+                    CustomerTab(stats, AnalyticsChartColors.customers(darkTheme), contentMod)
                 }
                 else -> {
                     val stats by viewModel.follow.collectAsState()
-                    FollowTab(stats, barColor, contentMod)
+                    FollowTab(
+                        stats,
+                        todoColor = AnalyticsChartColors.followTodo(darkTheme),
+                        emailColor = AnalyticsChartColors.followEmail(darkTheme),
+                        modifier = contentMod
+                    )
                 }
             }
         }
@@ -341,20 +345,20 @@ private fun CustomerTab(stats: CustomerStats?, barColor: Color, modifier: Modifi
 // ---- フォロー ----
 
 @Composable
-private fun FollowTab(stats: FollowStats?, barColor: Color, modifier: Modifier) {
+private fun FollowTab(stats: FollowStats?, todoColor: Color, emailColor: Color, modifier: Modifier) {
     if (stats == null || stats.todoTotal == 0) {
         EmptyTab("まだ ToDo がありません。", modifier); return
     }
     AnalyticsTabList(modifier) {
         StatCard("ToDo の消化") {
             KeyValueRow("完了率", stats.todoDoneRate?.let { "$it%" } ?: "—")
-            HBar((stats.todoDoneRate ?: 0) / 100f, barColor)
+            HBar((stats.todoDoneRate ?: 0) / 100f, todoColor)
             KeyValueRow("完了 / 全体", "${stats.todoDone} / ${stats.todoTotal}")
             KeyValueRow("期限切れの未完了", "${stats.overdueOpen} 件", emphasize = stats.overdueOpen > 0)
         }
         StatCard("フォローアップ") {
             KeyValueRow("お礼メール送信率", stats.emailFollowRate?.let { "$it%" } ?: "—")
-            HBar((stats.emailFollowRate ?: 0) / 100f, barColor)
+            HBar((stats.emailFollowRate ?: 0) / 100f, emailColor)
             stats.avgFollowDays?.let {
                 KeyValueRow("平均フォロー日数", String.format(java.util.Locale.JAPAN, "%.1f 日", it))
             }
