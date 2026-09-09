@@ -7,7 +7,13 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
@@ -450,11 +456,31 @@ private fun CountdownContent(secondsLeft: Int, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = secondsLeft.toString(),
-            style = MaterialTheme.typography.displayLarge
-        )
-        Spacer(Modifier.height(8.dp))
+        com.meetingnotes.ui.common.PulsingHalo(
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(150.dp),
+            ringWidth = 3.dp,
+            ringGap = 0.dp,
+            maxScale = 1.9f,
+            maxAlpha = 0.28f,
+            durationMillis = 1000,
+            staticRingAlpha = 0.35f
+        ) {
+            AnimatedContent(
+                targetState = secondsLeft,
+                transitionSpec = {
+                    (scaleIn(initialScale = 0.6f) + fadeIn()) togetherWith
+                        (scaleOut(targetScale = 1.35f) + fadeOut())
+                },
+                label = "countdown"
+            ) { n ->
+                Text(
+                    text = n.toString(),
+                    style = MaterialTheme.typography.displayLarge
+                )
+            }
+        }
+        Spacer(Modifier.height(20.dp))
         Text(
             text = "まもなく録音を開始します",
             style = MaterialTheme.typography.bodyLarge

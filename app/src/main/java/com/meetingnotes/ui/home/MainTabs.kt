@@ -46,6 +46,7 @@ import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.client.ClientListScreen
 import com.meetingnotes.ui.client.FollowupListScreen
+import com.meetingnotes.ui.common.PulsingHalo
 import com.meetingnotes.ui.schedule.ScheduleScreen
 
 /** 下部ナビの4タブ。 */
@@ -113,15 +114,23 @@ fun MainTabsShell(
                             .padding(bottom = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Surface(
-                            onClick = onStartRecording,
-                            shape = CircleShape,
+                        PulsingHalo(
                             color = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            shadowElevation = 3.dp
+                            maxScale = 1.28f,
+                            maxAlpha = 0.16f,
+                            durationMillis = 3400,
+                            staticRingAlpha = 0.28f
                         ) {
-                            Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Filled.Mic, contentDescription = "録音を始める")
+                            Surface(
+                                onClick = onStartRecording,
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                shadowElevation = 3.dp
+                            ) {
+                                Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Filled.Mic, contentDescription = "録音を始める")
+                                }
                             }
                         }
                     }
