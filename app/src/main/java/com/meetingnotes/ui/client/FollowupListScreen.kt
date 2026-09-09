@@ -1,5 +1,6 @@
 package com.meetingnotes.ui.client
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -75,7 +76,12 @@ fun FollowupListScreen(
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(MaterialTheme.colorScheme.surface)
+        ) {
             // 下部ナビの ToDo バッジ(= 未完了 ToDo 総数)と件数を揃える。
             val openTodoTotal = todo.sumOf { it.openTodoCount }
             FolderTabRow(

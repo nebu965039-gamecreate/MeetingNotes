@@ -331,7 +331,18 @@ fun ClientDetailScreen(
             }
 
             if (meetings.isEmpty() && folders.isEmpty()) {
-                item { Text("まだ商談の記録がありません。") }
+                item {
+                    Box(
+                        modifier = Modifier.fillParentMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "まだ商談の記録がありません。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             } else if (folders.isEmpty()) {
                 items(meetings, key = { it.id }) { meeting ->
                     MeetingRow(
@@ -1282,7 +1293,7 @@ private fun TodoTab(
         if (list.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    if (sub == 0) "未完了のToDoはありません。「ToDoを追加」から登録できます。"
+                    if (sub == 0) "現在ToDoはありません"
                     else "完了したToDoはありません。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

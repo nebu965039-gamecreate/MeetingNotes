@@ -101,6 +101,8 @@ fun ScheduleScreen(
 
     val today = LocalDate.now()
     val futureSchedules = allSchedules.filter { !it.start.toLocalDate().isBefore(today) }
+    val todaySchedules = allSchedules.filter { it.start.toLocalDate() == today }
+    val upcomingSchedules = allSchedules.filter { it.start.toLocalDate().isAfter(today) }
 
     val todoDatesByDay = remember(dueTodos) {
         dueTodos.groupBy { runCatching { LocalDate.parse(it.dueDate) }.getOrNull() }
@@ -149,43 +151,91 @@ fun ScheduleScreen(
                 )
             }
 
-            item(key = "list_header") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val date = selectedDate
-                    Text(
-                        text = if (date != null) {
-                            "${date.monthValue}月${date.dayOfMonth}日の予定 (${filteredItems.size}件)"
-                        } else {
-                            "これからの予定 (${futureSchedules.size}件)"
-                        },
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    if (date != null) {
+            val date = selectedDate
+            if (date != null) {
+                // 日付を選択中: その日だけを表示(過去も)。
+                item(key = "list_header") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "${date.monthValue}月${date.dayOfMonth}日の予定 (${filteredItems.size}件)",
+                            style = MaterialTheme.typography.titleSmall
+                        )
                         TextButton(onClick = { selectedDate = null }) { Text("すべて表示") }
                     }
                 }
-            }
-
-            if (filteredItems.isEmpty()) {
-                item {
-                    Text(
-                        "予定はありません。右下の＋から追加できます。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                if (filteredItems.isEmpty()) {
+                    item {
+                        Text(
+                            "予定はありません。右下の＋から追加できます。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    items(filteredItems, key = { it.scheduleId }) { item ->
+                        ScheduleRow(
+                            item = item,
+                            onClick = { onOpenClient(item.clientId) },
+                            onEdit = { scheduleToEdit = item },
+                            onDelete = { scheduleToDelete = item }
+                        )
+                    }
                 }
             } else {
-                items(filteredItems, key = { it.scheduleId }) { item ->
-                    ScheduleRow(
-                        item = item,
-                        onClick = { onOpenClient(item.clientId) },
-                        onEdit = { scheduleToEdit = item },
-                        onDelete = { scheduleToDelete = item }
+                // 未選択: 本日の予定 → これからの予定 の2枠。
+                item(key = "today_header") {
+                    Text(
+                        "本日の予定 (${todaySchedules.size}件)",
+                        style = MaterialTheme.typography.titleSmall
                     )
+                }
+                if (todaySchedules.isEmpty()) {
+                    item(key = "today_empty") {
+                        Text(
+                            "本日の予定はありません。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    items(todaySchedules, key = { "today-${it.scheduleId}" }) { item ->
+                        ScheduleRow(
+                            item = item,
+                            onClick = { onOpenClient(item.clientId) },
+                            onEdit = { scheduleToEdit = item },
+                            onDelete = { scheduleToDelete = item }
+                        )
+                    }
+                }
+
+                item(key = "upcoming_header") {
+                    Text(
+                        "これからの予定 (${upcomingSchedules.size}件)",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                if (upcomingSchedules.isEmpty()) {
+                    item(key = "upcoming_empty") {
+                        Text(
+                            "予定はありません。右下の＋から追加できます。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    items(upcomingSchedules, key = { "up-${it.scheduleId}" }) { item ->
+                        ScheduleRow(
+                            item = item,
+                            onClick = { onOpenClient(item.clientId) },
+                            onEdit = { scheduleToEdit = item },
+                            onDelete = { scheduleToDelete = item }
+                        )
+                    }
                 }
             }
 
@@ -285,16 +335,17 @@ private fun ScheduleRow(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top
         ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         relativeDateTimeLabel(item.start, item.allDay),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f, fill = false)
                     )
                     if (item.phase != null) {
@@ -304,14 +355,15 @@ private fun ScheduleRow(
                 }
                 Text(
                     item.clientName + (if (item.participants.isNotBlank()) " ・ ${item.participants}" else ""),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
                 )
                 Text(
                     item.title.ifBlank { "打ち合わせ" },
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 2.dp)
                 )
                 item.location?.takeIf { it.isNotBlank() }?.let {
                     Text(

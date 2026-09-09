@@ -15,19 +15,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,8 +37,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.ui.common.FolderTab
+import com.meetingnotes.ui.common.FolderTabRow
 import com.meetingnotes.ui.common.ProLockedContent
 import com.meetingnotes.ui.common.ProPaywallDialog
+import com.meetingnotes.ui.common.TabTopBar
 import com.meetingnotes.ui.sales.SalesReportTab
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,21 +58,13 @@ fun AnalyticsScreen(repository: MeetingRepository, onHome: () -> Unit) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             Column {
-                TopAppBar(
-                    title = { Text("分析", fontWeight = FontWeight.Bold) },
-                    navigationIcon = {
-                        IconButton(onClick = onHome) {
-                            Icon(Icons.Filled.Home, contentDescription = "ホーム")
-                        }
-                    }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                TabTopBar(icon = Icons.Filled.BarChart, title = "分析", onHome = onHome)
                 if (!locked) {
-                    PrimaryTabRow(selectedTabIndex = tab) {
-                        tabs.forEachIndexed { i, t ->
-                            Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) })
-                        }
-                    }
+                    FolderTabRow(
+                        tabs = tabs.map { FolderTab(it) },
+                        selectedIndex = tab,
+                        onSelect = { tab = it }
+                    )
                 }
             }
         }
@@ -90,7 +79,10 @@ fun AnalyticsScreen(repository: MeetingRepository, onHome: () -> Unit) {
         } else {
             val viewModel: AnalyticsViewModel =
                 viewModel(factory = AnalyticsViewModel.factory(repository))
-            val contentMod = Modifier.fillMaxSize().padding(padding)
+            val contentMod = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(MaterialTheme.colorScheme.surface)
             when (tab) {
                 0 -> SalesReportTab(repository, contentMod)
                 1 -> {

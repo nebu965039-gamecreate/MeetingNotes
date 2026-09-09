@@ -25,21 +25,22 @@ import androidx.compose.ui.unit.dp
 data class FolderTab(val label: String, val count: Int = 0)
 
 /**
- * フォルダの見出しのように、選択中のタブが手前(白)・非選択が奥(色付き)に見えるタブ列。
+ * フォルダの見出しのように、選択中のタブが手前・非選択が奥に見えるタブ列。
+ * 選択中タブの地は [contentColor](= その下に続く画面の背景)と同じにして繋がって見せる。
  * 件数はラベル横の小さなピルで表示する(`PrimaryTabRow` の "(N)" 表記の置き換え)。
- * まず ToDo 画面で試している(CLAUDE.md 参照)。
  */
 @Composable
 fun FolderTabRow(
     tabs: List<FolderTab>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    contentColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .padding(horizontal = 8.dp)
             .height(44.dp),
         verticalAlignment = Alignment.Bottom,
@@ -49,16 +50,14 @@ fun FolderTabRow(
             val selected = index == selectedIndex
             val shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
             Surface(
-                color = if (selected) MaterialTheme.colorScheme.surface
-                else MaterialTheme.colorScheme.surfaceContainerHighest,
+                color = if (selected) contentColor else MaterialTheme.colorScheme.surfaceContainerHighest,
                 contentColor = if (selected) MaterialTheme.colorScheme.onSurface
                 else MaterialTheme.colorScheme.onSurfaceVariant,
-                tonalElevation = if (selected) 3.dp else 0.dp,
-                shadowElevation = if (selected) 2.dp else 0.dp,
+                shadowElevation = if (selected) 1.dp else 0.dp,
                 shape = shape,
                 modifier = Modifier
                     .weight(1f)
-                    .height(if (selected) 44.dp else 36.dp)
+                    .height(if (selected) 44.dp else 34.dp)
                     .clip(shape)
                     .clickable { onSelect(index) }
             ) {
