@@ -373,11 +373,13 @@ class MeetingRepository(
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return -1L
         val active = phase?.isActive != false
+        val now = System.currentTimeMillis()
         return clientProjectDao.insert(
             com.meetingnotes.data.local.ClientProjectEntity(
                 clientId = clientId,
                 name = trimmed,
-                createdAt = System.currentTimeMillis(),
+                createdAt = now,
+                phaseChangedAt = now,
                 phase = phase?.wireValue,
                 currency = currency,
                 estimatedAmount = estimatedAmount,
@@ -416,6 +418,7 @@ class MeetingRepository(
             else -> System.currentTimeMillis()
         }
         val active = phase?.isActive != false
+        val phaseChanged = current.phase != phase?.wireValue
         clientProjectDao.update(
             current.copy(
                 name = name.trim().ifBlank { current.name },
@@ -426,7 +429,9 @@ class MeetingRepository(
                 wonAt = resolvedWonAt,
                 lostReason = if (phase == com.meetingnotes.data.model.DealPhase.LOST) lostReason?.trim()?.ifBlank { null } else null,
                 expectedCloseAt = if (active) expectedCloseAt else null,
-                probability = if (active) probability?.coerceIn(0, 100) else null
+                probability = if (active) probability?.coerceIn(0, 100) else null,
+                phaseChangedAt = if (phaseChanged) System.currentTimeMillis()
+                    else (current.phaseChangedAt ?: current.createdAt)
             )
         )
     }

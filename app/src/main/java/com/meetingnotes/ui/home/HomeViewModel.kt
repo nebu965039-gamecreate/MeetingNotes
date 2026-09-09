@@ -123,6 +123,12 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeDashboard())
 
+    /** 進行中なのに一定日数フェーズが動いていない案件。 */
+    val staleDeals: StateFlow<List<StaleDeal>> =
+        combine(repository.observeAllProjects(), clients) { projects, clientList ->
+            StaleDealRules.compute(projects, clientList)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     /** 期限切れ + 今日 + 3日以内の未完了 ToDo(期限が解決できているもの)。 */
     val dueTodos: StateFlow<List<OpenTodo>> =
         repository.observeOpenTodosWithDueDate()

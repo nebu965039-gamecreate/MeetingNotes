@@ -42,5 +42,7 @@ data class ClientProjectEntity(
     /** 想定クローズ日(受注見込み日、epoch millis)。任意。 */
     val expectedCloseAt: Long? = null,
     /** 受注確度(%、0..100)。未入力(null)なら `DealPhase.defaultProbability` を使う。 */
-    val probability: Int? = null
+    val probability: Int? = null,
+    /** フェーズが最後に変わった時刻(epoch millis)。よどみ検知に使う。作成時は createdAt。 */
+    val phaseChangedAt: Long? = null
 )

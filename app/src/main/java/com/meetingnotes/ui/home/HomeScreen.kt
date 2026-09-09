@@ -64,6 +64,7 @@ fun HomeScreen(
     val dashboard by viewModel.dashboard.collectAsState()
     val hasUnseenNotifications by viewModel.hasUnseenNotifications.collectAsState()
     val dueTodos by viewModel.dueTodos.collectAsState()
+    val staleDeals by viewModel.staleDeals.collectAsState()
 
     val context = LocalContext.current
     val app = context.applicationContext as MeetingNotesApp
@@ -130,6 +131,12 @@ fun HomeScreen(
                         onOpen = { onRecoverDraft(d.clientId) },
                         onDiscard = { app.recordingDraftStore.clear() }
                     )
+                }
+            }
+
+            if (staleDeals.isNotEmpty()) {
+                item(key = "stale_deals") {
+                    StaleDealBoard(items = staleDeals, onOpenClient = onOpenClient)
                 }
             }
 

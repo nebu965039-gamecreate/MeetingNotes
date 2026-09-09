@@ -215,6 +215,24 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate21To22_addsPhaseChangedAt_backfilledFromCreatedAt() {
+        helper.createDatabase(dbName, 21).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL(
+                "INSERT INTO client_projects (clientId, name, createdAt, currency) VALUES (1, '案件A', 4242, 'JPY')"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 22, true, MIGRATION_21_22)
+
+        db.query("SELECT phaseChangedAt FROM client_projects WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getLong(0) == 4242L)
+        }
+    }
+
+    @Test
     fun migrate20To21_addsCloseDateAndProbabilityColumns() {
         helper.createDatabase(dbName, 20).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
