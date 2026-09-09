@@ -19,6 +19,9 @@ interface TodoDao {
     @Query("SELECT * FROM todos WHERE clientId = :clientId ORDER BY id ASC")
     fun observeByClient(clientId: Long): Flow<List<TodoEntity>>
 
+    @Query("SELECT * FROM todos")
+    fun observeAll(): Flow<List<TodoEntity>>
+
     @Query("UPDATE todos SET isDone = :isDone WHERE id = :todoId")
     suspend fun setDone(todoId: Long, isDone: Boolean)
 

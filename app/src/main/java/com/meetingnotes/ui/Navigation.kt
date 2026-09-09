@@ -19,7 +19,6 @@ import com.meetingnotes.ui.notifications.NotificationScreen
 import com.meetingnotes.ui.recording.RecordingScreen
 import com.meetingnotes.ui.result.ResultScreen
 import com.meetingnotes.ui.pipeline.PipelineScreen
-import com.meetingnotes.ui.sales.SalesScreen
 import com.meetingnotes.ui.settings.EmailTemplatesScreen
 import com.meetingnotes.ui.settings.SettingsScreen
 
@@ -34,7 +33,6 @@ object Routes {
     const val HELP = "help"
     const val NOTIFICATIONS = "notifications"
     const val SETTINGS = "settings"
-    const val SALES = "sales"
     const val PIPELINE = "pipeline"
     const val EMAIL_TEMPLATES = "emailTemplates"
     const val CLIENT_EDIT = "clientEdit/{clientId}"
@@ -74,7 +72,6 @@ fun MeetingNotesNavHost(
                     meetingViewModel.resetForNewMeeting()
                     navController.navigate(Routes.RECORDING_UNASSIGNED)
                 },
-                onOpenSales = { navController.navigate(Routes.SALES) },
                 onOpenPipeline = { navController.navigate(Routes.PIPELINE) }
             )
         }
@@ -86,9 +83,6 @@ fun MeetingNotesNavHost(
         }
         composable(Routes.EMAIL_TEMPLATES) {
             EmailTemplatesScreen(repository = repository, onBack = { navController.popBackStack() })
-        }
-        composable(Routes.SALES) {
-            SalesScreen(repository = repository, onBack = { navController.popBackStack() })
         }
         composable(Routes.PIPELINE) {
             PipelineScreen(

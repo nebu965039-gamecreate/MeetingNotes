@@ -9,14 +9,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -44,22 +44,26 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.ui.analytics.AnalyticsScreen
 import com.meetingnotes.ui.client.ClientListScreen
 import com.meetingnotes.ui.client.FollowupListScreen
 import com.meetingnotes.ui.common.PulsingHalo
 import com.meetingnotes.ui.schedule.ScheduleScreen
 
-/** 下部ナビの4タブ。 */
+/** ホームは下部ナビから外し、各タブ画面の左上ホームアイコンから戻る。 */
+private const val HOME_ROUTE = "tab_home"
+
+/** 下部ナビの4タブ(ホームは含まない)。 */
 enum class MainTab(
     val route: String,
     val label: String,
     val icon: ImageVector,
     val selectedIcon: ImageVector
 ) {
-    HOME("tab_home", "ホーム", Icons.Outlined.Home, Icons.Filled.Home),
     CLIENTS("tab_clients", "クライアント", Icons.Outlined.People, Icons.Filled.People),
     SCHEDULE("tab_schedule", "予定表", Icons.Outlined.CalendarMonth, Icons.Filled.CalendarMonth),
-    TODO("tab_todo", "ToDo", Icons.Outlined.CheckCircle, Icons.Filled.CheckCircle)
+    TODO("tab_todo", "ToDo", Icons.Outlined.CheckCircle, Icons.Filled.CheckCircle),
+    ANALYTICS("tab_analytics", "分析", Icons.Outlined.BarChart, Icons.Filled.BarChart)
 }
 
 /**
@@ -77,18 +81,25 @@ fun MainTabsShell(
     onHelp: () -> Unit,
     onOpenNotifications: () -> Unit,
     onStartRecording: () -> Unit,
-    onOpenSales: () -> Unit,
     onOpenPipeline: () -> Unit
 ) {
     val tabNav = rememberNavController()
     val entry by tabNav.currentBackStackEntryAsState()
-    val currentRoute = entry?.destination?.route ?: MainTab.HOME.route
+    val currentRoute = entry?.destination?.route ?: HOME_ROUTE
 
     val openTodoTotal by remember { repository.observeOpenTodoTotal() }
         .collectAsState(initial = 0)
 
     fun switchTab(tab: MainTab) {
         tabNav.navigate(tab.route) {
+            popUpTo(tabNav.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    fun goHome() {
+        tabNav.navigate(HOME_ROUTE) {
             popUpTo(tabNav.graph.findStartDestination().id) { saveState = true }
             launchSingleTop = true
             restoreState = true
@@ -102,12 +113,12 @@ fun MainTabsShell(
                 BannerAdView()
                 Box {
                     NavigationBar {
-                        NavTab(MainTab.HOME, currentRoute, openTodoTotal) { switchTab(it) }
                         NavTab(MainTab.CLIENTS, currentRoute, openTodoTotal) { switchTab(it) }
+                        NavTab(MainTab.SCHEDULE, currentRoute, openTodoTotal) { switchTab(it) }
                         // 中央は録音ボタンぶんの空きスロット。
                         Spacer(Modifier.weight(1f))
-                        NavTab(MainTab.SCHEDULE, currentRoute, openTodoTotal) { switchTab(it) }
                         NavTab(MainTab.TODO, currentRoute, openTodoTotal) { switchTab(it) }
+                        NavTab(MainTab.ANALYTICS, currentRoute, openTodoTotal) { switchTab(it) }
                     }
                     // ナビバー中央に丸い録音ボタンを重ねる(全タブで押せる)。
                     Box(
@@ -142,10 +153,10 @@ fun MainTabsShell(
     ) { padding ->
         NavHost(
             navController = tabNav,
-            startDestination = MainTab.HOME.route,
+            startDestination = HOME_ROUTE,
             modifier = Modifier.padding(padding)
         ) {
-            composable(MainTab.HOME.route) {
+            composable(HOME_ROUTE) {
                 HomeScreen(
                     repository = repository,
                     onOpenClient = onOpenClient,
@@ -156,18 +167,21 @@ fun MainTabsShell(
                     onOpenNotifications = onOpenNotifications,
                     onOpenSchedule = { switchTab(MainTab.SCHEDULE) },
                     onOpenFollowupList = { switchTab(MainTab.TODO) },
-                    onOpenSales = onOpenSales,
+                    onOpenSales = { switchTab(MainTab.ANALYTICS) },
                     onOpenPipeline = onOpenPipeline
                 )
             }
             composable(MainTab.CLIENTS.route) {
-                ClientListScreen(repository = repository, onClientSelected = onOpenClient)
+                ClientListScreen(repository = repository, onClientSelected = onOpenClient, onHome = { goHome() })
             }
             composable(MainTab.SCHEDULE.route) {
-                ScheduleScreen(repository = repository, onOpenClient = onOpenClient)
+                ScheduleScreen(repository = repository, onOpenClient = onOpenClient, onHome = { goHome() })
             }
             composable(MainTab.TODO.route) {
-                FollowupListScreen(repository = repository, onOpenClient = onOpenClient)
+                FollowupListScreen(repository = repository, onOpenClient = onOpenClient, onHome = { goHome() })
+            }
+            composable(MainTab.ANALYTICS.route) {
+                AnalyticsScreen(repository = repository, onHome = { goHome() })
             }
         }
     }

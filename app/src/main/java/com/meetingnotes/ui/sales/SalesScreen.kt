@@ -11,34 +11,22 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -49,12 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.MeetingNotesApp
-import com.meetingnotes.ads.BannerAdView
-import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.ui.common.DealPhaseChip
-import com.meetingnotes.ui.common.ProPaywallDialog
 import com.meetingnotes.ui.theme.PhaseChartColors
 import com.meetingnotes.ui.theme.ThemeMode
 import com.meetingnotes.util.Currency
@@ -64,61 +49,14 @@ import java.util.Locale
 
 private val monthLabelFormatter = DateTimeFormatter.ofPattern("yy/M", Locale.JAPAN)
 
+/** 「分析」画面の「売上」タブの中身。期間セレクタ + 通貨ごとのレポート。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SalesScreen(repository: MeetingRepository, onBack: () -> Unit) {
-    val isPro by ProAccess.isProFlow.collectAsState()
-    val locked = ProAccess.gatingEnabled && !isPro
-    var showPaywall by remember { mutableStateOf(false) }
+fun SalesReportTab(repository: MeetingRepository, modifier: Modifier = Modifier) {
+    val viewModel: SalesViewModel = viewModel(factory = SalesViewModel.factory(repository))
+    val period by viewModel.period.collectAsState()
+    val reports by viewModel.reports.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("売上・実績") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
-                    }
-                }
-            )
-        },
-        bottomBar = { BannerAdView(Modifier.navigationBarsPadding()) }
-    ) { padding ->
-        if (locked) {
-            LockedContent(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                onLearnMore = { showPaywall = true }
-            )
-        } else {
-            val viewModel: SalesViewModel = viewModel(factory = SalesViewModel.factory(repository))
-            val period by viewModel.period.collectAsState()
-            val reports by viewModel.reports.collectAsState()
-            SalesContent(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                period = period,
-                reports = reports,
-                onPeriod = viewModel::setPeriod
-            )
-        }
-    }
-
-    if (showPaywall) {
-        ProPaywallDialog(featureName = "売上・実績", onDismiss = { showPaywall = false })
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SalesContent(
-    modifier: Modifier,
-    period: SalesPeriod,
-    reports: List<SalesCurrencyReport>,
-    onPeriod: (SalesPeriod) -> Unit
-) {
     val app = LocalContext.current.applicationContext as MeetingNotesApp
     val darkTheme = when (app.themeModeState.value) {
         ThemeMode.LIGHT -> false
@@ -136,7 +74,7 @@ private fun SalesContent(
                 SalesPeriod.entries.forEachIndexed { index, p ->
                     SegmentedButton(
                         selected = p == period,
-                        onClick = { onPeriod(p) },
+                        onClick = { viewModel.setPeriod(p) },
                         shape = SegmentedButtonDefaults.itemShape(index, SalesPeriod.entries.size)
                     ) { Text(p.label) }
                 }
@@ -381,28 +319,3 @@ private fun MonthlyBarChart(data: List<MonthlyAmount>, barColor: Color) {
     }
 }
 
-@Composable
-private fun LockedContent(modifier: Modifier, onLearnMore: () -> Unit) {
-    Column(
-        modifier = modifier.padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            Icons.Filled.WorkspacePremium,
-            contentDescription = null,
-            tint = com.meetingnotes.ui.theme.ProGold
-        )
-        Text(
-            "売上・実績は Pro 限定の機能です",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            "案件の成約額・パイプライン・成約率を月次で振り返れます。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        TextButton(onClick = onLearnMore) { Text("Pro について") }
-    }
-}

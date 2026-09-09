@@ -108,6 +108,12 @@ class MeetingRepository(
 
     fun observeMeetings(clientId: Long): Flow<List<MeetingEntity>> = meetingDao.observeByClient(clientId)
 
+    /** 全商談(分析用)。 */
+    fun observeAllMeetings(): Flow<List<MeetingEntity>> = meetingDao.observeAll()
+
+    /** 全 ToDo(分析用)。 */
+    fun observeAllTodos(): Flow<List<TodoEntity>> = todoDao.observeAll()
+
     fun observeLatestMeetingPerClient(): Flow<List<ClientLatestMeeting>> = meetingDao.observeLatestMeetingPerClient()
 
     fun observeMeeting(meetingId: Long): Flow<MeetingEntity?> = meetingDao.observeById(meetingId)

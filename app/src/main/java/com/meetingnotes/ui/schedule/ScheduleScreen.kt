@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -83,7 +84,8 @@ private val SATURDAY_COLOR = Color(0xFF1565C0)
 @Composable
 fun ScheduleScreen(
     repository: MeetingRepository,
-    onOpenClient: (Long) -> Unit
+    onOpenClient: (Long) -> Unit,
+    onHome: () -> Unit = {}
 ) {
     val viewModel: ScheduleViewModel = viewModel(factory = ScheduleViewModel.factory(repository))
     val allSchedules by viewModel.schedules.collectAsState()
@@ -124,6 +126,11 @@ fun ScheduleScreen(
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onHome) {
+                            Icon(Icons.Filled.Home, contentDescription = "ホーム")
                         }
                     }
                 )

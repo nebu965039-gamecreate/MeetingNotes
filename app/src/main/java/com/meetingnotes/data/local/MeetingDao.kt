@@ -22,6 +22,9 @@ interface MeetingDao {
     @Query("SELECT * FROM meetings")
     suspend fun getAll(): List<MeetingEntity>
 
+    @Query("SELECT * FROM meetings")
+    fun observeAll(): Flow<List<MeetingEntity>>
+
     /** クライアントごとの最新商談(フォローボード・予定カレンダー用の軽量射影)。 */
     @Query(
         """

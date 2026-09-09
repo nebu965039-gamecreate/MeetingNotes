@@ -14,9 +14,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -50,7 +54,8 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun FollowupListScreen(
     repository: MeetingRepository,
-    onOpenClient: (Long) -> Unit
+    onOpenClient: (Long) -> Unit,
+    onHome: () -> Unit = {}
 ) {
     val viewModel: FollowupListViewModel = viewModel(factory = FollowupListViewModel.factory(repository))
     val todo by viewModel.followups.collectAsState()
@@ -61,7 +66,14 @@ fun FollowupListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("ToDo") })
+            TopAppBar(
+                title = { Text("ToDo") },
+                navigationIcon = {
+                    IconButton(onClick = onHome) {
+                        Icon(Icons.Filled.Home, contentDescription = "ホーム")
+                    }
+                }
+            )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->

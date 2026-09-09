@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -62,7 +63,8 @@ import com.meetingnotes.ui.theme.OnCreateActionBlue
 @Composable
 fun ClientListScreen(
     repository: MeetingRepository,
-    onClientSelected: (Long) -> Unit
+    onClientSelected: (Long) -> Unit,
+    onHome: () -> Unit = {}
 ) {
     val viewModel: ClientListViewModel = viewModel(factory = ClientListViewModel.factory(repository))
     val clients by viewModel.clients.collectAsState()
@@ -91,6 +93,11 @@ fun ClientListScreen(
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onHome) {
+                            Icon(Icons.Filled.Home, contentDescription = "ホーム")
                         }
                     },
                     actions = {
