@@ -55,14 +55,16 @@ class ClientDetailViewModel(
         _todoSort.value = order
     }
 
-    /** このクライアントの未完了 ToDo。プロジェクト絞り込み + 並び替え適用後。 */
+    /** このクライアントの未完了 ToDo。プロジェクト絞り込み + 並び替え適用後。スヌーズ中は末尾へ。 */
     val openTodos: StateFlow<List<TodoEntity>> =
         combine(todos, _projectFilter, meetingProjectById, _todoSort) { list, filter, projById, sort ->
+            val now = System.currentTimeMillis()
             val filtered = list.filter { !it.isDone && matchesProject(it.meetingId?.let(projById::get), filter) }
+            val snoozedLast = compareBy<TodoEntity> { (it.snoozedUntil ?: 0L) > now }
             when (sort) {
                 TodoSortOrder.DUE_DATE ->
-                    filtered.sortedWith(compareBy({ it.dueDate == null }, { it.dueDate ?: "" }, { -it.id }))
-                TodoSortOrder.CREATED -> filtered.sortedByDescending { it.id }
+                    filtered.sortedWith(snoozedLast.thenBy { it.dueDate == null }.thenBy { it.dueDate ?: "" }.thenByDescending { it.id })
+                TodoSortOrder.CREATED -> filtered.sortedWith(snoozedLast.thenByDescending { it.id })
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -190,6 +192,14 @@ class ClientDetailViewModel(
 
     fun reopenTodo(todoId: Long) {
         viewModelScope.launch { repository.setTodoDone(todoId, false) }
+    }
+
+    fun snoozeTodo(todoId: Long, untilMillis: Long) {
+        viewModelScope.launch { repository.setTodoSnooze(todoId, untilMillis) }
+    }
+
+    fun unsnoozeTodo(todoId: Long) {
+        viewModelScope.launch { repository.setTodoSnooze(todoId, null) }
     }
 
     /** クライアント直下に手動 ToDo を追加。 */

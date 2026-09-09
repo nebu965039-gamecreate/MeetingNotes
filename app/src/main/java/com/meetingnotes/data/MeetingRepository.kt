@@ -300,20 +300,25 @@ class MeetingRepository(
     fun observeTodosByClient(clientId: Long): Flow<List<TodoEntity>> = todoDao.observeByClient(clientId)
 
     fun observeOpenTodosWithDueDate(): Flow<List<com.meetingnotes.data.local.OpenTodo>> =
-        todoDao.observeOpenTodosWithDueDate()
+        todoDao.observeOpenTodosWithDueDate(System.currentTimeMillis())
 
     fun observeOpenTodoCountByClient(): Flow<Map<Long, Int>> =
-        todoDao.observeOpenTodoCountByClient()
+        todoDao.observeOpenTodoCountByClient(System.currentTimeMillis())
             .map { list -> list.associate { it.clientId to it.count } }
 
-    /** 未完了 ToDo の総数(下部ナビのバッジ・ホームのダッシュボード)。 */
-    fun observeOpenTodoTotal(): Flow<Int> = todoDao.observeOpenTodoTotal()
+    /** 未完了 ToDo の総数(下部ナビのバッジ・ホームのダッシュボード)。スヌーズ中の ToDo は含めない。 */
+    fun observeOpenTodoTotal(): Flow<Int> = todoDao.observeOpenTodoTotal(System.currentTimeMillis())
 
     /** 指定時刻以降に録音した商談の件数(ホームのダッシュボード)。 */
     fun observeMeetingCountSince(since: Long): Flow<Int> = meetingDao.observeCountRecordedSince(since)
 
     suspend fun getTodosDueOn(date: String): List<com.meetingnotes.data.local.OpenTodo> =
-        todoDao.getTodosDueOn(date)
+        todoDao.getTodosDueOn(date, System.currentTimeMillis())
+
+    /** ToDo 一件をスヌーズ(再表示日時を設定 / null で解除)。 */
+    suspend fun setTodoSnooze(todoId: Long, untilMillis: Long?) {
+        todoDao.setSnooze(todoId, untilMillis)
+    }
 
     suspend fun getMeetingsChrono(clientId: Long): List<MeetingEntity> =
         meetingDao.getByClientChrono(clientId)

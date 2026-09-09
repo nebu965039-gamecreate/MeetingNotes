@@ -1,30 +1,17 @@
 package com.meetingnotes.ui.client
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Snooze
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -33,46 +20,38 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.common.FolderTab
 import com.meetingnotes.ui.common.FolderTabRow
+import com.meetingnotes.ui.common.SnoozeMenu
 import com.meetingnotes.ui.common.TabTopBar
-import com.meetingnotes.data.local.FollowedUpMeeting
-import com.meetingnotes.data.model.DealPhase
-import com.meetingnotes.ui.common.DealPhaseChip
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import com.meetingnotes.ui.common.TodoRow
+import com.meetingnotes.ui.common.TodoRowData
+import com.meetingnotes.ui.common.todoIsSnoozed
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FollowupListScreen(
     repository: MeetingRepository,
     onOpenClient: (Long) -> Unit,
+    onOpenMeeting: (Long) -> Unit = {},
     onHome: () -> Unit = {}
 ) {
     val viewModel: FollowupListViewModel = viewModel(factory = FollowupListViewModel.factory(repository))
-    val todo by viewModel.followups.collectAsState()
-    val snoozed by viewModel.snoozed.collectAsState()
-    val done by viewModel.followedUp.collectAsState()
+    val open by viewModel.openTodos.collectAsState()
+    val snoozed by viewModel.snoozedTodos.collectAsState()
+    val done by viewModel.doneTodos.collectAsState()
 
     var tab by remember { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = {
-            TabTopBar(
-                icon = Icons.Filled.CheckCircle,
-                title = "ToDo",
-                onHome = onHome
-            )
+            TabTopBar(icon = Icons.Filled.CheckCircle, title = "ToDo", onHome = onHome)
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
@@ -82,11 +61,11 @@ fun FollowupListScreen(
                 .padding(padding)
                 .background(MaterialTheme.colorScheme.surface)
         ) {
-            // 下部ナビの ToDo バッジ(= 未完了 ToDo 総数)と件数を揃える。
-            val openTodoTotal = todo.sumOf { it.openTodoCount }
+            // ToDo タブの件数はスヌーズ中を除いた「今やるべき」数に合わせる(下部ナビのバッジと一致)。
+            val activeCount = open.count { !todoIsSnoozed(it.todo.snoozedUntil) }
             FolderTabRow(
                 tabs = listOf(
-                    FolderTab("ToDo", openTodoTotal),
+                    FolderTab("ToDo", activeCount),
                     FolderTab("スヌーズ", snoozed.size),
                     FolderTab("完了", done.size)
                 ),
@@ -94,22 +73,37 @@ fun FollowupListScreen(
                 onSelect = { tab = it }
             )
 
+            fun openItem(item: TodoScreenItem) {
+                val mid = item.todo.meetingId
+                if (mid != null) onOpenMeeting(mid) else onOpenClient(item.clientId)
+            }
+
             when (tab) {
-                0 -> TodoList(
-                    items = todo,
-                    onOpen = onOpenClient,
-                    onSnooze = { clientId, days -> viewModel.snooze(clientId, days) },
-                    onSnoozeUntil = { clientId, millis -> viewModel.snoozeUntil(clientId, millis) }
+                0 -> TodoItemList(
+                    items = open,
+                    emptyText = "現在ToDoはありません",
+                    onOpen = ::openItem,
+                    onToggle = { viewModel.complete(it) },
+                    trailing = { item ->
+                        SnoozeMenu(
+                            snoozed = todoIsSnoozed(item.todo.snoozedUntil),
+                            onSnooze = { until -> viewModel.snooze(item.id, until) },
+                            onClearSnooze = { viewModel.unsnooze(item.id) }
+                        )
+                    }
                 )
                 1 -> SnoozedList(
                     items = snoozed,
-                    onOpen = onOpenClient,
+                    onOpen = ::openItem,
                     onUnsnooze = { viewModel.unsnooze(it) }
                 )
-                else -> DoneList(
+                else -> TodoItemList(
                     items = done,
-                    onOpen = onOpenClient,
-                    onReopen = { viewModel.unmarkFollowedUp(it) }
+                    emptyText = "完了したToDoはまだありません",
+                    done = true,
+                    onOpen = ::openItem,
+                    onToggle = { viewModel.reopen(it) },
+                    trailing = null
                 )
             }
         }
@@ -117,181 +111,76 @@ fun FollowupListScreen(
 }
 
 @Composable
-private fun TodoList(
-    items: List<FollowupItem>,
-    onOpen: (Long) -> Unit,
-    onSnooze: (clientId: Long, days: Long) -> Unit,
-    onSnoozeUntil: (clientId: Long, millis: Long) -> Unit
+private fun TodoItemList(
+    items: List<TodoScreenItem>,
+    emptyText: String,
+    onOpen: (TodoScreenItem) -> Unit,
+    onToggle: (Long) -> Unit,
+    done: Boolean = false,
+    trailing: (@Composable (TodoScreenItem) -> Unit)?
 ) {
     if (items.isEmpty()) {
-        EmptyMessage("現在ToDoはありません")
+        EmptyMessage(emptyText)
         return
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        contentPadding = PaddingValues(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        items(items, key = { it.client.id }) { item ->
-            FollowupCard(
-                name = item.client.name,
-                subtitle = followupSubtitle(item),
-                phase = item.phase,
-                todoCount = item.openTodoCount,
-                onClick = { onOpen(item.client.id) },
-                trailing = {
-                    SnoozeMenu(
-                        onSnooze = { days -> onSnooze(item.client.id, days) },
-                        onSnoozeUntil = { millis -> onSnoozeUntil(item.client.id, millis) }
-                    )
-                }
+        items(items, key = { it.id }) { item ->
+            TodoRow(
+                data = TodoRowData(
+                    id = item.id,
+                    task = item.todo.task,
+                    dueDate = item.todo.dueDate,
+                    deadlineText = item.todo.deadline,
+                    done = done,
+                    snoozedUntil = item.todo.snoozedUntil,
+                    clientName = item.clientName
+                ),
+                onToggle = { onToggle(item.id) },
+                onClick = { onOpen(item) },
+                trailing = trailing?.let { { it(item) } }
             )
         }
-    }
-}
-
-@Composable
-private fun SnoozeMenu(onSnooze: (days: Long) -> Unit, onSnoozeUntil: (millis: Long) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    var showPicker by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { open = true }) {
-            Icon(Icons.Filled.Snooze, contentDescription = "スヌーズ")
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            listOf("1日後" to 1L, "3日後" to 3L, "1週間後" to 7L, "1ヶ月後" to 30L).forEach { (label, days) ->
-                DropdownMenuItem(
-                    text = { Text("$label に再表示") },
-                    onClick = { onSnooze(days); open = false }
-                )
-            }
-            DropdownMenuItem(
-                text = { Text("日付を指定…") },
-                onClick = { open = false; showPicker = true }
-            )
-        }
-    }
-    if (showPicker) {
-        com.meetingnotes.ui.common.PickDateDialog(
-            initial = java.time.LocalDate.now().plusWeeks(1),
-            title = "再表示する日",
-            onDismiss = { showPicker = false },
-            onConfirm = { d ->
-                onSnoozeUntil(
-                    d.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-                )
-                showPicker = false
-            }
-        )
     }
 }
 
 @Composable
 private fun SnoozedList(
-    items: List<FollowupItem>,
-    onOpen: (Long) -> Unit,
+    items: List<TodoScreenItem>,
+    onOpen: (TodoScreenItem) -> Unit,
     onUnsnooze: (Long) -> Unit
 ) {
     if (items.isEmpty()) {
-        EmptyMessage("スヌーズ中のクライアントはありません")
+        EmptyMessage("スヌーズ中のToDoはありません")
         return
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        contentPadding = PaddingValues(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        items(items, key = { it.client.id }) { item ->
-            FollowupCard(
-                name = item.client.name,
-                subtitle = "${monthDay(item.snoozedUntil ?: 0L)} に再表示・ToDo ${item.openTodoCount}件",
-                phase = item.phase,
-                onClick = { onOpen(item.client.id) },
+        items(items, key = { it.id }) { item ->
+            TodoRow(
+                data = TodoRowData(
+                    id = item.id,
+                    task = item.todo.task,
+                    dueDate = item.todo.dueDate,
+                    deadlineText = item.todo.deadline,
+                    snoozedUntil = item.todo.snoozedUntil,
+                    clientName = item.clientName
+                ),
+                onToggle = {},
+                onClick = { onOpen(item) },
+                showCheckbox = false,
                 trailing = {
-                    TextButton(onClick = { onUnsnooze(item.client.id) }) {
+                    TextButton(onClick = { onUnsnooze(item.id) }) {
                         Text("解除", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             )
-        }
-    }
-}
-
-@Composable
-private fun DoneList(
-    items: List<FollowedUpMeeting>,
-    onOpen: (Long) -> Unit,
-    onReopen: (Long) -> Unit
-) {
-    if (items.isEmpty()) {
-        EmptyMessage("完了した項目はまだありません")
-        return
-    }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(items, key = { it.meetingId }) { item ->
-            FollowupCard(
-                name = item.clientName,
-                subtitle = "完了 ${monthDay(item.followedUpAt)}・${item.title}",
-                phase = DealPhase.fromWire(item.phaseOverride ?: item.dealPhase),
-                onClick = { onOpen(item.clientId) },
-                trailing = {
-                    TextButton(onClick = { onReopen(item.meetingId) }) {
-                        Text("ToDoに戻す", style = MaterialTheme.typography.labelLarge)
-                    }
-                }
-            )
-        }
-    }
-}
-
-@Composable
-private fun FollowupCard(
-    name: String,
-    subtitle: String,
-    phase: DealPhase?,
-    onClick: () -> Unit,
-    trailing: @Composable () -> Unit,
-    todoCount: Int = 0
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    if (todoCount > 0) {
-                        Spacer(Modifier.width(6.dp))
-                        TodoCountBadge(todoCount)
-                    }
-                    if (phase != null) {
-                        Spacer(Modifier.width(6.dp))
-                        DealPhaseChip(phase = phase)
-                    }
-                }
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            trailing()
         }
     }
 }
@@ -306,8 +195,3 @@ private fun EmptyMessage(text: String) {
         )
     }
 }
-
-private val monthDayFormatter = DateTimeFormatter.ofPattern("M/d")
-
-private fun monthDay(epochMillis: Long): String =
-    Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).format(monthDayFormatter)

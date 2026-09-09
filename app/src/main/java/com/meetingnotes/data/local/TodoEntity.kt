@@ -44,5 +44,11 @@ data class TodoEntity(
      * このフラグの ToDo を完了/未完了にすると、対応する商談の `meetings.followedUpAt` が同期され、
      * ホーム/一覧の「ToDo」ボード(F1)から出し入れされる。
      */
-    val isFollowupEmail: Boolean = false
+    val isFollowupEmail: Boolean = false,
+    /**
+     * スヌーズの再表示日時(epoch millis)。未来のときは「催促する画面」
+     * (下部ナビのバッジ / ホームの「やること(期限あり)」/ 期限リマインド / ホームの ToDo ボード)から外れる。
+     * ToDo 一覧・完了一覧・スヌーズ一覧には残る。null = スヌーズなし(v28)。
+     */
+    val snoozedUntil: Long? = null
 )

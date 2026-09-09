@@ -37,7 +37,6 @@ import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -264,6 +263,8 @@ fun ClientDetailScreen(
             onOpenMeeting = onMeetingSelected,
             onComplete = { viewModel.completeTodo(it) },
             onReopen = { viewModel.reopenTodo(it) },
+            onSnooze = { id, until -> viewModel.snoozeTodo(id, until) },
+            onUnsnooze = { viewModel.unsnoozeTodo(it) },
             onAddTodo = { task, dueDate -> viewModel.addManualTodo(task, dueDate) },
             onEditTodo = { id, task, dueDate -> viewModel.updateTodo(id, task, dueDate) },
             onDeleteTodo = { viewModel.deleteTodo(it) }
@@ -1296,6 +1297,8 @@ private fun TodoTab(
     onOpenMeeting: (Long) -> Unit,
     onComplete: (Long) -> Unit,
     onReopen: (Long) -> Unit,
+    onSnooze: (todoId: Long, untilMillis: Long) -> Unit,
+    onUnsnooze: (Long) -> Unit,
     onAddTodo: (task: String, dueDate: String?) -> Unit,
     onEditTodo: (todoId: Long, task: String, dueDate: String?) -> Unit,
     onDeleteTodo: (Long) -> Unit
@@ -1357,14 +1360,29 @@ private fun TodoTab(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(list, key = { it.id }) { t ->
-                    TodoRowItem(
-                        todo = t,
-                        done = sub == 1,
+                    com.meetingnotes.ui.common.TodoRow(
+                        data = com.meetingnotes.ui.common.TodoRowData(
+                            id = t.id,
+                            task = t.task,
+                            dueDate = t.dueDate,
+                            deadlineText = t.deadline,
+                            done = sub == 1,
+                            snoozedUntil = t.snoozedUntil
+                        ),
+                        onToggle = { if (sub == 0) onComplete(t.id) else onReopen(t.id) },
                         onClick = {
                             if (t.meetingId != null) onOpenMeeting(t.meetingId)
                             else editing = t
                         },
-                        onToggle = { if (sub == 0) onComplete(t.id) else onReopen(t.id) }
+                        trailing = if (sub == 0) {
+                            {
+                                com.meetingnotes.ui.common.SnoozeMenu(
+                                    snoozed = com.meetingnotes.ui.common.todoIsSnoozed(t.snoozedUntil),
+                                    onSnooze = { until -> onSnooze(t.id, until) },
+                                    onClearSnooze = { onUnsnooze(t.id) }
+                                )
+                            }
+                        } else null
                     )
                 }
             }
@@ -1454,41 +1472,4 @@ private fun TodoFormDialog(
     }
 }
 
-@Composable
-private fun TodoRowItem(todo: TodoEntity, done: Boolean, onClick: () -> Unit, onToggle: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Checkbox(checked = done, onCheckedChange = { onToggle() })
-        Spacer(Modifier.width(4.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                todo.task,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                textDecoration = if (done) TextDecoration.LineThrough else null,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            val sub = buildString {
-                if (todo.meetingId == null) append("手動") else append("担当 ${todo.assignee}")
-                val dueLabel = todo.dueDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
-                if (dueLabel != null) {
-                    append("・期限 ${dueLabel.monthValue}/${dueLabel.dayOfMonth}")
-                } else if (todo.deadline.isNotBlank() && todo.deadline != "未定") {
-                    append("・期限 ${todo.deadline}")
-                }
-            }
-            Text(
-                sub,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
 

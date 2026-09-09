@@ -18,7 +18,7 @@ import androidx.room.TypeConverters
         ScheduleEntity::class,
         EmailTemplateEntity::class
     ],
-    version = 27,
+    version = 28,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
