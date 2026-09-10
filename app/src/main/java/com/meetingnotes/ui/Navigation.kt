@@ -12,6 +12,7 @@ import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.client.ClientDetailScreen
 import com.meetingnotes.ui.client.ClientEditScreen
 import com.meetingnotes.ui.help.HelpScreen
+import com.meetingnotes.ui.home.MainTab
 import com.meetingnotes.ui.home.MainTabsShell
 import com.meetingnotes.ui.meeting.MeetingDetailScreen
 import com.meetingnotes.ui.notifications.NotificationScreen
@@ -49,9 +50,10 @@ fun MeetingNotesNavHost(
     val meetingViewModel: MeetingViewModel = viewModel()
 
     NavHost(navController = navController, startDestination = Routes.MAIN) {
-        composable(Routes.MAIN) {
+        composable(Routes.MAIN) { mainEntry ->
             MainTabsShell(
                 repository = repository,
+                savedStateHandle = mainEntry.savedStateHandle,
                 onOpenClient = { clientId -> navController.navigate(Routes.clientDetail(clientId)) },
                 onOpenMeeting = { meetingId -> navController.navigate(Routes.meetingDetail(meetingId)) },
                 onRecoverDraft = { clientId ->
@@ -116,7 +118,15 @@ fun MeetingNotesNavHost(
                 },
                 onEditClient = { navController.navigate(Routes.clientEdit(clientId)) },
                 onBack = { navController.popBackStack() },
-                onClientDeleted = { navController.popBackStack(Routes.MAIN, inclusive = false) }
+                onClientDeleted = { navController.popBackStack(Routes.MAIN, inclusive = false) },
+                onSwitchTab = { tab ->
+                    navController.getBackStackEntry(Routes.MAIN).savedStateHandle["pendingTab"] = tab.name
+                    navController.popBackStack(Routes.MAIN, inclusive = false)
+                },
+                onStartRecording = {
+                    meetingViewModel.resetForNewMeeting()
+                    navController.navigate(Routes.RECORDING_UNASSIGNED)
+                }
             )
         }
         composable(
