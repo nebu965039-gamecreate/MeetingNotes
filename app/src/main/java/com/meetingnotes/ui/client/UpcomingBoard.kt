@@ -163,8 +163,9 @@ fun UpcomingBoard(
     }
 }
 
+/** 予定の1行(ホームの「直近の予定」・予定表で共有)。日時ラベル / クライアント名 / 予定名 + フェーズchip + ›。 */
 @Composable
-private fun UpcomingRow(item: UpcomingItem, onClick: () -> Unit) {
+fun UpcomingRow(item: UpcomingItem, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

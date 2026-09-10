@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -30,8 +31,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,7 +40,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -66,11 +64,11 @@ import com.meetingnotes.ui.common.TabTopBar
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.NextMeetingTime
 import com.meetingnotes.ui.client.UpcomingItem
+import com.meetingnotes.ui.client.UpcomingRow
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.DealPhaseChip
 import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.NextMeetingDateTimeDialog
-import com.meetingnotes.ui.common.relativeDateTimeLabel
 import com.meetingnotes.ui.theme.CreateActionBlue
 import com.meetingnotes.util.CalendarIntent
 import com.meetingnotes.util.JapaneseHolidays
@@ -176,71 +174,37 @@ fun ScheduleScreen(
                         TextButton(onClick = { selectedDate = null }) { Text("すべて表示") }
                     }
                 }
-                if (filteredItems.isEmpty()) {
-                    item {
-                        Text(
-                            "予定はありません。右上の＋から追加できます。",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    items(filteredItems, key = { it.scheduleId }) { item ->
-                        ScheduleRow(
-                            item = item,
-                            onClick = { scheduleToView = item },
-                            onEdit = { scheduleToEdit = item },
-                            onDelete = { scheduleToDelete = item }
-                        )
-                    }
+                item(key = "sel_list") {
+                    ScheduleListPanel(
+                        items = filteredItems,
+                        emptyText = "予定はありません。右上の＋から追加できます。",
+                        onOpen = { scheduleToView = it }
+                    )
                 }
             } else {
                 // 未選択: 本日の予定 → これからの予定 の2枠。
                 item(key = "today_header") {
                     SectionRule("本日の予定 ・ ${todaySchedules.size}件")
                 }
-                if (todaySchedules.isEmpty()) {
-                    item(key = "today_empty") {
-                        Text(
-                            "本日の予定はありません。",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    items(todaySchedules, key = { "today-${it.scheduleId}" }) { item ->
-                        ScheduleRow(
-                            item = item,
-                            onClick = { scheduleToView = item },
-                            onEdit = { scheduleToEdit = item },
-                            onDelete = { scheduleToDelete = item }
-                        )
-                    }
+                item(key = "today_list") {
+                    ScheduleListPanel(
+                        items = todaySchedules,
+                        emptyText = "本日の予定はありません。",
+                        onOpen = { scheduleToView = it }
+                    )
                 }
-
                 item(key = "upcoming_header") {
                     SectionRule(
                         "これからの予定 ・ ${upcomingSchedules.size}件",
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
-                if (upcomingSchedules.isEmpty()) {
-                    item(key = "upcoming_empty") {
-                        Text(
-                            "予定はありません。右上の＋から追加できます。",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    items(upcomingSchedules, key = { "up-${it.scheduleId}" }) { item ->
-                        ScheduleRow(
-                            item = item,
-                            onClick = { scheduleToView = item },
-                            onEdit = { scheduleToEdit = item },
-                            onDelete = { scheduleToDelete = item }
-                        )
-                    }
+                item(key = "upcoming_list") {
+                    ScheduleListPanel(
+                        items = upcomingSchedules,
+                        emptyText = "予定はありません。右上の＋から追加できます。",
+                        onOpen = { scheduleToView = it }
+                    )
                 }
             }
 
@@ -479,122 +443,34 @@ private fun DialogLinkRow(text: String, onClick: () -> Unit) {
     }
 }
 
+/**
+ * 予定の一覧パネル。ホームの「直近の予定」(`UpcomingBoard`)と同じ見た目
+ * (`surfaceContainer` の角丸パネル + `UpcomingRow` + 区切り線)。
+ */
 @Composable
-private fun ScheduleRow(
-    item: UpcomingItem,
-    onClick: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+private fun ScheduleListPanel(
+    items: List<UpcomingItem>,
+    emptyText: String,
+    onOpen: (UpcomingItem) -> Unit
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-
-    Card(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 14.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
-        ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        relativeDateTimeLabel(item.start, item.allDay),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    if (item.phase != null) {
-                        Spacer(Modifier.width(6.dp))
-                        DealPhaseChip(phase = item.phase)
-                    }
-                }
-                Text(
-                    item.clientName + (if (item.participants.isNotBlank()) " ・ ${item.participants}" else ""),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-                Text(
-                    item.title.ifBlank { "打ち合わせ" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-                item.location?.takeIf { it.isNotBlank() }?.let {
-                    Text(
-                        "📍 $it",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
-                }
-                item.meetingUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                    Text(
-                        url,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        textDecoration = TextDecoration.Underline,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.clickable {
-                            runCatching {
-                                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri()))
-                            }
-                        }
-                    )
-                }
-                if (item.note.isNotBlank()) {
-                    Text(
-                        item.note,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2
-                    )
-                }
-            }
-            Box {
-                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "メニュー")
-                }
-                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                    DropdownMenuItem(
-                        text = { Text("カレンダーに追加") },
-                        onClick = {
-                            menuExpanded = false
-                            CalendarIntent.add(
-                                context = context,
-                                title = item.title.ifBlank { "打ち合わせ" },
-                                start = item.start,
-                                allDay = item.allDay,
-                                description = listOfNotNull(
-                                    item.participants.takeIf { it.isNotBlank() }?.let { "参加者: $it" },
-                                    item.meetingUrl?.takeIf { it.isNotBlank() },
-                                    item.note.takeIf { it.isNotBlank() }
-                                ).joinToString("\n"),
-                                location = item.location.orEmpty()
-                            )
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("編集") },
-                        onClick = { menuExpanded = false; onEdit() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("削除") },
-                        onClick = { menuExpanded = false; onDelete() }
-                    )
+        if (items.isEmpty()) {
+            Text(
+                emptyText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 14.dp)
+            )
+        } else {
+            items.forEachIndexed { index, item ->
+                UpcomingRow(item = item, onClick = { onOpen(item) })
+                if (index != items.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }
