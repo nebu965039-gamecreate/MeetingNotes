@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -377,37 +378,28 @@ private fun ScheduleDetailDialog(
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                DetailRow("日時", whenStr)
-                DetailRow("クライアント", item.clientName)
-                if (item.participants.isNotBlank()) DetailRow("参加者", item.participants)
-                item.location?.takeIf { it.isNotBlank() }?.let { DetailRow("場所", "📍 $it") }
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                DetailRow("日時", whenStr, maxLines = 1)
+                DetailRow("クライアント", item.clientName, maxLines = 1, onClick = onOpenClient)
+                if (item.participants.isNotBlank()) DetailRow("参加者", item.participants, maxLines = 1)
+                item.location?.takeIf { it.isNotBlank() }?.let { DetailRow("場所", "📍 $it", maxLines = 2) }
                 item.meetingUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                    Text(
-                        url,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        textDecoration = TextDecoration.Underline,
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 2,
-                        modifier = Modifier.clickable {
-                            runCatching {
-                                context.startActivity(
-                                    android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri())
-                                )
-                            }
+                    DetailRow("会議URL", url, maxLines = 1, onClick = {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri())
+                            )
                         }
-                    )
+                    })
                 }
-                if (item.note.isNotBlank()) DetailRow("メモ", item.note)
+                if (item.note.isNotBlank()) DetailRow("メモ", item.note, maxLines = 3)
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 3.dp))
 
-                DialogLinkRow("クライアント画面を開く", onClick = onOpenClient)
                 if (latestMeetingId != null) {
-                    DialogLinkRow("前回の会議（アーカイブ）を開く", onClick = { onOpenMeeting(latestMeetingId) })
+                    DialogLinkRow("前回の会議（アーカイブ）を開く") { onOpenMeeting(latestMeetingId) }
                 }
-                DialogLinkRow("カレンダーに追加", onClick = { onAddToCalendar(context) })
+                DialogLinkRow("カレンダーアプリに追加") { onAddToCalendar(context) }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("閉じる") } },
@@ -421,15 +413,28 @@ private fun ScheduleDetailDialog(
 }
 
 @Composable
-private fun DetailRow(label: String, value: String) {
-    Row {
+private fun DetailRow(label: String, value: String, maxLines: Int = 2, onClick: (() -> Unit)? = null) {
+    Row(verticalAlignment = Alignment.Top) {
         Text(
             label,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(64.dp)
+            modifier = Modifier.width(64.dp).padding(top = 1.dp)
         )
-        Text(value, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (onClick != null) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurface,
+            textDecoration = if (onClick != null) TextDecoration.Underline else null,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+            modifier = if (onClick != null) {
+                Modifier.weight(1f).clickable(onClick = onClick)
+            } else {
+                Modifier.weight(1f)
+            }
+        )
     }
 }
 
@@ -439,12 +444,12 @@ private fun DialogLinkRow(text: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
+            .padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary,
             textDecoration = TextDecoration.Underline,
             modifier = Modifier.weight(1f)
@@ -452,7 +457,8 @@ private fun DialogLinkRow(text: String, onClick: () -> Unit) {
         Icon(
             Icons.Filled.ChevronRight,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(16.dp)
         )
     }
 }
@@ -616,6 +622,8 @@ private fun MonthCalendar(
 ) {
     val holidays = remember(month) { JapaneseHolidays.holidaysInMonth(month.year, month.monthValue) }
     val gridLine = MaterialTheme.colorScheme.outlineVariant
+    val todayCornerColor = MaterialTheme.colorScheme.error
+    val markColor = MaterialTheme.colorScheme.primary
 
     OutlinedCard(
         modifier = modifier.fillMaxWidth(),
@@ -670,14 +678,18 @@ private fun MonthCalendar(
                 Row(modifier = Modifier.fillMaxWidth()) {
                     for (col in 0 until 7) {
                         val dayNum = row * 7 + col - leadingBlanks + 1
+                        val valid = dayNum in 1..daysInMonth
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .aspectRatio(1.4f)
-                                .border(0.5.dp, gridLine),
-                            contentAlignment = Alignment.Center
+                                .border(0.5.dp, gridLine)
+                                .then(
+                                    if (valid) Modifier.clickable { onDateClick(month.atDay(dayNum)) }
+                                    else Modifier
+                                )
                         ) {
-                            if (dayNum in 1..daysInMonth) {
+                            if (valid) {
                                 val date = month.atDay(dayNum)
                                 val isSelected = date == selectedDate
                                 val isToday = date == LocalDate.now()
@@ -687,50 +699,58 @@ private fun MonthCalendar(
                                 val isHoliday = date in holidays
                                 val numberColor = when {
                                     isSelected -> MaterialTheme.colorScheme.onPrimary
-                                    isToday -> MaterialTheme.colorScheme.primary
                                     isSunday || isHoliday -> MaterialTheme.colorScheme.error
                                     isSaturday -> SATURDAY_COLOR
                                     else -> MaterialTheme.colorScheme.onSurface
                                 }
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clickable { onDateClick(date) },
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Box(
+
+                                // 本日: 左上角を赤い三角で塗る(丸枠は廃止)。
+                                if (isToday && !isSelected) {
+                                    androidx.compose.foundation.Canvas(
                                         modifier = Modifier
-                                            .size(24.dp)
-                                            .then(
-                                                when {
-                                                    isSelected ->
-                                                        Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
-                                                    isToday ->
-                                                        Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                                    else -> Modifier
-                                                }
-                                            ),
-                                        contentAlignment = Alignment.Center
+                                            .align(Alignment.TopStart)
+                                            .size(12.dp)
                                     ) {
-                                        Text(
-                                            text = dayNum.toString(),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = if (isToday || isSelected) FontWeight.Bold else null,
-                                            color = numberColor
+                                        drawPath(
+                                            androidx.compose.ui.graphics.Path().apply {
+                                                moveTo(0f, 0f)
+                                                lineTo(size.width, 0f)
+                                                lineTo(0f, size.height)
+                                                close()
+                                            },
+                                            color = todayCornerColor
                                         )
                                     }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .offset(y = (-3).dp)
+                                        .size(24.dp)
+                                        .then(
+                                            if (isSelected)
+                                                Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
+                                            else Modifier
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = dayNum.toString(),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = if (isToday || isSelected) FontWeight.Bold else null,
+                                        color = numberColor
+                                    )
+                                }
+
+                                // 予定/期限がある日: 数字から離して下寄せの点。
+                                if (hasMark) {
                                     Box(
                                         modifier = Modifier
-                                            .padding(top = 2.dp)
-                                            .size(4.dp)
-                                            .then(
-                                                if (hasMark) {
-                                                    Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
-                                                } else {
-                                                    Modifier
-                                                }
-                                            )
+                                            .align(Alignment.BottomCenter)
+                                            .padding(bottom = 4.dp)
+                                            .size(5.dp)
+                                            .background(markColor, CircleShape)
                                     )
                                 }
                             }
