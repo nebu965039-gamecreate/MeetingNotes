@@ -285,20 +285,6 @@ fun ScheduleScreen(
             latestMeetingId = latestMeetingByClient[item.clientId],
             onOpenClient = { scheduleToView = null; onOpenClient(item.clientId) },
             onOpenMeeting = { mid -> scheduleToView = null; onOpenMeeting(mid) },
-            onAddToCalendar = {
-                CalendarIntent.add(
-                    context = it,
-                    title = item.title.ifBlank { "打ち合わせ" },
-                    start = item.start,
-                    allDay = item.allDay,
-                    description = listOfNotNull(
-                        item.participants.takeIf { p -> p.isNotBlank() }?.let { p -> "参加者: $p" },
-                        item.meetingUrl?.takeIf { u -> u.isNotBlank() },
-                        item.note.takeIf { n -> n.isNotBlank() }
-                    ).joinToString("\n"),
-                    location = item.location.orEmpty()
-                )
-            },
             onEdit = { scheduleToView = null; scheduleToEdit = item },
             onDelete = { scheduleToView = null; scheduleToDelete = item },
             onDismiss = { scheduleToView = null }
@@ -343,17 +329,19 @@ fun ScheduleScreen(
     }
 }
 
-/** 予定の詳細ダイアログ。行タップで開く。クライアント画面 / 前回の会議 へのリンク付き。 */
+/**
+ * 予定の詳細ダイアログ。予定表の行タップ / ホームの「直近の予定」から開く。
+ * [onEdit] / [onDelete] を渡さない(null)と編集・削除ボタンを出さない(ホームでは閲覧のみ)。
+ */
 @Composable
-private fun ScheduleDetailDialog(
+fun ScheduleDetailDialog(
     item: UpcomingItem,
     latestMeetingId: Long?,
     onOpenClient: () -> Unit,
     onOpenMeeting: (Long) -> Unit,
-    onAddToCalendar: (android.content.Context) -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val d = item.start
@@ -378,63 +366,91 @@ private fun ScheduleDetailDialog(
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                DetailRow("日時", whenStr, maxLines = 1)
-                DetailRow("クライアント", item.clientName, maxLines = 1, onClick = onOpenClient)
-                if (item.participants.isNotBlank()) DetailRow("参加者", item.participants, maxLines = 1)
-                item.location?.takeIf { it.isNotBlank() }?.let { DetailRow("場所", "📍 $it", maxLines = 2) }
-                item.meetingUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                    DetailRow("会議URL", url, maxLines = 1, onClick = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                DetailField("日時", whenStr)
+                DetailField("クライアント", item.clientName, onClick = onOpenClient)
+                DetailField("参加者", item.participants.ifBlank { null })
+                DetailField("場所", item.location?.takeIf { it.isNotBlank() })
+                DetailField("会議URL", item.meetingUrl?.takeIf { it.isNotBlank() }, maxLines = 1, onClick = {
+                    item.meetingUrl?.let { url ->
                         runCatching {
                             context.startActivity(
                                 android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri())
                             )
                         }
-                    })
-                }
-                if (item.note.isNotBlank()) DetailRow("メモ", item.note, maxLines = 3)
+                    }
+                })
+                DetailField("メモ", item.note.ifBlank { null }, maxLines = 4)
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 3.dp))
+                HorizontalDivider(modifier = Modifier.padding(top = 2.dp))
 
                 if (latestMeetingId != null) {
                     DialogLinkRow("前回の会議（アーカイブ）を開く") { onOpenMeeting(latestMeetingId) }
                 }
-                DialogLinkRow("カレンダーアプリに追加") { onAddToCalendar(context) }
+                DialogLinkRow("カレンダーアプリに追加") {
+                    CalendarIntent.add(
+                        context = context,
+                        title = item.title.ifBlank { "打ち合わせ" },
+                        start = item.start,
+                        allDay = item.allDay,
+                        description = listOfNotNull(
+                            item.participants.takeIf { it.isNotBlank() }?.let { "参加者: $it" },
+                            item.meetingUrl?.takeIf { it.isNotBlank() },
+                            item.note.takeIf { it.isNotBlank() }
+                        ).joinToString("\n"),
+                        location = item.location.orEmpty()
+                    )
+                }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("閉じる") } },
         dismissButton = {
-            Row {
-                TextButton(onClick = onEdit) { Text("編集") }
-                TextButton(onClick = onDelete) { Text("削除") }
+            if (onEdit != null || onDelete != null) {
+                Row {
+                    onEdit?.let { TextButton(onClick = it) { Text("編集") } }
+                    onDelete?.let { TextButton(onClick = it) { Text("削除") } }
+                }
             }
         }
     )
 }
 
+/**
+ * 予定詳細の1項目。ラベルを上、値を下に積む(幅の折り返し対策)。
+ * [value] が null なら目立たない色で「なし」。[onClick] があれば値はリンク表示。
+ */
 @Composable
-private fun DetailRow(label: String, value: String, maxLines: Int = 2, onClick: (() -> Unit)? = null) {
-    Row(verticalAlignment = Alignment.Top) {
+private fun DetailField(
+    label: String,
+    value: String?,
+    maxLines: Int = 2,
+    onClick: (() -> Unit)? = null
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(
             label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(64.dp).padding(top = 1.dp)
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Text(
-            value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (onClick != null) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurface,
-            textDecoration = if (onClick != null) TextDecoration.Underline else null,
-            maxLines = maxLines,
-            overflow = TextOverflow.Ellipsis,
-            modifier = if (onClick != null) {
-                Modifier.weight(1f).clickable(onClick = onClick)
-            } else {
-                Modifier.weight(1f)
-            }
-        )
+        if (value == null) {
+            Text(
+                "なし",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.outline
+            )
+        } else {
+            Text(
+                value,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (onClick != null) FontWeight.Medium else null,
+                color = if (onClick != null) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurface,
+                textDecoration = if (onClick != null) TextDecoration.Underline else null,
+                maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis,
+                modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+            )
+        }
     }
 }
 

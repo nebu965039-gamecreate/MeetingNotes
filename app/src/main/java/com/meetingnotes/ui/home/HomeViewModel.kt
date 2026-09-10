@@ -69,6 +69,12 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
             .map { UpcomingRules.order(it) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** クライアントID → 直近の商談ID(予定詳細から「前回の会議」へ飛ぶため)。 */
+    val latestMeetingByClient: StateFlow<Map<Long, Long>> =
+        latestMeetings
+            .map { list -> list.associate { it.clientId to it.meetingId } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
     /** 通知一覧を最後に開いてから発火した通知があれば true(ホームの通知タイルの赤マーク)。 */
     val hasUnseenNotifications: StateFlow<Boolean> =
         combine(repository.observeNotificationLog(), NotificationSeenState.seenAt) { log, seenAt ->

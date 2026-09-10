@@ -84,11 +84,11 @@ object UpcomingRules {
 
 private const val PREVIEW_COUNT = 3
 
-/** ホーム画面の「直近の予定」カード。0件でも表示する。行タップでクライアント画面へ。 */
+/** ホーム画面の「直近の予定」カード。0件でも表示する。行タップで予定の詳細ダイアログへ。 */
 @Composable
 fun UpcomingBoard(
     items: List<UpcomingItem>,
-    onOpenClient: (Long) -> Unit,
+    onOpenSchedule: (UpcomingItem) -> Unit,
     onShowAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -152,7 +152,7 @@ fun UpcomingBoard(
                 ) {
                     val preview = items.take(PREVIEW_COUNT)
                     preview.forEachIndexed { index, item ->
-                        UpcomingRow(item = item, onClick = { onOpenClient(item.clientId) })
+                        UpcomingRow(item = item, onClick = { onOpenSchedule(item) })
                         if (index != preview.lastIndex) {
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
