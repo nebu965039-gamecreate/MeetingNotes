@@ -175,7 +175,12 @@ fun MainTabsShell(
                 ClientListScreen(repository = repository, onClientSelected = onOpenClient, onHome = { goHome() })
             }
             composable(MainTab.SCHEDULE.route) {
-                ScheduleScreen(repository = repository, onOpenClient = onOpenClient, onHome = { goHome() })
+                ScheduleScreen(
+                    repository = repository,
+                    onOpenClient = onOpenClient,
+                    onOpenMeeting = onOpenMeeting,
+                    onHome = { goHome() }
+                )
             }
             composable(MainTab.TODO.route) {
                 FollowupListScreen(

@@ -33,6 +33,12 @@ class ScheduleViewModel(private val repository: MeetingRepository) : ViewModel()
     val dueTodos: StateFlow<List<OpenTodo>> = repository.observeOpenTodosWithDueDate()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** クライアントID → 直近の商談ID(予定の詳細から「前回の会議」へ飛ぶため)。 */
+    val latestMeetingByClient: StateFlow<Map<Long, Long>> =
+        repository.observeLatestMeetingPerClient()
+            .map { list -> list.associate { it.clientId to it.meetingId } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
     fun completeTodo(todoId: Long) {
         viewModelScope.launch { repository.setTodoDone(todoId, true) }
     }

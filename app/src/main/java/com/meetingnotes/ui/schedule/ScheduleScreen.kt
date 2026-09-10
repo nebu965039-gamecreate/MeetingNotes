@@ -87,16 +87,19 @@ private val SATURDAY_COLOR = Color(0xFF1565C0)
 fun ScheduleScreen(
     repository: MeetingRepository,
     onOpenClient: (Long) -> Unit,
+    onOpenMeeting: (Long) -> Unit = {},
     onHome: () -> Unit = {}
 ) {
     val viewModel: ScheduleViewModel = viewModel(factory = ScheduleViewModel.factory(repository))
     val allSchedules by viewModel.schedules.collectAsState()
     val clients by viewModel.clients.collectAsState()
     val dueTodos by viewModel.dueTodos.collectAsState()
+    val latestMeetingByClient by viewModel.latestMeetingByClient.collectAsState()
 
     var viewedMonth by remember { mutableStateOf(YearMonth.now()) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var scheduleToView by remember { mutableStateOf<UpcomingItem?>(null) }
     var scheduleToEdit by remember { mutableStateOf<UpcomingItem?>(null) }
     var scheduleToDelete by remember { mutableStateOf<UpcomingItem?>(null) }
 
@@ -184,7 +187,7 @@ fun ScheduleScreen(
                     items(filteredItems, key = { it.scheduleId }) { item ->
                         ScheduleRow(
                             item = item,
-                            onClick = { onOpenClient(item.clientId) },
+                            onClick = { scheduleToView = item },
                             onEdit = { scheduleToEdit = item },
                             onDelete = { scheduleToDelete = item }
                         )
@@ -207,7 +210,7 @@ fun ScheduleScreen(
                     items(todaySchedules, key = { "today-${it.scheduleId}" }) { item ->
                         ScheduleRow(
                             item = item,
-                            onClick = { onOpenClient(item.clientId) },
+                            onClick = { scheduleToView = item },
                             onEdit = { scheduleToEdit = item },
                             onDelete = { scheduleToDelete = item }
                         )
@@ -232,7 +235,7 @@ fun ScheduleScreen(
                     items(upcomingSchedules, key = { "up-${it.scheduleId}" }) { item ->
                         ScheduleRow(
                             item = item,
-                            onClick = { onOpenClient(item.clientId) },
+                            onClick = { scheduleToView = item },
                             onEdit = { scheduleToEdit = item },
                             onDelete = { scheduleToDelete = item }
                         )
@@ -275,6 +278,32 @@ fun ScheduleScreen(
         }
     }
 
+    scheduleToView?.let { item ->
+        ScheduleDetailDialog(
+            item = item,
+            latestMeetingId = latestMeetingByClient[item.clientId],
+            onOpenClient = { scheduleToView = null; onOpenClient(item.clientId) },
+            onOpenMeeting = { mid -> scheduleToView = null; onOpenMeeting(mid) },
+            onAddToCalendar = {
+                CalendarIntent.add(
+                    context = it,
+                    title = item.title.ifBlank { "打ち合わせ" },
+                    start = item.start,
+                    allDay = item.allDay,
+                    description = listOfNotNull(
+                        item.participants.takeIf { p -> p.isNotBlank() }?.let { p -> "参加者: $p" },
+                        item.meetingUrl?.takeIf { u -> u.isNotBlank() },
+                        item.note.takeIf { n -> n.isNotBlank() }
+                    ).joinToString("\n"),
+                    location = item.location.orEmpty()
+                )
+            },
+            onEdit = { scheduleToView = null; scheduleToEdit = item },
+            onDelete = { scheduleToView = null; scheduleToDelete = item },
+            onDismiss = { scheduleToView = null }
+        )
+    }
+
     if (showAddDialog) {
         ScheduleFormDialog(
             clients = clients,
@@ -309,6 +338,121 @@ fun ScheduleScreen(
                 viewModel.deleteSchedule(item.scheduleId)
                 scheduleToDelete = null
             }
+        )
+    }
+}
+
+/** 予定の詳細ダイアログ。行タップで開く。クライアント画面 / 前回の会議 へのリンク付き。 */
+@Composable
+private fun ScheduleDetailDialog(
+    item: UpcomingItem,
+    latestMeetingId: Long?,
+    onOpenClient: () -> Unit,
+    onOpenMeeting: (Long) -> Unit,
+    onAddToCalendar: (android.content.Context) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val d = item.start
+    val dow = d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.JAPAN)
+    val whenStr = "${d.year}年${d.monthValue}月${d.dayOfMonth}日($dow) " +
+        if (item.allDay) "終日" else "%02d:%02d".format(d.hour, d.minute)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    item.title.ifBlank { "打ち合わせ" },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (item.phase != null) {
+                    Spacer(Modifier.width(6.dp))
+                    DealPhaseChip(phase = item.phase)
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DetailRow("日時", whenStr)
+                DetailRow("クライアント", item.clientName)
+                if (item.participants.isNotBlank()) DetailRow("参加者", item.participants)
+                item.location?.takeIf { it.isNotBlank() }?.let { DetailRow("場所", "📍 $it") }
+                item.meetingUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                    Text(
+                        url,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        textDecoration = TextDecoration.Underline,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 2,
+                        modifier = Modifier.clickable {
+                            runCatching {
+                                context.startActivity(
+                                    android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri())
+                                )
+                            }
+                        }
+                    )
+                }
+                if (item.note.isNotBlank()) DetailRow("メモ", item.note)
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+
+                DialogLinkRow("クライアント画面を開く", onClick = onOpenClient)
+                if (latestMeetingId != null) {
+                    DialogLinkRow("前回の会議（アーカイブ）を開く", onClick = { onOpenMeeting(latestMeetingId) })
+                }
+                DialogLinkRow("カレンダーに追加", onClick = { onAddToCalendar(context) })
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("閉じる") } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onEdit) { Text("編集") }
+                TextButton(onClick = onDelete) { Text("削除") }
+            }
+        }
+    )
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(64.dp)
+        )
+        Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun DialogLinkRow(text: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            textDecoration = TextDecoration.Underline,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            Icons.Filled.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary
         )
     }
 }
