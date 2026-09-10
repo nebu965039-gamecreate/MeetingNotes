@@ -1,5 +1,6 @@
 package com.meetingnotes.ui.schedule
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,11 +23,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,10 +35,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.runtime.Composable
@@ -61,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.OutlinedTextField
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.ui.common.AppIcons
 import com.meetingnotes.ui.common.TabTopBar
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.NextMeetingTime
@@ -70,6 +70,7 @@ import com.meetingnotes.ui.common.DealPhaseChip
 import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.NextMeetingDateTimeDialog
 import com.meetingnotes.ui.common.relativeDateTimeLabel
+import com.meetingnotes.ui.theme.CreateActionBlue
 import com.meetingnotes.util.CalendarIntent
 import com.meetingnotes.util.JapaneseHolidays
 import java.time.DayOfWeek
@@ -124,7 +125,11 @@ fun ScheduleScreen(
                 onHome = onHome,
                 actions = {
                     IconButton(onClick = { showAddDialog = true }) {
-                        Icon(Icons.Filled.Add, contentDescription = "予定を追加")
+                        Icon(
+                            AppIcons.CalendarPlus,
+                            contentDescription = "予定を追加",
+                            tint = CreateActionBlue
+                        )
                     }
                 }
             )
@@ -188,10 +193,7 @@ fun ScheduleScreen(
             } else {
                 // 未選択: 本日の予定 → これからの予定 の2枠。
                 item(key = "today_header") {
-                    Text(
-                        "本日の予定 (${todaySchedules.size}件)",
-                        style = MaterialTheme.typography.titleSmall
-                    )
+                    SectionRule("本日の予定 ・ ${todaySchedules.size}件")
                 }
                 if (todaySchedules.isEmpty()) {
                     item(key = "today_empty") {
@@ -213,9 +215,8 @@ fun ScheduleScreen(
                 }
 
                 item(key = "upcoming_header") {
-                    Text(
-                        "これからの予定 (${upcomingSchedules.size}件)",
-                        style = MaterialTheme.typography.titleSmall,
+                    SectionRule(
+                        "これからの予定 ・ ${upcomingSchedules.size}件",
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
@@ -434,6 +435,31 @@ private fun ScheduleRow(
     }
 }
 
+/** 「——— 見出し ———」の中央ラベル区切り(本日 / これからの予定 の仕切り)。 */
+@Composable
+private fun SectionRule(text: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+    }
+}
+
 /** 月カレンダー。予定がある日に丸印、土曜は青・日曜と祝日は赤。タップで一覧を絞り込む。 */
 @Composable
 private fun MonthCalendar(
@@ -445,8 +471,12 @@ private fun MonthCalendar(
     modifier: Modifier = Modifier
 ) {
     val holidays = remember(month) { JapaneseHolidays.holidaysInMonth(month.year, month.monthValue) }
+    val gridLine = MaterialTheme.colorScheme.outlineVariant
 
-    Card(modifier = modifier.fillMaxWidth()) {
+    OutlinedCard(
+        modifier = modifier.fillMaxWidth(),
+        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
+    ) {
         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -466,7 +496,7 @@ private fun MonthCalendar(
                 }
             }
 
-            Row(modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
                 for (dow in 0 until 7) {
                     // dow: 0=日曜, 1=月曜, ..., 6=土曜(DayOfWeek は月曜=1...日曜=7)
                     val label = DayOfWeek.of(if (dow == 0) 7 else dow)
@@ -484,6 +514,7 @@ private fun MonthCalendar(
                     )
                 }
             }
+            HorizontalDivider(color = gridLine)
 
             val firstDay = month.atDay(1)
             // 日曜始まり: 月曜=1...土曜=6、日曜=7 なので mod 7 で日曜=0 に揃える
@@ -498,7 +529,8 @@ private fun MonthCalendar(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .aspectRatio(1.4f),
+                                .aspectRatio(1.4f)
+                                .border(0.5.dp, gridLine),
                             contentAlignment = Alignment.Center
                         ) {
                             if (dayNum in 1..daysInMonth) {
