@@ -92,7 +92,7 @@ fun AnalyticsScreen(repository: MeetingRepository, onHome: () -> Unit) {
             val contentMod = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.surface)
+                .background(com.meetingnotes.ui.common.FolderTabDefaults.sheetColor)
             val app = LocalContext.current.applicationContext as MeetingNotesApp
             val darkTheme = when (app.themeModeState.value) {
                 ThemeMode.LIGHT -> false

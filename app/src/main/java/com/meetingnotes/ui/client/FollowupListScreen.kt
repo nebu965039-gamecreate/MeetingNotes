@@ -59,7 +59,7 @@ fun FollowupListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.surface)
+                .background(com.meetingnotes.ui.common.FolderTabDefaults.sheetColor)
         ) {
             // ToDo タブの件数はスヌーズ中を除いた「今やるべき」数に合わせる(下部ナビのバッジと一致)。
             val activeCount = open.count { !todoIsSnoozed(it.todo.snoozedUntil) }

@@ -18,15 +18,31 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /** フォルダ型タブの1枚分。[count] は 0 なら非表示。 */
 data class FolderTab(val label: String, val count: Int = 0)
 
+object FolderTabDefaults {
+    /**
+     * 選択中タブとその下の一覧に敷く淡いティール(B1)。前面の「1枚のシート」を表す。
+     * 実効テーマは `surface` の明度で判定(アプリの手動テーマ切替にも追従する)。
+     */
+    val sheetColor: Color
+        @Composable get() = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
+            Color(0xFF17302D)
+        } else {
+            Color(0xFFE3F0EE)
+        }
+}
+
 /**
  * フォルダの見出しのように、選択中のタブが手前・非選択が奥に見えるタブ列。
- * 選択中タブの地は [contentColor](= その下に続く画面の背景)と同じにして繋がって見せる。
+ * 非選択タブとストリップの地は **ヘッダーと同じ [MaterialTheme.colorScheme.surface]**、
+ * 選択中タブは [contentColor](= その下に続く一覧の背景。既定は [FolderTabDefaults.sheetColor])。
  * 件数はラベル横の小さなピルで表示する(`PrimaryTabRow` の "(N)" 表記の置き換え)。
  */
 @Composable
@@ -35,12 +51,13 @@ fun FolderTabRow(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    contentColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface
+    contentColor: Color = FolderTabDefaults.sheetColor
 ) {
+    val stripColor = MaterialTheme.colorScheme.surface
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .background(stripColor)
             .padding(horizontal = 8.dp)
             .height(44.dp),
         verticalAlignment = Alignment.Bottom,
@@ -50,7 +67,7 @@ fun FolderTabRow(
             val selected = index == selectedIndex
             val shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
             Surface(
-                color = if (selected) contentColor else MaterialTheme.colorScheme.surfaceContainerHighest,
+                color = if (selected) contentColor else stripColor,
                 contentColor = if (selected) MaterialTheme.colorScheme.onSurface
                 else MaterialTheme.colorScheme.onSurfaceVariant,
                 shadowElevation = if (selected) 1.dp else 0.dp,
