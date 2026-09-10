@@ -18,3 +18,7 @@ keystore.properties
 
 # デザイン作業用のスクショ(コミットしない)
 docs/design/screens/
+
+# JVM クラッシュダンプ(Kotlin デーモン等)
+hs_err_pid*.log
+replay_pid*.log

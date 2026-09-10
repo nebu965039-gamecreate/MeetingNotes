@@ -80,6 +80,8 @@ Kotlin 2.4.0 / Jetpack Compose(Material3、BOM 2026.08.00) / Navigation Compose 
 ./gradlew.bat connectedDebugAndroidTest  # インストルメンテーションテスト(実機/エミュレータ必須)
 ```
 
+- **サンプルデータ投入(デバッグビルド限定)**: 設定画面 → 「デバッグ」カード →「サンプルデータを投入」で、既存データを全消去して過去1年ぶんのクライアント16 / 商談52 / 案件18(成約6・失注4・進行中8、JPY+USD、一部は停滞)/ ToDo / 予定 / メールテンプレを投入(投入後に自動再起動)。`data/debug/SampleDataSeeder.kt`(DAO 直挿し・`Random(42)` で決定的・本番フロー非経由)、`SettingsViewModel.seedSampleData()`、UI は `SettingsScreen` の `if (BuildConfig.DEBUG)` ブロック。分析グラフ・パイプライン・停滞案件・カレンダー等をまとめて確認したいとき用。
+
 エミュレータでの手動確認が必要な場合、`adb`はフルパス指定が必要(PATHに無いことがある):
 ```
 /c/Users/zhong/AppData/Local/Android/Sdk/platform-tools/adb.exe

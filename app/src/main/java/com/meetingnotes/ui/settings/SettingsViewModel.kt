@@ -91,6 +91,22 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    /** デバッグ用: 既存データを全消去してサンプルデータ(過去1年ぶん)を投入する。 */
+    fun seedSampleData() {
+        _backupState.value = BackupState.Working
+        viewModelScope.launch {
+            val result = runCatching {
+                com.meetingnotes.data.debug.SampleDataSeeder.seed(
+                    (getApplication<Application>() as MeetingNotesApp).database
+                )
+            }
+            _backupState.value = result.fold(
+                onSuccess = { BackupState.Done(it.summary + "\nアプリを再起動します。", restart = true) },
+                onFailure = { BackupState.Error(it.message ?: "サンプル投入に失敗しました。") }
+            )
+        }
+    }
+
     private val repository
         get() = (getApplication<Application>() as MeetingNotesApp).repository
 

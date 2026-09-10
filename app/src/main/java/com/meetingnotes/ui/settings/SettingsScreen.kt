@@ -51,6 +51,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.meetingnotes.BuildConfig
 import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.billing.ProAccess
@@ -304,6 +305,44 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                                 Text("処理中…", style = MaterialTheme.typography.bodySmall)
                             }
                         }
+                    }
+                }
+            }
+
+            if (BuildConfig.DEBUG) {
+                item {
+                    val working = backupState is SettingsViewModel.BackupState.Working
+                    var showSeedConfirm by remember { mutableStateOf(false) }
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                            Text(
+                                "デバッグ",
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                            )
+                            SettingActionRow(
+                                title = "サンプルデータを投入",
+                                subtitle = "既存データを全消去し、過去1年ぶんのクライアント・商談・案件・ToDo・予定を入れます。",
+                                enabled = !working,
+                                onClick = { showSeedConfirm = true }
+                            )
+                        }
+                    }
+                    if (showSeedConfirm) {
+                        AlertDialog(
+                            onDismissRequest = { showSeedConfirm = false },
+                            title = { Text("サンプルデータを投入") },
+                            text = { Text("現在アプリに入っているデータはすべて削除され、レビュー用のサンプルに置き換わります。よろしいですか？") },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    showSeedConfirm = false
+                                    viewModel.seedSampleData()
+                                }) { Text("投入する") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showSeedConfirm = false }) { Text("キャンセル") }
+                            }
+                        )
                     }
                 }
             }
