@@ -65,7 +65,6 @@ fun MainTabsShell(
     onHelp: () -> Unit,
     onOpenNotifications: () -> Unit,
     onStartRecording: () -> Unit,
-    onOpenPipeline: () -> Unit,
     /** 子画面(クライアント詳細など)から「このタブへ切り替えて」を受け取るための橋渡し。 */
     savedStateHandle: SavedStateHandle? = null
 ) {
@@ -134,8 +133,7 @@ fun MainTabsShell(
                     onOpenNotifications = onOpenNotifications,
                     onOpenSchedule = { switchTab(MainTab.SCHEDULE) },
                     onOpenFollowupList = { switchTab(MainTab.TODO) },
-                    onOpenSales = { switchTab(MainTab.ANALYTICS) },
-                    onOpenPipeline = onOpenPipeline
+                    onOpenSales = { switchTab(MainTab.ANALYTICS) }
                 )
             }
             composable(MainTab.CLIENTS.route) {
