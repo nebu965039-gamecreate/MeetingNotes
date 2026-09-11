@@ -454,6 +454,50 @@ class MeetingRepository(
     fun observeAllProjects(): Flow<List<com.meetingnotes.data.local.ClientProjectEntity>> =
         clientProjectDao.observeAll()
 
+    /**
+     * クライアントID → 「現在の状態」フェーズ(案件フェーズを正とする。2026-09-11)。
+     * `com.meetingnotes.ui.client.ClientDealPhaseRules` の判定。案件が無いクライアントは入らない。
+     */
+    fun observeClientDealPhase(): Flow<Map<Long, com.meetingnotes.data.model.DealPhase>> =
+        clientProjectDao.observeAll()
+            .map { com.meetingnotes.ui.client.ClientDealPhaseRules.byClient(it) }
+
+    /**
+     * 案件フェーズを更新(要約後の確認モーダルから)。フェーズ変更時刻を更新し、
+     * 成約なら `wonAt`、非進行なら想定クローズ/確度をクリアする。
+     */
+    suspend fun setProjectPhase(projectId: Long, phase: com.meetingnotes.data.model.DealPhase) {
+        val current = clientProjectDao.getById(projectId) ?: return
+        if (current.phase == phase.wireValue) return
+        val now = System.currentTimeMillis()
+        clientProjectDao.update(
+            current.copy(
+                phase = phase.wireValue,
+                phaseChangedAt = now,
+                wonAt = if (phase == com.meetingnotes.data.model.DealPhase.WON) (current.wonAt ?: now) else null,
+                lostReason = if (phase == com.meetingnotes.data.model.DealPhase.LOST) current.lostReason else null,
+                expectedCloseAt = if (phase.isActive) current.expectedCloseAt else null,
+                probability = if (phase.isActive) current.probability else null
+            )
+        )
+    }
+
+    /**
+     * v28 移行の一度きり: 商談はあるのに案件が1つも無いクライアントへ、案件を1件作る
+     * (フェーズ = 最新商談の実効フェーズ)。以降は新規クライアントは初回商談保存時に案件作成を促す。
+     */
+    suspend fun backfillClientProjects() {
+        val projectClientIds = clientProjectDao.observeAll().first().map { it.clientId }.toSet()
+        meetingDao.getAll()
+            .filter { it.clientId !in projectClientIds }
+            .groupBy { it.clientId }
+            .forEach { (clientId, meetings) ->
+                val latest = meetings.maxByOrNull { it.recordedAt } ?: return@forEach
+                val phase = com.meetingnotes.data.model.DealPhase.fromWire(latest.phaseOverride ?: latest.dealPhase)
+                addClientProject(clientId = clientId, name = "案件", phase = phase)
+            }
+    }
+
     suspend fun addClientProject(
         clientId: Long,
         name: String,

@@ -58,10 +58,15 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
     private val clients = repository.observeClients()
     private val latestMeetings = repository.observeLatestMeetingPerClient()
     private val openTodoCounts = repository.observeOpenTodoCountByClient()
+    private val clientDealPhase = repository.observeClientDealPhase()
 
     val followups: StateFlow<List<FollowupItem>> =
-        combine(clients, latestMeetings, openTodoCounts) { clientList, latest, counts ->
-            FollowupRules.compute(clientList, latest, openTodoCountByClient = counts)
+        combine(clients, latestMeetings, openTodoCounts, clientDealPhase) { clientList, latest, counts, phases ->
+            FollowupRules.compute(
+                clientList, latest,
+                openTodoCountByClient = counts,
+                dealPhaseByClient = phases
+            )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val upcoming: StateFlow<List<UpcomingItem>> =
@@ -94,15 +99,9 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
             latestMeetings,
             repository.observeAllProjects()
         ) { clientList, meetingsThisMonth, openTodoTotal, latest, projects ->
-            var won = 0
-            var lost = 0
-            latest.forEach { m ->
-                when (DealPhase.fromWire(m.phaseOverride ?: m.dealPhase)) {
-                    DealPhase.WON -> won++
-                    DealPhase.LOST -> lost++
-                    else -> {}
-                }
-            }
+            // 成約率・進行中フェーズは「案件」を数える(案件フェーズを正とする、2026-09-11)。
+            val won = projects.count { it.phase == DealPhase.WON.wireValue }
+            val lost = projects.count { it.phase == DealPhase.LOST.wireValue }
             val wonAmount = projects
                 .filter {
                     it.phase == DealPhase.WON.wireValue &&
@@ -121,7 +120,7 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
                 clientCount = clientList.size,
                 meetingsThisMonth = meetingsThisMonth,
                 openTodoTotal = openTodoTotal,
-                phase = phaseCountsOf(latest),
+                phase = phaseCountsOf(projects),
                 wonCount = won,
                 lostCount = lost,
                 wonAmountThisMonth = wonAmount,
@@ -148,10 +147,11 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
         viewModelScope.launch { repository.setTodoDone(todoId, true) }
     }
 
-    private fun phaseCountsOf(latest: List<com.meetingnotes.data.local.ClientLatestMeeting>): PhaseTrackerCounts {
+    /** 進行中案件をフェーズ別に数える(ヒアリング/提案/見積提示/検討中のみ)。 */
+    private fun phaseCountsOf(projects: List<com.meetingnotes.data.local.ClientProjectEntity>): PhaseTrackerCounts {
         var hearing = 0; var proposal = 0; var quoted = 0; var considering = 0
-        latest.forEach { m ->
-            when (DealPhase.fromWire(m.phaseOverride ?: m.dealPhase)) {
+        projects.forEach { p ->
+            when (DealPhase.fromWire(p.phase)) {
                 DealPhase.HEARING -> hearing++
                 DealPhase.PROPOSAL -> proposal++
                 DealPhase.QUOTED -> quoted++

@@ -70,13 +70,15 @@ class FollowupRulesTest {
     }
 
     @Test
-    fun `phase comes from the latest meeting for display`() {
+    fun `phase comes from the client deal phase (project) for display`() {
         val items = FollowupRules.compute(
             listOf(client(1)),
             listOf(latest(1, 3, phase = "quoted")),
-            openTodoCountByClient = mapOf(1L to 1)
+            openTodoCountByClient = mapOf(1L to 1),
+            dealPhaseByClient = mapOf(1L to DealPhase.PROPOSAL)
         )
-        assertEquals(DealPhase.QUOTED, items[0].phase)
+        // 案件フェーズ(PROPOSAL)が表示に使われる。最新商談のフェーズ(quoted)は無視。
+        assertEquals(DealPhase.PROPOSAL, items[0].phase)
     }
 
     @Test

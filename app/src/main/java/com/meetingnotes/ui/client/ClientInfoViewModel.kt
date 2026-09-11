@@ -26,19 +26,16 @@ class ClientInfoViewModel(
     val contacts: StateFlow<List<ClientContactEntity>> = repository.observeClientContacts(clientId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** 現在のステータス = 最新の商談の実効フェーズ(商談が無ければ null)。 */
-    val latestPhase: StateFlow<DealPhase?> = repository.observeMeetings(clientId)
-        .map { list ->
-            list.maxByOrNull { it.recordedAt }
-                ?.let { DealPhase.fromWire(it.phaseOverride ?: it.dealPhase) }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
     val groups = repository.observeClientGroups()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val projects = repository.observeClientProjects(clientId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** 現在のステータス = 案件フェーズを正とした代表フェーズ(案件が無ければ null)。 */
+    val latestPhase: StateFlow<DealPhase?> = repository.observeClientProjects(clientId)
+        .map { ClientDealPhaseRules.of(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     fun saveInfo(
         name: String,

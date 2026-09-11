@@ -24,6 +24,22 @@ enum class DealPhase(
     val isActive: Boolean
         get() = this != WON && this != LOST
 
+    /**
+     * ファネルの進行度(大きいほど先。進行中案件どうしの「どちらが先か」比較に使う)。
+     * 保留(ON_HOLD)は初回接触の少し先あたりに置く。WON/LOST は進行中ではないので低く。
+     */
+    val funnelRank: Int
+        get() = when (this) {
+            FIRST_CONTACT -> 1
+            ON_HOLD -> 2
+            HEARING -> 3
+            PROPOSAL -> 4
+            QUOTED -> 5
+            CONSIDERING -> 6
+            WON -> -1
+            LOST -> -2
+        }
+
     companion object {
         fun fromWire(value: String?): DealPhase? =
             value?.let { v -> entries.firstOrNull { it.wireValue == v } }

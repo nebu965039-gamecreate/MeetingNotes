@@ -62,6 +62,7 @@ object FollowupRules {
     private fun buildItem(
         client: ClientEntity,
         latestByClient: Map<Long, ClientLatestMeeting>,
+        dealPhaseByClient: Map<Long, DealPhase>,
         count: Int,
         snoozedUntil: Long?
     ): FollowupItem {
@@ -70,7 +71,8 @@ object FollowupRules {
             client = client,
             meetingId = m?.meetingId ?: 0L,
             lastRecordedAt = m?.lastRecordedAt ?: client.createdAt,
-            phase = m?.let { DealPhase.fromWire(it.phaseOverride ?: it.dealPhase) },
+            // フェーズ表示は「案件フェーズを正」に合わせる(2026-09-11)。
+            phase = dealPhaseByClient[client.id],
             openTodoCount = count,
             snoozedUntil = snoozedUntil
         )
@@ -81,6 +83,7 @@ object FollowupRules {
         clients: List<ClientEntity>,
         latest: List<ClientLatestMeeting>,
         openTodoCountByClient: Map<Long, Int> = emptyMap(),
+        dealPhaseByClient: Map<Long, DealPhase> = emptyMap(),
         nowMillis: Long = System.currentTimeMillis()
     ): List<FollowupItem> {
         val byClient = latest.associateBy { it.clientId }
@@ -89,7 +92,7 @@ object FollowupRules {
             if (count == 0) return@mapNotNull null
             val snooze = client.followBoardSnoozedUntil
             if (snooze != null && snooze > nowMillis) return@mapNotNull null
-            buildItem(client, byClient, count, snoozedUntil = null)
+            buildItem(client, byClient, dealPhaseByClient, count, snoozedUntil = null)
         }.sortedByDescending { it.lastRecordedAt }
     }
 
@@ -98,6 +101,7 @@ object FollowupRules {
         clients: List<ClientEntity>,
         latest: List<ClientLatestMeeting>,
         openTodoCountByClient: Map<Long, Int> = emptyMap(),
+        dealPhaseByClient: Map<Long, DealPhase> = emptyMap(),
         nowMillis: Long = System.currentTimeMillis()
     ): List<FollowupItem> {
         val byClient = latest.associateBy { it.clientId }
@@ -106,7 +110,7 @@ object FollowupRules {
             if (snooze <= nowMillis) return@mapNotNull null
             val count = openTodoCountByClient[client.id] ?: 0
             if (count == 0) return@mapNotNull null
-            buildItem(client, byClient, count, snoozedUntil = snooze)
+            buildItem(client, byClient, dealPhaseByClient, count, snoozedUntil = snooze)
         }.sortedBy { it.snoozedUntil }
     }
 }

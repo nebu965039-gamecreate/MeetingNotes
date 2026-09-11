@@ -116,5 +116,12 @@ class MeetingNotesApp : Application() {
                     .onSuccess { prefs.edit { putBoolean("schedules_backfilled", true) } }
             }
         }
+        // 案件フェーズを正にした移行(2026-09-11): 商談があるのに案件が無いクライアントへ案件を1件作る。
+        if (!prefs.getBoolean("client_projects_backfilled", false)) {
+            appScope.launch {
+                runCatching { repository.backfillClientProjects() }
+                    .onSuccess { prefs.edit { putBoolean("client_projects_backfilled", true) } }
+            }
+        }
     }
 }
