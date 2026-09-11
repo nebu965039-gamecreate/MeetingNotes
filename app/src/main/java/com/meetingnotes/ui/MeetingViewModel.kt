@@ -11,6 +11,7 @@ import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.data.RecordingDraftStore
 import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.ClientGroupEntity
+import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.MeetingSummary
 import com.meetingnotes.data.model.MeetingType
 import com.meetingnotes.data.remote.AnthropicClient
@@ -27,6 +28,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -41,6 +43,24 @@ sealed interface SummaryUiState {
 }
 
 enum class RecordingPhase { Countdown, Recording, Stopping, Transcribing, Editing }
+
+/** 保存直後、要約結果画面で出す「案件フェーズ」の確認プロンプト(2026-09-11)。 */
+sealed interface PostSavePrompt {
+    /** クライアントにまだ案件が無い → 案件作成を促す。 */
+    data class CreateProject(
+        val clientId: Long,
+        val clientName: String,
+        val suggestedPhase: DealPhase?
+    ) : PostSavePrompt
+
+    /** 進行中の案件がちょうど1つ、かつ AI 推定フェーズと違う → フェーズ更新を促す。 */
+    data class UpdatePhase(
+        val projectId: Long,
+        val projectName: String,
+        val currentPhase: DealPhase?,
+        val suggestedPhase: DealPhase
+    ) : PostSavePrompt
+}
 
 class MeetingViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -100,6 +120,13 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    /** 保存が完了して遷移すべきクライアントID。[postSavePrompt] が null になったら画面が遷移する。 */
+    private val _savedClientId = MutableStateFlow<Long?>(null)
+    val savedClientId: StateFlow<Long?> = _savedClientId.asStateFlow()
+
+    private val _postSavePrompt = MutableStateFlow<PostSavePrompt?>(null)
+    val postSavePrompt: StateFlow<PostSavePrompt?> = _postSavePrompt.asStateFlow()
+
     val creditBalance: StateFlow<Int> = repository.observeCredits(deviceIdHash)
         .map { it?.balance ?: 0 }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -147,6 +174,8 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         this.meetingType = meetingType
         _errorMessage.value = null
         _transcribeError.value = null
+        _savedClientId.value = null
+        _postSavePrompt.value = null
         _recordingPhase.value = RecordingPhase.Countdown
         _countdownSeconds.value = COUNTDOWN_START
 
@@ -397,10 +426,13 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
     fun defaultMeetingTitle(): String =
         "${LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}の議事録"
 
-    /** 要約結果を指定クライアントに保存する共通処理。保存できたら true。 */
-    private suspend fun persistMeeting(targetClientId: Long, title: String): Boolean {
+    /**
+     * 要約結果を指定クライアントに保存する共通処理。保存できたら
+     * [_savedClientId] をセットし、必要なら [_postSavePrompt] に案件フェーズの確認を積む。
+     */
+    private suspend fun persistMeeting(targetClientId: Long, title: String, clientName: String? = null) {
         val state = _summaryState.value
-        if (state !is SummaryUiState.Success) return false
+        if (state !is SummaryUiState.Success) return
         repository.saveMeeting(
             clientId = targetClientId,
             title = title.ifBlank { defaultMeetingTitle() },
@@ -413,37 +445,76 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         draftStore.clear()
         recordedAudioFile?.delete()
         recordedAudioFile = null
-        return true
+
+        _postSavePrompt.value = buildPostSavePrompt(targetClientId, state.summary.dealPhase, clientName)
+        _savedClientId.value = targetClientId
+    }
+
+    private suspend fun buildPostSavePrompt(
+        clientId: Long,
+        aiPhase: DealPhase?,
+        clientName: String?
+    ): PostSavePrompt? {
+        val projects = repository.observeClientProjects(clientId).first()
+        if (projects.isEmpty()) {
+            val name = clientName ?: repository.observeClient(clientId).first()?.name ?: ""
+            return PostSavePrompt.CreateProject(clientId, name, aiPhase)
+        }
+        val active = projects.filter { DealPhase.fromWire(it.phase)?.isActive != false }
+        val target = active.singleOrNull() ?: return null
+        if (aiPhase == null || DealPhase.fromWire(target.phase) == aiPhase) return null
+        return PostSavePrompt.UpdatePhase(
+            projectId = target.id,
+            projectName = target.name,
+            currentPhase = DealPhase.fromWire(target.phase),
+            suggestedPhase = aiPhase
+        )
     }
 
     /** クライアントが確定している通常フロー(クライアント画面から録音)での保存。 */
-    fun saveMeeting(title: String, onSaved: (clientId: Long) -> Unit) {
+    fun saveMeeting(title: String) {
         if (clientId < 0) return
-        viewModelScope.launch {
-            if (persistMeeting(clientId, title)) onSaved(clientId)
-        }
+        viewModelScope.launch { persistMeeting(clientId, title) }
     }
 
     /** TOPから直接録音した場合に、保存時に選んだ既存クライアントへ保存する。 */
-    fun saveMeetingToClient(targetClientId: Long, title: String, onSaved: (clientId: Long) -> Unit) {
-        viewModelScope.launch {
-            if (persistMeeting(targetClientId, title)) onSaved(targetClientId)
-        }
+    fun saveMeetingToClient(targetClientId: Long, title: String) {
+        viewModelScope.launch { persistMeeting(targetClientId, title) }
     }
 
     /** TOPから直接録音した場合に、保存時に新規クライアントを作成してそこへ保存する。 */
-    fun saveMeetingToNewClient(
-        name: String,
-        groupId: Long?,
-        title: String,
-        onSaved: (clientId: Long) -> Unit
-    ) {
+    fun saveMeetingToNewClient(name: String, groupId: Long?, title: String) {
         // 保存できる状態(要約成功)でなければクライアントを作らない(空クライアントの残留防止)。
         if (_summaryState.value !is SummaryUiState.Success) return
         viewModelScope.launch {
             val newId = repository.addClient(name.trim(), groupId)
-            if (persistMeeting(newId, title)) onSaved(newId)
+            persistMeeting(newId, title, clientName = name.trim())
         }
+    }
+
+    // --- 保存後の「案件フェーズ」確認プロンプト ---
+
+    /** `CreateProject` プロンプトへの応答。名前が空ならスキップ(案件は作らない)。 */
+    fun resolveCreateProject(name: String, phase: DealPhase?) {
+        val p = _postSavePrompt.value as? PostSavePrompt.CreateProject ?: return
+        viewModelScope.launch {
+            if (name.isNotBlank()) repository.addClientProject(p.clientId, name.trim(), phase)
+            _postSavePrompt.value = null
+        }
+    }
+
+    /** `UpdatePhase` プロンプトへの応答。選んだフェーズで案件を更新。 */
+    fun resolveUpdatePhase(phase: DealPhase) {
+        val p = _postSavePrompt.value as? PostSavePrompt.UpdatePhase ?: return
+        viewModelScope.launch {
+            repository.setProjectPhase(p.projectId, phase)
+            _postSavePrompt.value = null
+        }
+    }
+
+    /** プロンプトを閉じるだけ(何もしない)。 */
+    fun dismissPostSavePrompt() {
+        _postSavePrompt.value = null
     }
 
     fun resetForNewMeeting() {
@@ -451,6 +522,8 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         _summaryState.value = SummaryUiState.Idle
         _errorMessage.value = null
         _transcribeError.value = null
+        _savedClientId.value = null
+        _postSavePrompt.value = null
         _recordingPhase.value = RecordingPhase.Countdown
         meetingType = MeetingType.IN_PERSON
         recordedAudioFile?.delete()

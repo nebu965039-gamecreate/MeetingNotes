@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -24,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,8 +44,10 @@ import kotlinx.coroutines.delay
 import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.local.ClientEntity
 import com.meetingnotes.data.local.ClientGroupEntity
+import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.MeetingSummary
 import com.meetingnotes.ui.MeetingViewModel
+import com.meetingnotes.ui.PostSavePrompt
 import com.meetingnotes.ui.SummaryUiState
 import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.meetingSummarySections
@@ -61,6 +65,24 @@ fun ResultScreen(
     val groups by viewModel.clientGroups.collectAsState()
     val activity = LocalActivity.current as Activity
     val needsClient = !viewModel.isClientAssigned()
+
+    val savedClientId by viewModel.savedClientId.collectAsState()
+    val postSavePrompt by viewModel.postSavePrompt.collectAsState()
+
+    // 保存完了 & 案件フェーズのプロンプトが片付いたら、クライアント画面へ遷移。
+    LaunchedEffect(savedClientId, postSavePrompt) {
+        val id = savedClientId
+        if (id != null && postSavePrompt == null) onSaved(id)
+    }
+
+    postSavePrompt?.let { prompt ->
+        PostSavePromptDialog(
+            prompt = prompt,
+            onCreate = { name, phase -> viewModel.resolveCreateProject(name, phase) },
+            onUpdate = { phase -> viewModel.resolveUpdatePhase(phase) },
+            onSkip = { viewModel.dismissPostSavePrompt() }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -105,13 +127,9 @@ fun ResultScreen(
                     needsClient = needsClient,
                     clients = clients,
                     groups = groups,
-                    onSaveAssigned = { title -> viewModel.saveMeeting(title, onSaved) },
-                    onSaveToExisting = { clientId, title ->
-                        viewModel.saveMeetingToClient(clientId, title, onSaved)
-                    },
-                    onSaveToNew = { name, groupId, title ->
-                        viewModel.saveMeetingToNewClient(name, groupId, title, onSaved)
-                    }
+                    onSaveAssigned = { title -> viewModel.saveMeeting(title) },
+                    onSaveToExisting = { clientId, title -> viewModel.saveMeetingToClient(clientId, title) },
+                    onSaveToNew = { name, groupId, title -> viewModel.saveMeetingToNewClient(name, groupId, title) }
                 )
             }
         }
@@ -266,6 +284,92 @@ private fun SummaryContent(
             ) {
                 Text("保存してクライアント画面へ")
             }
+        }
+    }
+}
+
+/** 保存直後に出す「案件フェーズ」の確認ダイアログ。 */
+@Composable
+private fun PostSavePromptDialog(
+    prompt: PostSavePrompt,
+    onCreate: (name: String, phase: DealPhase?) -> Unit,
+    onUpdate: (phase: DealPhase) -> Unit,
+    onSkip: () -> Unit
+) {
+    val phaseOptions = DealPhase.entries.map { it to it.label }
+
+    when (prompt) {
+        is PostSavePrompt.CreateProject -> {
+            var name by remember {
+                mutableStateOf(prompt.clientName.ifBlank { "案件" })
+            }
+            var phase by remember {
+                mutableStateOf(prompt.suggestedPhase ?: DealPhase.FIRST_CONTACT)
+            }
+            AlertDialog(
+                onDismissRequest = onSkip,
+                title = { Text("案件を登録しますか？") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "このクライアントの案件がまだありません。案件として登録すると、" +
+                                "フェーズや金額を管理できます（クライアントのステータスは案件フェーズが基準になります）。",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { name = it },
+                            label = { Text("案件名") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        LabeledDropdownField(
+                            label = "現在のフェーズ",
+                            options = phaseOptions,
+                            selected = phase,
+                            onSelect = { phase = it },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { onCreate(name, phase) }) { Text("登録する") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { onCreate("", null) }) { Text("あとで") }
+                }
+            )
+        }
+
+        is PostSavePrompt.UpdatePhase -> {
+            var phase by remember { mutableStateOf(prompt.suggestedPhase) }
+            AlertDialog(
+                onDismissRequest = onSkip,
+                title = { Text("案件フェーズを更新しますか？") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "AI はこの商談を「${prompt.suggestedPhase.label}」と判断しました。\n" +
+                                "案件「${prompt.projectName}」を " +
+                                "「${prompt.currentPhase?.label ?: "未設定"}」→「${prompt.suggestedPhase.label}」に" +
+                                "進めますか？",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        LabeledDropdownField(
+                            label = "更新後のフェーズ",
+                            options = phaseOptions,
+                            selected = phase,
+                            onSelect = { phase = it },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { onUpdate(phase) }) { Text("更新する") }
+                },
+                dismissButton = {
+                    TextButton(onClick = onSkip) { Text("今はしない") }
+                }
+            )
         }
     }
 }
