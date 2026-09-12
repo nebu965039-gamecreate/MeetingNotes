@@ -14,8 +14,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.Orientation
@@ -49,9 +51,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -78,6 +82,10 @@ import androidx.compose.ui.unit.dp
 import com.meetingnotes.data.remote.AnthropicClient
 import com.meetingnotes.ui.MeetingViewModel
 import com.meetingnotes.ui.RecordingPhase
+import com.meetingnotes.ui.theme.BrandNavy
+import com.meetingnotes.ui.theme.CreateActionAmber
+import com.meetingnotes.ui.theme.OnBrandNavy
+import com.meetingnotes.ui.theme.OnBrandNavyDim
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -171,7 +179,11 @@ fun RecordingScreen(
         enabled = isActivelyRecording && !showDraftDialog && !showModePicker
     ) { showStopConfirm = true }
 
+    // カウントダウン・録音中は録音ボタンと同じネイビー+アンバーの専用配色にする(独自デザイン画面)。
+    val isNavyPhase = phase == RecordingPhase.Countdown || phase == RecordingPhase.Recording
+
     Scaffold(
+        containerColor = if (isNavyPhase) BrandNavy else MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("録音") },
@@ -181,6 +193,15 @@ fun RecordingScreen(
                     }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                     }
+                },
+                colors = if (isNavyPhase) {
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = BrandNavy,
+                        titleContentColor = OnBrandNavy,
+                        navigationIconContentColor = OnBrandNavy
+                    )
+                } else {
+                    TopAppBarDefaults.topAppBarColors()
                 }
             )
         }
@@ -457,7 +478,7 @@ private fun CountdownContent(secondsLeft: Int, modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         com.meetingnotes.ui.common.PulsingHalo(
-            color = MaterialTheme.colorScheme.primary,
+            color = CreateActionAmber,
             modifier = Modifier.size(150.dp),
             ringWidth = 3.dp,
             ringGap = 0.dp,
@@ -476,14 +497,16 @@ private fun CountdownContent(secondsLeft: Int, modifier: Modifier = Modifier) {
             ) { n ->
                 Text(
                     text = n.toString(),
-                    style = MaterialTheme.typography.displayLarge
+                    style = MaterialTheme.typography.displayLarge,
+                    color = OnBrandNavy
                 )
             }
         }
         Spacer(Modifier.height(20.dp))
         Text(
             text = "まもなく録音を開始します",
-            style = MaterialTheme.typography.bodyLarge
+            style = MaterialTheme.typography.bodyLarge,
+            color = OnBrandNavyDim
         )
     }
 }
@@ -502,10 +525,25 @@ private fun RecordingContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(CreateActionAmber, CircleShape)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = "録音中",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                color = CreateActionAmber
+            )
+        }
         Text(
-            text = "録音中... ${formatElapsed(elapsedMs)}",
-            style = MaterialTheme.typography.headlineMedium,
+            text = formatElapsed(elapsedMs),
+            style = MaterialTheme.typography.displaySmall,
             textAlign = TextAlign.Center,
+            color = OnBrandNavy,
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -536,14 +574,23 @@ private fun RecordingContent(
         LaunchedEffect(liveTranscript) {
             transcriptScroll.animateScrollTo(transcriptScroll.maxValue)
         }
-        Text(
-            text = liveTranscript.ifBlank { "(話し始めると文字起こしが表示されます)" },
-            style = MaterialTheme.typography.bodyLarge,
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = RoundedCornerShape(12.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .verticalScroll(transcriptScroll)
-        )
+        ) {
+            Text(
+                text = liveTranscript.ifBlank { "(話し始めると文字起こしが表示されます)" },
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(transcriptScroll)
+                    .padding(12.dp)
+            )
+        }
 
         SlideToStop(onStop = onStop)
     }
@@ -564,7 +611,8 @@ private fun SlideToStop(onStop: () -> Unit, modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .height(trackHeight)
             .clip(RoundedCornerShape(trackHeight / 2))
-            .background(MaterialTheme.colorScheme.primaryContainer),
+            .background(OnBrandNavy.copy(alpha = 0.08f))
+            .border(BorderStroke(1.dp, CreateActionAmber), RoundedCornerShape(trackHeight / 2)),
         contentAlignment = Alignment.Center
     ) {
         val maxOffset = with(density) {
@@ -576,7 +624,7 @@ private fun SlideToStop(onStop: () -> Unit, modifier: Modifier = Modifier) {
         Text(
             text = "スライドして停止  →",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            color = OnBrandNavyDim,
             modifier = Modifier.graphicsLayer { alpha = 1f - progress }
         )
         Box(
@@ -586,7 +634,7 @@ private fun SlideToStop(onStop: () -> Unit, modifier: Modifier = Modifier) {
                 .padding(innerPadding)
                 .size(thumbSize)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
+                .background(CreateActionAmber)
                 .draggable(
                     orientation = Orientation.Horizontal,
                     state = rememberDraggableState { delta ->
@@ -606,7 +654,7 @@ private fun SlideToStop(onStop: () -> Unit, modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .size(16.dp)
-                    .background(MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(2.dp))
+                    .background(BrandNavy, RoundedCornerShape(2.dp))
             )
         }
     }
@@ -624,7 +672,7 @@ private fun AudioLevelVisualizer(level: Float, modifier: Modifier = Modifier) {
         if (samples.size > barCount) samples.removeAt(0)
     }
 
-    val barColor = MaterialTheme.colorScheme.primary
+    val barColor = CreateActionAmber
     Canvas(
         modifier = modifier.height(64.dp)
     ) {
