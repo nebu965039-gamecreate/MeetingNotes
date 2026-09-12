@@ -2,6 +2,7 @@ package com.meetingnotes.ui.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,10 +20,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.meetingnotes.MeetingNotesApp
+import com.meetingnotes.ui.theme.ThemeMode
+import com.meetingnotes.ui.theme.TodoDueSoonColor
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -58,6 +63,20 @@ fun TodoRow(
     trailing: (@Composable () -> Unit)? = null
 ) {
     val snoozed = !data.done && todoIsSnoozed(data.snoozedUntil)
+    val app = LocalContext.current.applicationContext as MeetingNotesApp
+    val darkTheme = when (app.themeModeState.value) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+    // 期限の表示色(2026-09-14): 完了済みは強調しない。期限切れ = error(赤)、3日以内 = 黄色、
+    // それ以外は従来どおり onSurfaceVariant(グレー)。境界判定は ToDo タブのフィルタと同じ関数を再利用。
+    val dueColor = when {
+        data.done -> MaterialTheme.colorScheme.onSurfaceVariant
+        matchesDueFilter(data.dueDate, TodoDueFilter.OVERDUE) -> MaterialTheme.colorScheme.error
+        matchesDueFilter(data.dueDate, TodoDueFilter.DUE_SOON) -> TodoDueSoonColor.of(darkTheme)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
     // 行自体を白いカードにする(2026-09-13): ページ地がティールに統一されたため、
     // 背景指定の無いテキストのみの行だと地に溶けて見えてしまっていた。ClientRow/MeetingRow と同じ
     // surfaceContainer(白)の角丸カードに揃える。
@@ -90,21 +109,35 @@ fun TodoRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val sub = buildList {
-                        data.clientName?.let { add(it) }
-                        dueLabel(data.dueDate, data.deadlineText)?.let { add(it) }
-                    }.joinToString(" ・ ")
-                    if (sub.isNotEmpty()) {
+                    val due = dueLabel(data.dueDate, data.deadlineText)
+                    if (data.clientName != null) {
                         Text(
-                            sub,
+                            data.clientName,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (due != null) {
+                            Text(
+                                " ・ ",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    if (due != null) {
+                        Text(
+                            due,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = dueColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                     if (snoozed) {
-                        if (sub.isNotEmpty()) Spacer(Modifier.width(6.dp))
+                        if (data.clientName != null || due != null) Spacer(Modifier.width(6.dp))
                         SnoozeChip(data.snoozedUntil!!)
                     }
                 }

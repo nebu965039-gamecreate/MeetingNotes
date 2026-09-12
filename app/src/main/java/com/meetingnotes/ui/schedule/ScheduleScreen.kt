@@ -28,6 +28,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -97,15 +99,11 @@ fun ScheduleScreen(
 
     var viewedMonth by remember { mutableStateOf(YearMonth.now()) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
     var scheduleToView by remember { mutableStateOf<UpcomingItem?>(null) }
     var scheduleToEdit by remember { mutableStateOf<UpcomingItem?>(null) }
     var scheduleToDelete by remember { mutableStateOf<UpcomingItem?>(null) }
-
-    val today = LocalDate.now()
-    val futureSchedules = allSchedules.filter { !it.start.toLocalDate().isBefore(today) }
-    val todaySchedules = allSchedules.filter { it.start.toLocalDate() == today }
-    val upcomingSchedules = allSchedules.filter { it.start.toLocalDate().isAfter(today) }
 
     val todoDatesByDay = remember(dueTodos) {
         dueTodos.groupBy { runCatching { LocalDate.parse(it.dueDate) }.getOrNull() }
@@ -115,9 +113,28 @@ fun ScheduleScreen(
     val markedDates = remember(allSchedules, todoDatesByDay) {
         allSchedules.map { it.start.toLocalDate() }.toSet() + todoDatesByDay.keys
     }
+    // 未選択時は「viewedMonth(既定=今月)の予定・ToDo」を表示する(2026-09-14、旧: 本日/これからの2枠)。
+    val monthSchedules = remember(allSchedules, viewedMonth) {
+        allSchedules.filter { YearMonth.from(it.start.toLocalDate()) == viewedMonth }
+    }
+    val monthDueTodos = remember(todoDatesByDay, viewedMonth) {
+        todoDatesByDay.filterKeys { YearMonth.from(it) == viewedMonth }.values.flatten()
+    }
     val filteredItems = selectedDate?.let { d -> allSchedules.filter { it.start.toLocalDate() == d } }
-        ?: futureSchedules
+        ?: monthSchedules
     val selectedDayTodos = selectedDate?.let { todoDatesByDay[it].orEmpty() } ?: emptyList()
+
+    // 文字検索(2026-09-14): タイトル・参加者・メモ・場所・クライアント名の部分一致。
+    // 検索中は日/月の絞り込みをやめ、全期間からのフラットな結果に切り替える。
+    val searchResults = searchQuery.trim().takeIf { it.isNotEmpty() }?.let { q ->
+        allSchedules.filter {
+            it.title.contains(q, ignoreCase = true) ||
+                it.participants.contains(q, ignoreCase = true) ||
+                it.note.contains(q, ignoreCase = true) ||
+                it.clientName.contains(q, ignoreCase = true) ||
+                it.location?.contains(q, ignoreCase = true) == true
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -154,89 +171,89 @@ fun ScheduleScreen(
                     onMonthChange = { viewedMonth = it },
                     onDateClick = { date ->
                         selectedDate = if (selectedDate == date) null else date
-                    }
+                    },
+                    // 年月をタップ = その月の予定・ToDo表示に戻る(日付選択を解除。旧「すべて表示」ボタンの代替)。
+                    onMonthLabelClick = { selectedDate = null }
                 )
             }
 
-            val date = selectedDate
-            if (date != null) {
-                // 日付を選択中: その日だけを表示(過去も)。
-                item(key = "list_header") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "${date.monthValue}月${date.dayOfMonth}日の予定 (${filteredItems.size}件)",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        TextButton(onClick = { selectedDate = null }) { Text("すべて表示") }
-                    }
+            item(key = "search") {
+                ScheduleSearchField(value = searchQuery, onValueChange = { searchQuery = it })
+            }
+
+            val results = searchResults
+            if (results != null) {
+                item(key = "search_header") {
+                    Text("検索結果 (${results.size}件)", style = MaterialTheme.typography.titleSmall)
                 }
-                item(key = "sel_list") {
+                item(key = "search_list") {
                     ScheduleListPanel(
-                        items = filteredItems,
-                        emptyText = "予定はありません。右上の＋から追加できます。",
+                        items = results,
+                        emptyText = "一致する予定が見つかりません。",
                         onOpen = { scheduleToView = it }
                     )
                 }
             } else {
-                // 未選択: 本日の予定 → これからの予定 の2枠。
-                item(key = "today_header") {
-                    SectionRule("本日の予定 ・ ${todaySchedules.size}件")
-                }
-                item(key = "today_list") {
-                    ScheduleListPanel(
-                        items = todaySchedules,
-                        emptyText = "本日の予定はありません。",
-                        onOpen = { scheduleToView = it }
-                    )
-                }
-                item(key = "upcoming_header") {
-                    SectionRule(
-                        "これからの予定 ・ ${upcomingSchedules.size}件",
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-                item(key = "upcoming_list") {
-                    ScheduleListPanel(
-                        items = upcomingSchedules,
-                        emptyText = "予定はありません。右上の＋から追加できます。",
-                        onOpen = { scheduleToView = it }
-                    )
-                }
-            }
-
-            if (selectedDate != null && selectedDayTodos.isNotEmpty()) {
-                item(key = "todo_header") {
-                    Text(
-                        "この日が期限のToDo (${selectedDayTodos.size}件)",
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-                items(selectedDayTodos, key = { "todo-${it.todoId}" }) { t ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().clickable { onOpenClient(t.clientId) },
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                val date = selectedDate
+                if (date != null) {
+                    // 日付を選択中: その日だけを表示(過去も)。
+                    item(key = "list_header") {
+                        Text(
+                            "${date.monthValue}月${date.dayOfMonth}日の予定 (${filteredItems.size}件)",
+                            style = MaterialTheme.typography.titleSmall
                         )
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(t.task, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                Text(
-                                    "${t.clientName}・担当 ${t.assignee}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            TextButton(onClick = { viewModel.completeTodo(t.todoId) }) { Text("完了") }
-                        }
+                    }
+                    item(key = "sel_list") {
+                        ScheduleListPanel(
+                            items = filteredItems,
+                            emptyText = "予定はありません。右上の＋から追加できます。",
+                            onOpen = { scheduleToView = it }
+                        )
+                    }
+                    item(key = "todo_header") {
+                        Text(
+                            "この日が期限のToDo (${selectedDayTodos.size}件)",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                    item(key = "todo_section") {
+                        DueTodoSection(
+                            items = selectedDayTodos,
+                            emptyText = "この日が期限のToDoはありません。",
+                            onOpenClient = onOpenClient,
+                            onComplete = { viewModel.completeTodo(it) }
+                        )
+                    }
+                } else {
+                    // 未選択: viewedMonth(開いた直後は今月)の予定・ToDo を表示。
+                    item(key = "month_header") {
+                        Text(
+                            "${viewedMonth.monthValue}月の予定 (${monthSchedules.size}件)",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
+                    item(key = "month_list") {
+                        ScheduleListPanel(
+                            items = monthSchedules,
+                            emptyText = "この月の予定はありません。右上の＋から追加できます。",
+                            onOpen = { scheduleToView = it }
+                        )
+                    }
+                    item(key = "month_todo_header") {
+                        Text(
+                            "${viewedMonth.monthValue}月が期限のToDo (${monthDueTodos.size}件)",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                    item(key = "month_todo_section") {
+                        DueTodoSection(
+                            items = monthDueTodos,
+                            emptyText = "この月が期限のToDoはありません。",
+                            onOpenClient = onOpenClient,
+                            onComplete = { viewModel.completeTodo(it) }
+                        )
                     }
                 }
             }
@@ -477,28 +494,111 @@ private fun ScheduleListPanel(
     }
 }
 
-/** 「——— 見出し ———」の中央ラベル区切り(本日 / これからの予定 の仕切り)。 */
+/**
+ * 「この日/月が期限のToDo」セクション(2026-09-14)。0件でも常に表示し、
+ * 空のときはメッセージだけ出す(旧: 0件なら見出しごと非表示だった)。
+ */
 @Composable
-private fun SectionRule(text: String, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        HorizontalDivider(
-            modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
+private fun DueTodoSection(
+    items: List<com.meetingnotes.data.local.OpenTodo>,
+    emptyText: String,
+    onOpenClient: (Long) -> Unit,
+    onComplete: (Long) -> Unit
+) {
+    if (items.isEmpty()) {
         Text(
-            text,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
+            emptyText,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        HorizontalDivider(
-            modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.forEach { t ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { onOpenClient(t.clientId) },
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(t.task, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(
+                                "${t.clientName}・担当 ${t.assignee}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(onClick = { onComplete(t.todoId) }) { Text("完了") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 予定表の文字検索欄(2026-09-14)。カレンダー直下に常時表示。
+ * タイトル・参加者・メモ・場所・クライアント名の部分一致(`ArchiveSearchField` と同じ丸みのあるバー)。
+ */
+@Composable
+private fun ScheduleSearchField(value: String, onValueChange: (String) -> Unit) {
+    androidx.compose.material3.Surface(
+        shape = RoundedCornerShape(percent = 50),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Filled.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            androidx.compose.foundation.text.BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 9.dp),
+                decorationBox = { inner ->
+                    if (value.isEmpty()) {
+                        Text(
+                            "予定を検索",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    inner()
+                }
+            )
+            if (value.isNotEmpty()) {
+                IconButton(
+                    onClick = { onValueChange("") },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = "検索をクリア",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -510,6 +610,7 @@ private fun MonthCalendar(
     selectedDate: LocalDate?,
     onMonthChange: (YearMonth) -> Unit,
     onDateClick: (LocalDate) -> Unit,
+    onMonthLabelClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val holidays = remember(month) { JapaneseHolidays.holidaysInMonth(month.year, month.monthValue) }
@@ -533,7 +634,9 @@ private fun MonthCalendar(
                 Text(
                     "${month.year}年${month.monthValue}月",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    // タップで日付選択を解除し、この月の予定・ToDo表示に戻る(2026-09-14)。
+                    modifier = Modifier.clickable(onClick = onMonthLabelClick)
                 )
                 IconButton(onClick = { onMonthChange(month.plusMonths(1)) }) {
                     Icon(Icons.Filled.ChevronRight, contentDescription = "次の月")

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FolderOpen
@@ -256,7 +257,8 @@ fun ClientDetailScreen(
             onUnsnooze = { viewModel.unsnoozeTodo(it) },
             onAddTodo = { task, dueDate -> viewModel.addManualTodo(task, dueDate) },
             onEditTodo = { id, task, dueDate -> viewModel.updateTodo(id, task, dueDate) },
-            onDeleteTodo = { viewModel.deleteTodo(it) }
+            onDeleteTodo = { viewModel.deleteTodo(it) },
+            onDeleteAllDone = { viewModel.deleteAllDoneTodos() }
         )
         2 -> ClientInfoContent(repository = repository, clientId = clientId, onEdit = { showEditDialog = true })
         else -> LazyColumn(
@@ -1308,12 +1310,14 @@ private fun TodoTab(
     onUnsnooze: (Long) -> Unit,
     onAddTodo: (task: String, dueDate: String?) -> Unit,
     onEditTodo: (todoId: Long, task: String, dueDate: String?) -> Unit,
-    onDeleteTodo: (Long) -> Unit
+    onDeleteTodo: (Long) -> Unit,
+    onDeleteAllDone: () -> Unit
 ) {
     var sub by rememberSaveable { mutableIntStateOf(0) }
     var showAdd by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<TodoEntity?>(null) }
     var sortMenu by remember { mutableStateOf(false) }
+    var showDeleteAllConfirm by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         PrimaryTabRow(
@@ -1349,6 +1353,18 @@ private fun TodoTab(
                     Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("ToDoを追加")
+                }
+            }
+        }
+
+        if (sub == 1 && doneTodos.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = { showDeleteAllConfirm = true }) {
+                    Icon(Icons.Filled.DeleteSweep, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                    Text("すべて削除")
                 }
             }
         }
@@ -1413,6 +1429,18 @@ private fun TodoTab(
             onDismiss = { editing = null },
             onConfirm = { task, dueDate -> onEditTodo(t.id, task, dueDate); editing = null },
             onDelete = { onDeleteTodo(t.id); editing = null }
+        )
+    }
+    if (showDeleteAllConfirm) {
+        ConfirmDialog(
+            title = "完了済みToDoをすべて削除",
+            text = "完了済みのToDo(${doneTodos.size}件)をすべて削除します。元に戻せません。",
+            confirmLabel = "削除",
+            onDismiss = { showDeleteAllConfirm = false },
+            onConfirm = {
+                onDeleteAllDone()
+                showDeleteAllConfirm = false
+            }
         )
     }
 }

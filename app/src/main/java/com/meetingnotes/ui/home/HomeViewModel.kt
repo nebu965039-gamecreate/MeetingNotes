@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import kotlinx.coroutines.launch
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.OpenTodo
 import com.meetingnotes.data.model.DealPhase
@@ -142,10 +141,6 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
     val dueSoonTodos: StateFlow<List<OpenTodo>> = dueTodosSource
         .map { list -> val today = LocalDate.now().toString(); list.filter { it.dueDate >= today } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    fun completeTodo(todoId: Long) {
-        viewModelScope.launch { repository.setTodoDone(todoId, true) }
-    }
 
     /** 進行中案件をフェーズ別に数える(ヒアリング/提案/見積提示/検討中のみ)。 */
     private fun phaseCountsOf(projects: List<com.meetingnotes.data.local.ClientProjectEntity>): PhaseTrackerCounts {

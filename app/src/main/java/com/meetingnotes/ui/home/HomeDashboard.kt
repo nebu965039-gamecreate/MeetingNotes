@@ -259,8 +259,9 @@ private fun LegendRow(label: String, count: Int, color: Color) {
     }
 }
 
+/** 白地の角丸チップに大きな数字+ラベル。ホームのダッシュボード系カード(`HomeDashboardCard`/`DueTodoBoard`)で共有。 */
 @Composable
-private fun StatCell(label: String, value: String, modifier: Modifier, valueColor: Color? = null) {
+fun StatCell(label: String, value: String, modifier: Modifier, valueColor: Color? = null) {
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(11.dp))

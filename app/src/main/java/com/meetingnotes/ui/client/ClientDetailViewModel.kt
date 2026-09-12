@@ -215,6 +215,13 @@ class ClientDetailViewModel(
         viewModelScope.launch { repository.deleteTodo(todoId) }
     }
 
+    /** このクライアントの完了済み ToDo(現在の表示=プロジェクト絞り込み適用後)をすべて削除する。 */
+    fun deleteAllDoneTodos() {
+        viewModelScope.launch {
+            doneTodos.value.forEach { repository.deleteTodo(it.id) }
+        }
+    }
+
     fun deleteClient(onDeleted: () -> Unit) {
         viewModelScope.launch {
             repository.deleteClient(clientId)

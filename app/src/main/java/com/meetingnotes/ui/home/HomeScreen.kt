@@ -153,12 +153,8 @@ fun HomeScreen(
             if (overdueTodos.isNotEmpty() || dueSoonTodos.isNotEmpty()) {
                 item(key = "due_todos") {
                     DueTodoBoard(
-                        overdueItems = overdueTodos,
-                        dueSoonItems = dueSoonTodos,
-                        onOpen = { t ->
-                            if (t.meetingId != null) onOpenMeeting(t.meetingId) else onOpenClient(t.clientId)
-                        },
-                        onComplete = { viewModel.completeTodo(it) },
+                        overdueCount = overdueTodos.size,
+                        dueSoonCount = dueSoonTodos.size,
                         onShowAll = { onOpenTodo(TodoDueFilter.ALL) }
                     )
                 }

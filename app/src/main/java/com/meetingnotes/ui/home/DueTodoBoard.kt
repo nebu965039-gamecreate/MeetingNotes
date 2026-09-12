@@ -1,6 +1,5 @@
 package com.meetingnotes.ui.home
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,137 +7,70 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircleOutline
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.meetingnotes.data.local.OpenTodo
-import com.meetingnotes.ui.common.SectionHeading
-import java.time.LocalDate
-
-/** 一覧に表示する最大件数(セクションごと)。残りは「すべて表示」で ToDo タブへ。 */
-private const val MAX_VISIBLE = 5
+import com.meetingnotes.ui.theme.BrandNavy
+import com.meetingnotes.ui.theme.CreateActionAmber
+import com.meetingnotes.ui.theme.OnBrandNavy
 
 /**
- * ホーム「期限切れ・3日以内のToDo」カード。期限切れ / 3日以内 の2セクションを
- * 仕切り線で分けて1枚のカードにまとめる。「すべて表示」は ToDo タブへ「すべて」フィルタで遷移する。
+ * ホーム「期限切れ・3日以内のToDo」カード(2026-09-14、ダッシュボード化)。
+ * 個々の ToDo は表示せず、`HomeDashboardCard`(進行中フェーズの進捗カード)と同じ
+ * デザイン(`BrandNavy` の Card + `StatCell`)で件数だけを見せ、「ToDoを確認する ›」から ToDo タブへ。
+ * **旧**: 期限切れ/3日以内それぞれの ToDo を最大5件・区切り線付きで一覧表示していた
+ * (`DueTodoSubsection`)。詳細は ToDo タブ側で確認する運用に変更したため削除。
  */
 @Composable
 fun DueTodoBoard(
-    overdueItems: List<OpenTodo>,
-    dueSoonItems: List<OpenTodo>,
-    onOpen: (todo: OpenTodo) -> Unit,
-    onComplete: (todoId: Long) -> Unit,
+    overdueCount: Int,
+    dueSoonCount: Int,
     onShowAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        colors = CardDefaults.cardColors(containerColor = BrandNavy, contentColor = OnBrandNavy)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            SectionHeading(
-                title = "期限切れ・3日以内のToDo",
-                trailing = {
-                    Text(
-                        "すべて表示",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        textDecoration = TextDecoration.Underline,
-                        modifier = Modifier.clickable(onClick = onShowAll)
-                    )
-                }
-            )
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 12.dp)
-            ) {
-                DueTodoSubsection(label = "期限切れ", items = overdueItems, onOpen = onOpen, onComplete = onComplete)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                DueTodoSubsection(label = "3日以内", items = dueSoonItems, onOpen = onOpen, onComplete = onComplete)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatCell(
+                    "期限切れ",
+                    overdueCount.toString(),
+                    Modifier.weight(1f),
+                    valueColor = if (overdueCount > 0) MaterialTheme.colorScheme.error else null
+                )
+                StatCell("3日以内", dueSoonCount.toString(), Modifier.weight(1f))
             }
-        }
-    }
-}
-
-@Composable
-private fun DueTodoSubsection(
-    label: String,
-    items: List<OpenTodo>,
-    onOpen: (todo: OpenTodo) -> Unit,
-    onComplete: (todoId: Long) -> Unit
-) {
-    val today = LocalDate.now()
-    Column(modifier = Modifier.padding(vertical = 6.dp)) {
-        Text(
-            "$label ・ ${items.size}件",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
-        )
-        items.take(MAX_VISIBLE).forEach { t ->
-            val due = runCatching { LocalDate.parse(t.dueDate) }.getOrNull()
-            val overdue = due != null && due.isBefore(today)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onOpen(t) }
-                    .padding(vertical = 4.dp),
+                    .clickable(onClick = onShowAll),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { onComplete(t.todoId) }, modifier = Modifier.size(36.dp)) {
-                    Icon(
-                        Icons.Filled.CheckCircleOutline,
-                        contentDescription = "完了にする",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        t.task,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        "${t.clientName}・${dueLabel(due, today)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (overdue) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    "ToDoを確認する",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = CreateActionAmber
+                )
+                Icon(
+                    Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = CreateActionAmber,
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
-    }
-}
-
-private fun dueLabel(due: LocalDate?, today: LocalDate): String {
-    if (due == null) return ""
-    val days = java.time.temporal.ChronoUnit.DAYS.between(today, due)
-    return when {
-        days < 0 -> "期限切れ（${-days}日）"
-        days == 0L -> "今日まで"
-        days == 1L -> "明日まで"
-        else -> "${due.monthValue}/${due.dayOfMonth}まで"
     }
 }
