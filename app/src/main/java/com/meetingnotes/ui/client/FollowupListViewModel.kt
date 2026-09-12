@@ -6,7 +6,10 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.TodoEntity
+import com.meetingnotes.ui.common.TodoDueFilter
+import com.meetingnotes.ui.common.matchesDueFilter
 import com.meetingnotes.ui.common.todoIsSnoozed
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -39,20 +42,34 @@ class FollowupListViewModel(private val repository: MeetingRepository) : ViewMod
         todos.map { TodoScreenItem(it, nameById[it.clientId] ?: "(不明なクライアント)") }
     }
 
-    /** 未完了 ToDo。期限順(未設定は後ろ)。スヌーズ中は最後尾へ。 */
-    val openTodos: StateFlow<List<TodoScreenItem>> = source
-        .map { list ->
-            list.filter { !it.todo.isDone }
-                .sortedWith(
-                    compareBy(
-                        { todoIsSnoozed(it.todo.snoozedUntil) },
-                        { it.todo.dueDate == null },
-                        { it.todo.dueDate ?: "" },
-                        { -it.todo.id }
-                    )
-                )
-        }
+    private val openTodosAll = source
+        .map { list -> list.filter { !it.todo.isDone } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _dueFilter = MutableStateFlow(TodoDueFilter.ALL)
+    val dueFilter: StateFlow<TodoDueFilter> = _dueFilter
+
+    /** 未完了 ToDo。[dueFilter] で絞り込み、期限順(未設定は後ろ)。スヌーズ中は最後尾へ。 */
+    val openTodos: StateFlow<List<TodoScreenItem>> = combine(openTodosAll, _dueFilter) { list, filter ->
+        list.filter { matchesDueFilter(it.todo.dueDate, filter) }
+            .sortedWith(
+                compareBy(
+                    { todoIsSnoozed(it.todo.snoozedUntil) },
+                    { it.todo.dueDate == null },
+                    { it.todo.dueDate ?: "" },
+                    { -it.todo.id }
+                )
+            )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** タブの件数バッジ用。フィルタの影響を受けない「今やるべき」総数(スヌーズ中除く)。下部ナビのバッジと一致。 */
+    val activeTodoCount: StateFlow<Int> = openTodosAll
+        .map { list -> list.count { !todoIsSnoozed(it.todo.snoozedUntil) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    fun setDueFilter(filter: TodoDueFilter) {
+        _dueFilter.value = filter
+    }
 
     /** 現在スヌーズ中の未完了 ToDo。再表示が近い順。 */
     val snoozedTodos: StateFlow<List<TodoScreenItem>> = source
@@ -81,6 +98,11 @@ class FollowupListViewModel(private val repository: MeetingRepository) : ViewMod
 
     fun unsnooze(todoId: Long) {
         viewModelScope.launch { repository.setTodoSnooze(todoId, null) }
+    }
+
+    /** 完了済み ToDo をすべて削除する(確認ダイアログを経て呼ばれる想定)。 */
+    fun deleteAllDone() {
+        viewModelScope.launch { repository.deleteAllDoneTodos() }
     }
 
     companion object {

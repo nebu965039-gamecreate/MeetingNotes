@@ -40,6 +40,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.client.UpcomingBoard
+import com.meetingnotes.ui.common.TodoDueFilter
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -53,6 +54,7 @@ fun HomeScreen(
     onOpenSchedule: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenSales: () -> Unit,
+    onOpenTodo: (TodoDueFilter) -> Unit,
     onOpenClient: (Long) -> Unit,
     onOpenMeeting: (Long) -> Unit,
     onRecoverDraft: (Long) -> Unit,
@@ -64,7 +66,8 @@ fun HomeScreen(
     val latestMeetingByClient by viewModel.latestMeetingByClient.collectAsState()
     val dashboard by viewModel.dashboard.collectAsState()
     val hasUnseenNotifications by viewModel.hasUnseenNotifications.collectAsState()
-    val dueTodos by viewModel.dueTodos.collectAsState()
+    val overdueTodos by viewModel.overdueTodos.collectAsState()
+    val dueSoonTodos by viewModel.dueSoonTodos.collectAsState()
     val staleDeals by viewModel.staleDeals.collectAsState()
     var scheduleToView by remember { mutableStateOf<com.meetingnotes.ui.client.UpcomingItem?>(null) }
 
@@ -139,30 +142,44 @@ fun HomeScreen(
                 }
             }
 
-            if (staleDeals.isNotEmpty()) {
-                item(key = "stale_deals") {
-                    StaleDealBoard(items = staleDeals, onOpenClient = onOpenClient)
-                }
-            }
-
-            if (dueTodos.isNotEmpty()) {
-                item(key = "due_todos") {
-                    DueTodoBoard(
-                        items = dueTodos,
-                        onOpen = { t ->
-                            if (t.meetingId != null) onOpenMeeting(t.meetingId) else onOpenClient(t.clientId)
-                        },
-                        onComplete = { viewModel.completeTodo(it) }
-                    )
-                }
-            }
-
             item(key = "upcoming_board") {
                 UpcomingBoard(
                     items = upcoming,
                     onOpenSchedule = { scheduleToView = it },
                     onShowAll = onOpenSchedule
                 )
+            }
+
+            if (overdueTodos.isNotEmpty()) {
+                item(key = "overdue_todos") {
+                    OverdueTodoBoard(
+                        items = overdueTodos,
+                        onOpen = { t ->
+                            if (t.meetingId != null) onOpenMeeting(t.meetingId) else onOpenClient(t.clientId)
+                        },
+                        onComplete = { viewModel.completeTodo(it) },
+                        onShowAll = { onOpenTodo(TodoDueFilter.OVERDUE) }
+                    )
+                }
+            }
+
+            if (dueSoonTodos.isNotEmpty()) {
+                item(key = "due_soon_todos") {
+                    DueSoonTodoBoard(
+                        items = dueSoonTodos,
+                        onOpen = { t ->
+                            if (t.meetingId != null) onOpenMeeting(t.meetingId) else onOpenClient(t.clientId)
+                        },
+                        onComplete = { viewModel.completeTodo(it) },
+                        onShowAll = { onOpenTodo(TodoDueFilter.DUE_SOON) }
+                    )
+                }
+            }
+
+            if (staleDeals.isNotEmpty()) {
+                item(key = "stale_deals") {
+                    StaleDealBoard(items = staleDeals, onOpenClient = onOpenClient)
+                }
             }
         }
     }

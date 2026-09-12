@@ -360,6 +360,9 @@ class MeetingRepository(
     /** ToDo を削除する。 */
     suspend fun deleteTodo(todoId: Long) = todoDao.deleteById(todoId)
 
+    /** 完了済み ToDo を全クライアント横断で一括削除する。 */
+    suspend fun deleteAllDoneTodos() = todoDao.deleteAllDone()
+
     // --- メール文面テンプレート ---
 
     fun observeEmailTemplates(): Flow<List<com.meetingnotes.data.local.EmailTemplateEntity>> =

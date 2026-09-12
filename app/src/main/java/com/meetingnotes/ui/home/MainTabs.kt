@@ -18,7 +18,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.SavedStateHandle
@@ -32,6 +34,7 @@ import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.analytics.AnalyticsScreen
 import com.meetingnotes.ui.client.ClientListScreen
 import com.meetingnotes.ui.client.FollowupListScreen
+import com.meetingnotes.ui.common.TodoDueFilter
 import com.meetingnotes.ui.schedule.ScheduleScreen
 
 /** ホームは下部ナビから外し、各タブ画面の左上ホームアイコンから戻る。 */
@@ -75,6 +78,9 @@ fun MainTabsShell(
 
     val openTodoTotal by remember { repository.observeOpenTodoTotal() }
         .collectAsState(initial = 0)
+
+    // ホームの「期限切れ」「3日以内のToDo」から ToDo タブへ渡す絞り込み(消費後は null に戻す)。
+    var pendingTodoFilter by remember { mutableStateOf<TodoDueFilter?>(null) }
 
     fun switchTab(tab: MainTab) {
         tabNav.navigate(tab.route) {
@@ -132,7 +138,8 @@ fun MainTabsShell(
                     onHelp = onHelp,
                     onOpenNotifications = onOpenNotifications,
                     onOpenSchedule = { switchTab(MainTab.SCHEDULE) },
-                    onOpenSales = { switchTab(MainTab.ANALYTICS) }
+                    onOpenSales = { switchTab(MainTab.ANALYTICS) },
+                    onOpenTodo = { filter -> pendingTodoFilter = filter; switchTab(MainTab.TODO) }
                 )
             }
             composable(MainTab.CLIENTS.route) {
@@ -151,8 +158,13 @@ fun MainTabsShell(
                     repository = repository,
                     onOpenClient = onOpenClient,
                     onOpenMeeting = onOpenMeeting,
-                    onHome = { goHome() }
+                    onHome = { goHome() },
+                    initialFilter = pendingTodoFilter
                 )
+                // 消費済みとして null に戻す(再訪時に同じ絞り込みを勝手に再適用しないため)。
+                LaunchedEffect(pendingTodoFilter) {
+                    if (pendingTodoFilter != null) pendingTodoFilter = null
+                }
             }
             composable(MainTab.ANALYTICS.route) {
                 AnalyticsScreen(repository = repository, onHome = { goHome() })

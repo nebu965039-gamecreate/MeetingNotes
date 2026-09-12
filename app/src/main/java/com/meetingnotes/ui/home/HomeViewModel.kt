@@ -121,14 +121,23 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
             StaleDealRules.compute(projects, clientList)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** 期限切れ + 今日 + 3日以内の未完了 ToDo(期限が解決できているもの)。 */
-    val dueTodos: StateFlow<List<OpenTodo>> =
+    private val dueTodosSource: StateFlow<List<OpenTodo>> =
         repository.observeOpenTodosWithDueDate()
             .map { list ->
                 val limit = LocalDate.now().plusDays(3).toString()
                 list.filter { it.dueDate <= limit }.sortedBy { it.dueDate }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** 期限切れの未完了 ToDo。 */
+    val overdueTodos: StateFlow<List<OpenTodo>> = dueTodosSource
+        .map { list -> val today = LocalDate.now().toString(); list.filter { it.dueDate < today } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** 今日〜3日以内が期限の未完了 ToDo。 */
+    val dueSoonTodos: StateFlow<List<OpenTodo>> = dueTodosSource
+        .map { list -> val today = LocalDate.now().toString(); list.filter { it.dueDate >= today } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun completeTodo(todoId: Long) {
         viewModelScope.launch { repository.setTodoDone(todoId, true) }

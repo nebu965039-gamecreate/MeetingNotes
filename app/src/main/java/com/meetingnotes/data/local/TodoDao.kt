@@ -36,6 +36,10 @@ interface TodoDao {
     @Query("DELETE FROM todos WHERE id = :todoId")
     suspend fun deleteById(todoId: Long)
 
+    /** 完了済み ToDo を全クライアント横断で一括削除(ToDo タブの完了タブ「すべて削除」用)。 */
+    @Query("DELETE FROM todos WHERE isDone = 1")
+    suspend fun deleteAllDone()
+
     @Query("SELECT * FROM todos WHERE id = :todoId")
     suspend fun getById(todoId: Long): TodoEntity?
 
