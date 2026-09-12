@@ -37,6 +37,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.data.model.DealPhase
+import com.meetingnotes.ui.theme.BrandNavy
+import com.meetingnotes.ui.theme.CreateActionAmber
+import com.meetingnotes.ui.theme.OnBrandNavy
+import com.meetingnotes.ui.theme.OnBrandNavyDim
 import com.meetingnotes.ui.theme.PhaseChartColors
 import com.meetingnotes.ui.theme.ThemeMode
 
@@ -59,7 +63,7 @@ fun HomeDashboardCard(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        colors = CardDefaults.cardColors(containerColor = BrandNavy, contentColor = OnBrandNavy)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -93,7 +97,7 @@ fun HomeDashboardCard(
             }
 
             data.winRate?.let { rate ->
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(color = OnBrandNavy.copy(alpha = 0.12f))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(9.dp)
@@ -101,7 +105,7 @@ fun HomeDashboardCard(
                     Text(
                         "全期間の成約率",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = OnBrandNavyDim
                     )
                     Text(
                         "$rate%",
@@ -112,7 +116,7 @@ fun HomeDashboardCard(
                         modifier = Modifier
                             .weight(1f)
                             .height(7.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(999.dp))
+                            .background(OnBrandNavy.copy(alpha = 0.16f), RoundedCornerShape(999.dp))
                     ) {
                         Box(
                             modifier = Modifier
@@ -127,14 +131,14 @@ fun HomeDashboardCard(
                     Text(
                         "成約${data.wonCount} / 失注${data.lostCount}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = OnBrandNavyDim
                     )
                 }
             }
 
             val hasAmounts = data.wonAmountThisMonth.isNotEmpty() || data.pipelineAmount.isNotEmpty()
             if (hasAmounts || onOpenSales != null) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(color = OnBrandNavy.copy(alpha = 0.12f))
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -150,12 +154,12 @@ fun HomeDashboardCard(
                             Text(
                                 "売上・実績を見る",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary
+                                color = CreateActionAmber
                             )
                             Icon(
                                 Icons.Filled.ChevronRight,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = CreateActionAmber,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -168,7 +172,7 @@ fun HomeDashboardCard(
 
 @Composable
 private fun PhaseDonut(phase: PhaseTrackerCounts, darkTheme: Boolean, modifier: Modifier) {
-    val empty = MaterialTheme.colorScheme.outlineVariant
+    val empty = OnBrandNavy.copy(alpha = 0.25f)
     val segments = listOf(
         DealPhase.HEARING to phase.hearing,
         DealPhase.PROPOSAL to phase.proposal,
@@ -211,7 +215,7 @@ private fun PhaseDonut(phase: PhaseTrackerCounts, darkTheme: Boolean, modifier: 
             Text(
                 "進行中",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = OnBrandNavyDim
             )
         }
     }
@@ -226,7 +230,7 @@ private fun AmountRow(label: String, amounts: Map<String, Long>) {
         Text(
             label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = OnBrandNavyDim
         )
         Spacer(Modifier.weight(1f))
         val text = if (amounts.isEmpty()) "—" else amounts.entries
@@ -250,8 +254,7 @@ private fun LegendRow(label: String, count: Int, color: Color) {
         Text(
             "$count",
             style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            fontWeight = FontWeight.Bold
         )
     }
 }

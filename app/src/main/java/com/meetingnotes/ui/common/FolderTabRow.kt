@@ -22,6 +22,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.meetingnotes.ui.theme.BrandNavy
+import com.meetingnotes.ui.theme.OnBrandNavy
+import com.meetingnotes.ui.theme.OnBrandNavyDim
 
 /** フォルダ型タブの1枚分。[count] は 0 なら非表示。 */
 data class FolderTab(val label: String, val count: Int = 0)
@@ -41,7 +44,7 @@ object FolderTabDefaults {
 
 /**
  * フォルダの見出しのように、選択中のタブが手前・非選択が奥に見えるタブ列。
- * 非選択タブとストリップの地は **ヘッダーと同じ [MaterialTheme.colorScheme.surface]**、
+ * 非選択タブとストリップの地は **ヘッダーと同じ [BrandNavy]**(2026-09-12、旧: `surface`)、
  * 選択中タブは [contentColor](= その下に続く一覧の背景。既定は [FolderTabDefaults.sheetColor])。
  * 件数はラベル横の小さなピルで表示する(`PrimaryTabRow` の "(N)" 表記の置き換え)。
  */
@@ -53,7 +56,7 @@ fun FolderTabRow(
     modifier: Modifier = Modifier,
     contentColor: Color = FolderTabDefaults.sheetColor
 ) {
-    val stripColor = MaterialTheme.colorScheme.surface
+    val stripColor = BrandNavy
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -69,7 +72,7 @@ fun FolderTabRow(
             Surface(
                 color = if (selected) contentColor else stripColor,
                 contentColor = if (selected) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+                else OnBrandNavyDim,
                 shadowElevation = if (selected) 1.dp else 0.dp,
                 shape = shape,
                 modifier = Modifier
@@ -99,9 +102,9 @@ fun FolderTabRow(
 @Composable
 private fun CountPill(count: Int, selected: Boolean) {
     val bg = if (selected) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.outlineVariant
+    else OnBrandNavy.copy(alpha = 0.16f)
     val fg = if (selected) MaterialTheme.colorScheme.onPrimary
-    else MaterialTheme.colorScheme.onSurfaceVariant
+    else OnBrandNavyDim
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))

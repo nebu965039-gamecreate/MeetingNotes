@@ -164,7 +164,7 @@ fun ClientDetailScreen(
                             Text(
                                 text = "クライアント",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = com.meetingnotes.ui.theme.OnBrandNavyDim
                             )
                             Text(
                                 text = client?.name ?: "",
@@ -196,7 +196,13 @@ fun ClientDetailScreen(
                                 )
                             }
                         }
-                    }
+                    },
+                    colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                        containerColor = com.meetingnotes.ui.theme.BrandNavy,
+                        titleContentColor = com.meetingnotes.ui.theme.OnBrandNavy,
+                        navigationIconContentColor = com.meetingnotes.ui.theme.OnBrandNavy,
+                        actionIconContentColor = com.meetingnotes.ui.theme.OnBrandNavy
+                    )
                 )
                 com.meetingnotes.ui.common.FolderTabRow(
                     tabs = listOf(
