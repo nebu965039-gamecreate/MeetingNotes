@@ -28,14 +28,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -119,7 +122,9 @@ private fun CurrencyReportCard(
     val code = report.currencyCode
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        // ページ地がティールに統一された影響で surfaceContainerLow(既定値)と同色になり、
+        // カードが背景に溶けて見えなくなっていたため白(surface)に明示(2026-09-18)。
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -251,6 +256,8 @@ private fun Stat(label: String, value: String, modifier: Modifier) {
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(11.dp))
+            // カード本体が白(surface)になったため、チップの境界が分かるよう薄い枠を追加(2026-09-18)。
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(11.dp))
             .padding(horizontal = 10.dp, vertical = 9.dp)
     ) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -285,18 +292,31 @@ private fun MonthlyBarChart(data: List<MonthlyAmount>, barColor: Color) {
     }
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = TextStyle(fontSize = 9.sp, color = labelColor)
-    // 「x軸の値(月)がどの棒か分かりづらい」というフィードバックを受け、旧: 先頭/中央/末尾の3つだけ
-    // だったラベルを全月ぶん表示するよう変更。横幅が足りないため-45度に傾けて重なりを避ける(2026-09-17)。
+    val density = LocalDensity.current
+    // 「月次成約額のx軸ラベルが枠の外にはみ出す」というフィードバックを受け、固定値の見込みではなく
+    // 実際のラベル幅を測って -45度回転後に必要な高さを逆算する(2026-09-18。回転自体は2026-09-17)。
+    val widestLabelLayout = remember(data) {
+        data.maxByOrNull { textMeasurer.measure(it.month.format(monthLabelFormatter), labelStyle).size.width }
+            ?.let { textMeasurer.measure(it.month.format(monthLabelFormatter), labelStyle) }
+    }
+    val barAreaHeight = 96.dp
+    val labelAreaHeight = with(density) {
+        val rotatedExtentPx = widestLabelLayout?.let { (it.size.width + it.size.height) * 0.7071f } ?: 0f
+        rotatedExtentPx.toDp() + 12.dp
+    }
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
-            .height(150.dp)
+            .height(barAreaHeight + labelAreaHeight)
             .background(cardColor, RoundedCornerShape(11.dp))
             .border(1.dp, frameColor, RoundedCornerShape(11.dp))
-            .padding(8.dp)
+            // 万一ラベルが計算よりはみ出しても、カードの外(ページの地)まで描画されないよう
+            // 角丸の枠でクリップする(2026-09-18、保険)。
+            .clip(RoundedCornerShape(11.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        val labelAreaHeight = 44.dp.toPx()
-        val chartHeight = size.height - labelAreaHeight
+        val labelAreaHeightPx = labelAreaHeight.toPx()
+        val chartHeight = size.height - labelAreaHeightPx
         val slot = size.width / data.size
         val barW = slot * 0.58f
         val strokeW = 1.5.dp.toPx()

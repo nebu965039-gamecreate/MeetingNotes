@@ -25,7 +25,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meetingnotes.ui.common.DealPhaseChip
-import com.meetingnotes.ui.common.SectionHeading
+import com.meetingnotes.ui.common.NavyCardHeading
+import com.meetingnotes.ui.theme.BrandNavy
+import com.meetingnotes.ui.theme.OnBrandNavy
+import com.meetingnotes.ui.theme.OnBrandNavyDim
 
 /**
  * ホーム「動いていない案件」。進行中なのに [StaleDealRules.STALE_DAYS] 日以上フェーズが変わっていない案件。
@@ -39,13 +42,14 @@ fun StaleDealBoard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        colors = CardDefaults.cardColors(containerColor = BrandNavy, contentColor = OnBrandNavy)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            SectionHeading(title = "動いていない案件", count = "${items.size}件")
+            // ホームの他ダッシュボードカード(進行中フェーズ/ToDo)と揃えてネイビー化(2026-09-18)。
+            NavyCardHeading(title = "動いていない案件", count = "${items.size}件")
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -70,6 +74,7 @@ fun StaleDealBoard(
                                     fontWeight = FontWeight.Medium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.weight(1f, fill = false)
                                 )
                                 item.phase?.let {

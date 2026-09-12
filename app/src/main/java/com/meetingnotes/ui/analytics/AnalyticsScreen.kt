@@ -144,7 +144,9 @@ private fun AnalyticsTabList(modifier: Modifier, content: @Composable () -> Unit
 private fun StatCard(label: String, content: @Composable () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        // ページ地がティールに統一された影響で surfaceContainerLow(既定値)と同色になり、
+        // カードが背景に溶けて見えなくなっていたため白(surface)に明示(2026-09-18)。
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SectionHeading(title = label)

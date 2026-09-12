@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.meetingnotes.ui.common.NavyCardHeading
 import com.meetingnotes.ui.theme.BrandNavy
 import com.meetingnotes.ui.theme.CreateActionAmber
 import com.meetingnotes.ui.theme.OnBrandNavy
@@ -52,22 +53,7 @@ fun DueTodoBoard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // 「件数だけだと何の件数か分かりづらい」というフィードバックを受けた見出し(2026-09-15)。
-            // SectionHeading の縦バーは primary(ネイビー)色でこの navy カードでは見えないため、
-            // 代わりにアンバー(下のリンクと同色)のバーで代用する。
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .height(16.dp)
-                        .background(CreateActionAmber, RoundedCornerShape(2.dp))
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "期限切れ・3日以内のToDo",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            NavyCardHeading(title = "期限切れ・3日以内のToDo")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatCell(
                     "期限切れ",

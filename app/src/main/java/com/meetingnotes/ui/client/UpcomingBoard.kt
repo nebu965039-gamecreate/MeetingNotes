@@ -30,8 +30,11 @@ import com.meetingnotes.data.local.ScheduleWithClient
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.NextMeetingTime
 import com.meetingnotes.ui.common.DealPhaseChip
-import com.meetingnotes.ui.common.SectionHeading
+import com.meetingnotes.ui.common.NavyCardHeading
 import com.meetingnotes.ui.common.relativeDateTimeLabel
+import com.meetingnotes.ui.theme.BrandNavy
+import com.meetingnotes.ui.theme.CreateActionAmber
+import com.meetingnotes.ui.theme.OnBrandNavy
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -93,13 +96,14 @@ fun UpcomingBoard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        colors = CardDefaults.cardColors(containerColor = BrandNavy, contentColor = OnBrandNavy)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            SectionHeading(
+            // ホームの他ダッシュボードカード(進行中フェーズ/ToDo/動いていない案件)と揃えてネイビー化(2026-09-18)。
+            NavyCardHeading(
                 title = "本日の予定",
                 count = "${items.size}件",
                 trailing = {
@@ -107,7 +111,7 @@ fun UpcomingBoard(
                         "すべて表示",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = CreateActionAmber,
                         textDecoration = TextDecoration.Underline,
                         modifier = Modifier.clickable(onClick = onShowAll)
                     )
@@ -167,6 +171,10 @@ fun UpcomingRow(item: UpcomingItem, onClick: () -> Unit) {
                 item.clientName,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
+                // 明示的に onSurface を指定(2026-09-18): ホームの UpcomingBoard がネイビーカード化した際、
+                // 色指定が無いと Card の contentColor(OnBrandNavy = 白系)を継承してしまい、
+                // 内側の白い一覧パネル上で文字が見えなくなる。予定表など他画面でも安全なよう明示する。
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

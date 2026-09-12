@@ -548,7 +548,9 @@ private fun DueTodoSection(
 private fun ScheduleSearchField(value: String, onValueChange: (String) -> Unit) {
     androidx.compose.material3.Surface(
         shape = RoundedCornerShape(percent = 50),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        // ページ地がティール(= surfaceVariant と同色)に統一されたため、背景と同化しないよう
+        // 白(surface)に明示(2026-09-18)。
+        color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
