@@ -55,7 +55,7 @@ import com.meetingnotes.data.local.ClientGroupEntity
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.TextInputDialog
-import com.meetingnotes.ui.theme.CreateActionBlue
+import com.meetingnotes.ui.theme.CreateActionAmber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,14 +89,14 @@ fun ClientListScreen(
                         Icon(
                             Icons.Filled.CreateNewFolder,
                             contentDescription = "グループを作成",
-                            tint = CreateActionBlue
+                            tint = CreateActionAmber
                         )
                     }
                     IconButton(onClick = { showAddDialog = true }) {
                         Icon(
                             Icons.Filled.PersonAdd,
                             contentDescription = "クライアントを追加",
-                            tint = CreateActionBlue
+                            tint = CreateActionAmber
                         )
                     }
                 }

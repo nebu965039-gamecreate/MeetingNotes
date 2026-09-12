@@ -83,7 +83,7 @@ import com.meetingnotes.ui.common.DealPhaseChip
 import com.meetingnotes.ui.common.DealPhasePickerDialog
 import com.meetingnotes.ui.common.TextInputDialog
 import com.meetingnotes.ui.common.effectivePhase
-import com.meetingnotes.ui.theme.CreateActionBlue
+import com.meetingnotes.ui.theme.CreateActionAmber
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -302,7 +302,7 @@ fun ClientDetailScreen(
                         Icon(
                             Icons.Filled.CreateNewFolder,
                             contentDescription = "フォルダを作成",
-                            tint = CreateActionBlue
+                            tint = CreateActionAmber
                         )
                     }
                 }

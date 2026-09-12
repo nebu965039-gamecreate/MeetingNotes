@@ -69,7 +69,7 @@ import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.DealPhaseChip
 import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.NextMeetingDateTimeDialog
-import com.meetingnotes.ui.theme.CreateActionBlue
+import com.meetingnotes.ui.theme.CreateActionAmber
 import com.meetingnotes.util.CalendarIntent
 import com.meetingnotes.util.JapaneseHolidays
 import java.time.DayOfWeek
@@ -130,7 +130,7 @@ fun ScheduleScreen(
                         Icon(
                             AppIcons.CalendarPlus,
                             contentDescription = "予定を追加",
-                            tint = CreateActionBlue
+                            tint = CreateActionAmber
                         )
                     }
                 }

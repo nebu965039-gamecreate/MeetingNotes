@@ -1,5 +1,6 @@
 package com.meetingnotes.ui.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.meetingnotes.ui.common.PulsingHalo
+import com.meetingnotes.ui.theme.CreateActionAmber
 
 /**
  * 下部ナビ(4タブ + 中央の丸い録音ボタン)。`MainTabsShell` とクライアント詳細画面で共有する。
@@ -50,7 +52,7 @@ fun AppBottomNav(
             contentAlignment = Alignment.Center
         ) {
             PulsingHalo(
-                color = MaterialTheme.colorScheme.primary,
+                color = CreateActionAmber,
                 maxScale = 1.28f,
                 maxAlpha = 0.16f,
                 durationMillis = 3400,
@@ -60,7 +62,8 @@ fun AppBottomNav(
                     onClick = onStartRecording,
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    contentColor = CreateActionAmber,
+                    border = BorderStroke(2.dp, CreateActionAmber),
                     shadowElevation = 3.dp
                 ) {
                     Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
