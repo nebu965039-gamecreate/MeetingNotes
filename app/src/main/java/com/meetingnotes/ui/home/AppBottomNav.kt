@@ -15,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,7 +38,7 @@ fun AppBottomNav(
     onStartRecording: () -> Unit
 ) {
     Box {
-        NavigationBar {
+        NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
             NavTab(MainTab.SCHEDULE, currentTab, todoBadge, onSelectTab)
             NavTab(MainTab.CLIENTS, currentTab, todoBadge, onSelectTab)
             // 中央は録音ボタンぶんの空きスロット。
@@ -103,6 +104,15 @@ private fun RowScope.NavTab(
                 maxLines = 1,
                 softWrap = false
             )
-        }
+        },
+        colors = NavigationBarItemDefaults.colors(
+            // 選択中は背景ピルではなくアイコン/文字の色(ネイビー)だけで示す。
+            // indicatorColor はバー地と同じにして、ピル自体を見せない。
+            indicatorColor = MaterialTheme.colorScheme.surface,
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.primary,
+            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     )
 }
