@@ -187,7 +187,7 @@ Send feedback to contact.manaapps@gmail.com — bug reports, rough edges, anythi
 - [ ] `./gradlew.bat bundleRelease` → 実機インストールで最終確認
 - [ ] Play Console「テスト > クローズドテスト」で新しいリリースを作成、上記の文面を貼り付け
 
-### Play Console 貼り付け用(約470字)
+### Play Console 貼り付け用(約490字)
 
 ```
 商談メモ アップデートです。多くの改善を行いました。
@@ -205,6 +205,7 @@ Send feedback to contact.manaapps@gmail.com — bug reports, rough edges, anythi
 ・予定をタップすると詳細(クライアント・参加者・URL等)が見られるように
 ・カレンダーの見やすさを改善(今日の日付を左上に赤く表示)
 ・クライアント画面に下部メニューを追加、タブのデザインを他画面と統一
+・ホームの「ToDo」表示を整理し、期限が近いものだけ分かりやすく表示するようにしました
 
 【デザイン】
 ・アプリ全体の配色をネイビー基調に刷新しました
@@ -240,6 +241,10 @@ Send feedback to contact.manaapps@gmail.com — bug reports, rough edges, anythi
 **デザイン(2026-09-12)**
 - アプリ全体の配色をネイビー基調のカスタム `ColorScheme` に(`ui/theme/NavyTheme.kt`)。作成/録音アクションの色を青からアンバーに(`CreateActionColors.kt`)
 - 4タブ共通ヘッダー(`TabTopBar`)・フォルダ型タブ(`FolderTabRow`)・クライアント詳細ヘッダー・ホームダッシュボードをネイビー地に(`ui/theme/BrandNavy.kt`)
+
+**ホームのToDo表示の整理(2026-09-12)**
+- ホームの「ToDo」ボード(未完了ToDoが1件でもあるクライアントをカード表示、`ui/client/FollowupBoard.kt`)を全廃止。「期限切れ・3日以内のToDo」(`DueTodoBoard`)や下部ナビ ToDo タブと条件が異なるまま並んでいて件数の食い違いが分かりにくい、というフィードバックを受けての整理
+- ホーム「やること(期限あり)」→「期限切れ・3日以内のToDo」に改称(`DueTodoBoard.kt`、表示条件は変更なし)
 
 - DB マイグレーション v15→v28(各1段、`MigrationTest` / `MigrationIntegrityTest`)
 - CI 修正(`gradlew` 実行権限)

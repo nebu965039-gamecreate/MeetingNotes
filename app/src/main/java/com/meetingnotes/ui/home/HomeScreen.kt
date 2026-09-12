@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.data.MeetingRepository
-import com.meetingnotes.ui.client.FollowupBoard
 import com.meetingnotes.ui.client.UpcomingBoard
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -53,7 +52,6 @@ fun HomeScreen(
     repository: MeetingRepository,
     onOpenSchedule: () -> Unit,
     onOpenNotifications: () -> Unit,
-    onOpenFollowupList: () -> Unit,
     onOpenSales: () -> Unit,
     onOpenClient: (Long) -> Unit,
     onOpenMeeting: (Long) -> Unit,
@@ -62,7 +60,6 @@ fun HomeScreen(
     onHelp: () -> Unit
 ) {
     val viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory(repository))
-    val followups by viewModel.followups.collectAsState()
     val upcoming by viewModel.upcoming.collectAsState()
     val latestMeetingByClient by viewModel.latestMeetingByClient.collectAsState()
     val dashboard by viewModel.dashboard.collectAsState()
@@ -165,14 +162,6 @@ fun HomeScreen(
                     items = upcoming,
                     onOpenSchedule = { scheduleToView = it },
                     onShowAll = onOpenSchedule
-                )
-            }
-
-            item(key = "followup_board") {
-                FollowupBoard(
-                    items = followups,
-                    onOpen = onOpenClient,
-                    onShowAll = onOpenFollowupList
                 )
             }
         }

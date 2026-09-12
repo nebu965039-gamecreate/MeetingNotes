@@ -10,8 +10,6 @@ import com.meetingnotes.data.local.OpenTodo
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.notifications.NotificationSeenState
 import java.time.LocalDate
-import com.meetingnotes.ui.client.FollowupItem
-import com.meetingnotes.ui.client.FollowupRules
 import com.meetingnotes.ui.client.UpcomingItem
 import com.meetingnotes.ui.client.UpcomingRules
 import kotlinx.coroutines.flow.SharingStarted
@@ -57,17 +55,6 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
 
     private val clients = repository.observeClients()
     private val latestMeetings = repository.observeLatestMeetingPerClient()
-    private val openTodoCounts = repository.observeOpenTodoCountByClient()
-    private val clientDealPhase = repository.observeClientDealPhase()
-
-    val followups: StateFlow<List<FollowupItem>> =
-        combine(clients, latestMeetings, openTodoCounts, clientDealPhase) { clientList, latest, counts, phases ->
-            FollowupRules.compute(
-                clientList, latest,
-                openTodoCountByClient = counts,
-                dealPhaseByClient = phases
-            )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val upcoming: StateFlow<List<UpcomingItem>> =
         repository.observeSchedules()

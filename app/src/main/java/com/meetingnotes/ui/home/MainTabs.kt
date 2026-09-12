@@ -132,7 +132,6 @@ fun MainTabsShell(
                     onHelp = onHelp,
                     onOpenNotifications = onOpenNotifications,
                     onOpenSchedule = { switchTab(MainTab.SCHEDULE) },
-                    onOpenFollowupList = { switchTab(MainTab.TODO) },
                     onOpenSales = { switchTab(MainTab.ANALYTICS) }
                 )
             }

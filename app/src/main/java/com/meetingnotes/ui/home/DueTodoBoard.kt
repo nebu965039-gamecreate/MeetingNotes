@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.meetingnotes.data.local.OpenTodo
 import java.time.LocalDate
 
-/** ホーム「やること(期限あり)」。期限切れ + 今日 + 3日以内の未完了 ToDo。 */
+/** ホーム「期限切れ・3日以内のToDo」。期限切れ + 今日 + 3日以内の未完了 ToDo。 */
 @Composable
 fun DueTodoBoard(
     items: List<OpenTodo>,
@@ -54,7 +54,7 @@ fun DueTodoBoard(
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("やること（期限あり）", style = MaterialTheme.typography.titleMedium)
+                Text("期限切れ・3日以内のToDo", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.width(6.dp))
                 Text(
                     "${items.size}件",
