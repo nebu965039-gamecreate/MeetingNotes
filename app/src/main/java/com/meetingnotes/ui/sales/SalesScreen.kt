@@ -39,6 +39,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.common.DealPhaseChip
+import com.meetingnotes.ui.common.SectionHeading
 import com.meetingnotes.ui.theme.AnalyticsChartColors
 import com.meetingnotes.ui.theme.ThemeMode
 import com.meetingnotes.util.Currency
@@ -235,11 +236,7 @@ private fun CurrencyReportCard(
 
 @Composable
 private fun SectionLabel(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    SectionHeading(title = text)
 }
 
 @Composable

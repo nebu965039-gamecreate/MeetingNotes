@@ -49,6 +49,7 @@ import com.meetingnotes.ui.common.FolderTab
 import com.meetingnotes.ui.common.FolderTabRow
 import com.meetingnotes.ui.common.ProLockedContent
 import com.meetingnotes.ui.common.ProPaywallDialog
+import com.meetingnotes.ui.common.SectionHeading
 import com.meetingnotes.ui.common.TabTopBar
 import com.meetingnotes.ui.sales.SalesReportTab
 import com.meetingnotes.ui.theme.AnalyticsChartColors
@@ -143,12 +144,8 @@ private fun StatCard(label: String, content: @Composable () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionHeading(title = label)
             content()
         }
     }

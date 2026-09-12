@@ -194,15 +194,13 @@ fun RecordingScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                     }
                 },
-                colors = if (isNavyPhase) {
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = BrandNavy,
-                        titleContentColor = OnBrandNavy,
-                        navigationIconContentColor = OnBrandNavy
-                    )
-                } else {
-                    TopAppBarDefaults.topAppBarColors()
-                }
+                // ヘッダーはフェーズによらず常にネイビー(他画面のヘッダーと統一)。
+                // 本文の背景は isNavyPhase(カウントダウン・録音中)のときだけネイビーにする。
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = BrandNavy,
+                    titleContentColor = OnBrandNavy,
+                    navigationIconContentColor = OnBrandNavy
+                )
             )
         }
     ) { padding ->
