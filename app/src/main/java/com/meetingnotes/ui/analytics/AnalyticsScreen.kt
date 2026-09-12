@@ -36,6 +36,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -178,6 +180,16 @@ private fun MonthlyTrend(series: List<MonthCount>, unit: String, barColor: Color
     val avg = if (values.isNotEmpty()) values.sum().toDouble() / values.size else 0.0
     val lastIndex = values.lastIndex
 
+    val app = LocalContext.current.applicationContext as MeetingNotesApp
+    val darkTheme = when (app.themeModeState.value) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+    // 棒グラフ本体の色は青に統一(2026-09-17)。barColor パラメータは「前月比」の強調表示にのみ残す。
+    val chartBarColor = AnalyticsChartColors.bar(darkTheme)
+    val axisColor = MaterialTheme.colorScheme.outline
+
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
             SummaryStat("今月", "$thisMonth $unit")
@@ -193,53 +205,72 @@ private fun MonthlyTrend(series: List<MonthCount>, unit: String, barColor: Color
             SummaryStat("月平均", String.format(java.util.Locale.JAPAN, "%.1f", avg))
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth().height(96.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
+        // 「棒グラフはx軸y軸を表示し、白背景+枠で囲んでほしい」というフィードバックを受け、
+        // 棒の描画エリアを白(surface)の角丸パネル+枠で囲み、左右に軸線を明示する(2026-09-17)。
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
+                .padding(top = 10.dp, end = 8.dp, bottom = 4.dp, start = 6.dp)
         ) {
-            values.forEachIndexed { i, v ->
-                val isLast = i == lastIndex
-                Column(
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    verticalArrangement = Arrangement.Bottom,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        v.toString(),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontSize = 9.sp,
-                        fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isLast) barColor else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.82f)
-                            .height((4 + 66 * v / max).dp)
-                            .background(barColor, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
-                            .then(
-                                if (isLast) Modifier.border(
-                                    1.5.dp, barColor, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
-                                ) else Modifier
-                            )
-                    )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(96.dp)
+                    .drawBehind {
+                        val strokeW = 1.5.dp.toPx()
+                        drawLine(axisColor, Offset(0f, 0f), Offset(0f, size.height), strokeWidth = strokeW) // y軸
+                        drawLine(axisColor, Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = strokeW) // x軸
+                    }
+                    .padding(start = 6.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                values.forEachIndexed { i, v ->
+                    val isLast = i == lastIndex
+                    Column(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        verticalArrangement = Arrangement.Bottom,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            v.toString(),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 9.sp,
+                            fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isLast) chartBarColor else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.82f)
+                                .height((4 + 66 * v / max).dp)
+                                .background(
+                                    if (isLast) chartBarColor else chartBarColor.copy(alpha = 0.55f),
+                                    RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
+                                )
+                        )
+                    }
                 }
             }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            series.forEachIndexed { i, mc ->
-                Text(
-                    "${mc.month.monthValue}月",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 9.sp,
-                    maxLines = 1,
-                    softWrap = false,
-                    color = if (i == lastIndex) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
+            Row(
+                Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                series.forEachIndexed { i, mc ->
+                    Text(
+                        "${mc.month.monthValue}月",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 9.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        color = if (i == lastIndex) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
             }
         }
     }

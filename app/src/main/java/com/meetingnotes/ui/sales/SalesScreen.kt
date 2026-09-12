@@ -2,6 +2,7 @@ package com.meetingnotes.ui.sales
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,12 +30,18 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.data.MeetingRepository
@@ -254,13 +261,18 @@ private fun Stat(label: String, value: String, modifier: Modifier) {
 @Composable
 private fun MonthlyBarChart(data: List<MonthlyAmount>, barColor: Color) {
     val maxAmount = data.maxOfOrNull { it.amount } ?: 0L
-    val empty = MaterialTheme.colorScheme.outlineVariant
+    val emptyBarColor = MaterialTheme.colorScheme.outlineVariant
+    val axisColor = MaterialTheme.colorScheme.outline
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val frameColor = MaterialTheme.colorScheme.outlineVariant
+    val cardColor = MaterialTheme.colorScheme.surface
     if (maxAmount <= 0L) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(120.dp)
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(11.dp)),
+                .background(cardColor, RoundedCornerShape(11.dp))
+                .border(1.dp, frameColor, RoundedCornerShape(11.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -271,44 +283,53 @@ private fun MonthlyBarChart(data: List<MonthlyAmount>, barColor: Color) {
         }
         return
     }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(11.dp))
-                .padding(8.dp)
-        ) {
-            val slot = size.width / data.size
-            val barW = slot * 0.58f
-            data.forEachIndexed { i, m ->
-                val h = if (m.amount <= 0L) 0f else (m.amount.toFloat() / maxAmount) * size.height
-                if (h > 0f) {
-                    drawRoundRect(
-                        color = barColor,
-                        topLeft = Offset(i * slot + (slot - barW) / 2f, size.height - h),
-                        size = Size(barW, h),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f)
-                    )
-                } else {
-                    drawRoundRect(
-                        color = empty,
-                        topLeft = Offset(i * slot + (slot - barW) / 2f, size.height - 2f),
-                        size = Size(barW, 2f),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(1f, 1f)
-                    )
-                }
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle = TextStyle(fontSize = 9.sp, color = labelColor)
+    // 「x軸の値(月)がどの棒か分かりづらい」というフィードバックを受け、旧: 先頭/中央/末尾の3つだけ
+    // だったラベルを全月ぶん表示するよう変更。横幅が足りないため-45度に傾けて重なりを避ける(2026-09-17)。
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(150.dp)
+            .background(cardColor, RoundedCornerShape(11.dp))
+            .border(1.dp, frameColor, RoundedCornerShape(11.dp))
+            .padding(8.dp)
+    ) {
+        val labelAreaHeight = 44.dp.toPx()
+        val chartHeight = size.height - labelAreaHeight
+        val slot = size.width / data.size
+        val barW = slot * 0.58f
+        val strokeW = 1.5.dp.toPx()
+
+        // 軸線(x軸・y軸)
+        drawLine(axisColor, Offset(0f, 0f), Offset(0f, chartHeight), strokeWidth = strokeW)
+        drawLine(axisColor, Offset(0f, chartHeight), Offset(size.width, chartHeight), strokeWidth = strokeW)
+
+        data.forEachIndexed { i, m ->
+            val cx = i * slot + slot / 2f
+            val h = if (m.amount <= 0L) 0f else (m.amount.toFloat() / maxAmount) * chartHeight
+            if (h > 0f) {
+                drawRoundRect(
+                    color = barColor,
+                    topLeft = Offset(cx - barW / 2f, chartHeight - h),
+                    size = Size(barW, h),
+                    cornerRadius = CornerRadius(3f, 3f)
+                )
+            } else {
+                drawRoundRect(
+                    color = emptyBarColor,
+                    topLeft = Offset(cx - barW / 2f, chartHeight - 2f),
+                    size = Size(barW, 2f),
+                    cornerRadius = CornerRadius(1f, 1f)
+                )
             }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            listOf(data.first(), data[data.size / 2], data.last()).forEach {
-                Text(
-                    it.month.format(monthLabelFormatter),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+
+            val layout = textMeasurer.measure(m.month.format(monthLabelFormatter), labelStyle)
+            // ラベルの右上端が目盛り位置に来るよう配置してから -45度回転(斜め下に伸びる)。
+            rotate(degrees = -45f, pivot = Offset(cx, chartHeight + 6.dp.toPx())) {
+                drawText(
+                    layout,
+                    topLeft = Offset(cx - layout.size.width, chartHeight + 6.dp.toPx() - layout.size.height / 2f)
                 )
             }
         }

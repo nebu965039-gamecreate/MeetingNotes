@@ -25,6 +25,10 @@ object AnalyticsChartColors {
     fun followEmail(darkTheme: Boolean): Color =
         if (darkTheme) Color(0xFFC4B5FD) else Color(0xFF7C3AED)
 
-    /** 売上タブの月次成約額グラフ(= 活動と同じティール)。 */
-    fun bar(darkTheme: Boolean): Color = activity(darkTheme)
+    /**
+     * 棒グラフ本体の色(活動・顧客タブの月次推移、売上タブの月次成約額)= 青。
+     * 「棒グラフの色は青色にしてほしい」というフィードバックを受けて統一(2026-09-17。旧: 活動と同じティール)。
+     */
+    fun bar(darkTheme: Boolean): Color =
+        if (darkTheme) Color(0xFF82B1FF) else Color(0xFF1565C0)
 }
