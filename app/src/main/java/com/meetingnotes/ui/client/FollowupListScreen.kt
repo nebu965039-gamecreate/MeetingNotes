@@ -114,7 +114,10 @@ fun FollowupListScreen(
                             SnoozeMenu(
                                 snoozed = todoIsSnoozed(item.todo.snoozedUntil),
                                 onSnooze = { until -> viewModel.snooze(item.id, until) },
-                                onClearSnooze = { viewModel.unsnooze(item.id) }
+                                onClearSnooze = { viewModel.unsnooze(item.id) },
+                                // スヌーズ中はこのタブでも表示したままにし(下記「スヌーズ」タブと重複表示)、
+                                // 解除は「スヌーズ」タブの「解除」ボタンに一本化するため、ここは非活性にする。
+                                disableWhenSnoozed = true
                             )
                         }
                     )
@@ -197,7 +200,7 @@ private fun TodoItemList(
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         contentPadding = PaddingValues(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(items, key = { it.id }) { item ->
             TodoRow(
@@ -231,7 +234,7 @@ private fun SnoozedList(
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         contentPadding = PaddingValues(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(items, key = { it.id }) { item ->
             TodoRow(

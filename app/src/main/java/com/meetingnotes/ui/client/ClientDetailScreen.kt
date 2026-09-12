@@ -1367,7 +1367,7 @@ private fun TodoTab(
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                 contentPadding = PaddingValues(vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(list, key = { it.id }) { t ->
                     com.meetingnotes.ui.common.TodoRow(

@@ -9,7 +9,9 @@ import java.time.LocalDate
  */
 enum class TodoDueFilter(val label: String) {
     ALL("すべて"),
-    DUE_SOON("期限が3日以内"),
+    // 「期限が3日以内」だと SegmentedButton 内で他の2つ(3〜4文字)より長く、
+    // 均等幅の中で折り返して縦に大きく見えてしまうため短縮(2026-09-13)。
+    DUE_SOON("3日以内"),
     OVERDUE("期限切れ")
 }
 

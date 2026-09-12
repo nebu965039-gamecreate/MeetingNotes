@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -56,51 +58,59 @@ fun TodoRow(
     trailing: (@Composable () -> Unit)? = null
 ) {
     val snoozed = !data.done && todoIsSnoozed(data.snoozedUntil)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+    // 行自体を白いカードにする(2026-09-13): ページ地がティールに統一されたため、
+    // 背景指定の無いテキストのみの行だと地に溶けて見えてしまっていた。ClientRow/MeetingRow と同じ
+    // surfaceContainer(白)の角丸カードに揃える。
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
-        if (showCheckbox) {
-            Checkbox(checked = data.done, onCheckedChange = { onToggle() })
-            Spacer(Modifier.width(4.dp))
-        } else {
-            Spacer(Modifier.width(12.dp))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                data.task,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                textDecoration = if (data.done) TextDecoration.LineThrough else null,
-                color = if (snoozed && !data.done) MaterialTheme.colorScheme.onSurfaceVariant
-                else MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val sub = buildList {
-                    data.clientName?.let { add(it) }
-                    dueLabel(data.dueDate, data.deadlineText)?.let { add(it) }
-                }.joinToString(" ・ ")
-                if (sub.isNotEmpty()) {
-                    Text(
-                        sub,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (snoozed) {
-                    if (sub.isNotEmpty()) Spacer(Modifier.width(6.dp))
-                    SnoozeChip(data.snoozedUntil!!)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (showCheckbox) {
+                Checkbox(checked = data.done, onCheckedChange = { onToggle() })
+                Spacer(Modifier.width(4.dp))
+            } else {
+                Spacer(Modifier.width(12.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    data.task,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    textDecoration = if (data.done) TextDecoration.LineThrough else null,
+                    color = if (snoozed && !data.done) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val sub = buildList {
+                        data.clientName?.let { add(it) }
+                        dueLabel(data.dueDate, data.deadlineText)?.let { add(it) }
+                    }.joinToString(" ・ ")
+                    if (sub.isNotEmpty()) {
+                        Text(
+                            sub,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (snoozed) {
+                        if (sub.isNotEmpty()) Spacer(Modifier.width(6.dp))
+                        SnoozeChip(data.snoozedUntil!!)
+                    }
                 }
             }
+            trailing?.invoke()
         }
-        trailing?.invoke()
     }
 }
 
