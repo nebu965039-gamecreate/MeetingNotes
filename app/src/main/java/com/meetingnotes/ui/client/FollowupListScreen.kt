@@ -6,18 +6,27 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -40,6 +49,8 @@ import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.FolderTab
 import com.meetingnotes.ui.common.FolderTabRow
+import com.meetingnotes.ui.common.LabeledDropdownField
+import com.meetingnotes.ui.common.NextMeetingDateTimeDialog
 import com.meetingnotes.ui.common.SnoozeMenu
 import com.meetingnotes.ui.common.TabTopBar
 import com.meetingnotes.ui.common.TodoDueFilter
@@ -61,11 +72,14 @@ fun FollowupListScreen(
     val open by viewModel.openTodos.collectAsState()
     val activeCount by viewModel.activeTodoCount.collectAsState()
     val dueFilter by viewModel.dueFilter.collectAsState()
+    val sortOrder by viewModel.sortOrder.collectAsState()
+    val clients by viewModel.clients.collectAsState()
     val snoozed by viewModel.snoozedTodos.collectAsState()
     val done by viewModel.doneTodos.collectAsState()
 
     var tab by remember { mutableIntStateOf(0) }
     var showDeleteAllConfirm by remember { mutableStateOf(false) }
+    var showAdd by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialFilter) {
         if (initialFilter != null) {
@@ -105,11 +119,19 @@ fun FollowupListScreen(
             when (tab) {
                 0 -> Column(modifier = Modifier.fillMaxSize()) {
                     TodoDueFilterRow(selected = dueFilter, onSelect = { viewModel.setDueFilter(it) })
+                    TodoListToolRow(
+                        sortOrder = sortOrder,
+                        onSortChange = { viewModel.setSortOrder(it) },
+                        onAddClick = { showAdd = true }
+                    )
                     TodoItemList(
                         items = open,
                         emptyText = "現在ToDoはありません",
                         onOpen = ::openItem,
                         onToggle = { viewModel.complete(it) },
+                        // スヌーズ中のチップ(😴 M/d まで)はクライアント名も同じ行にあるとレイアウトが
+                        // 崩れるため非表示に(2026-09-15)。スヌーズ状態の確認は「スヌーズ」タブで行う。
+                        showSnoozeChip = false,
                         trailing = { item ->
                             SnoozeMenu(
                                 snoozed = todoIsSnoozed(item.todo.snoozedUntil),
@@ -164,6 +186,115 @@ fun FollowupListScreen(
             }
         )
     }
+    if (showAdd) {
+        GlobalTodoAddDialog(
+            clients = clients,
+            onDismiss = { showAdd = false },
+            onConfirm = { clientId, task, dueDate ->
+                viewModel.addManualTodo(clientId, task, dueDate)
+                showAdd = false
+            }
+        )
+    }
+}
+
+/** ToDo タブ直下のツール行(並び替え + 追加)。クライアント詳細の ToDo タブと同じ配置・見た目。 */
+@Composable
+private fun TodoListToolRow(
+    sortOrder: TodoSortOrder,
+    onSortChange: (TodoSortOrder) -> Unit,
+    onAddClick: () -> Unit
+) {
+    var sortMenu by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box {
+            TextButton(onClick = { sortMenu = true }) {
+                Icon(Icons.Filled.SwapVert, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(sortOrder.label)
+            }
+            DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                TodoSortOrder.entries.forEach { o ->
+                    DropdownMenuItem(
+                        text = { Text(o.label) },
+                        onClick = { onSortChange(o); sortMenu = false }
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = onAddClick) {
+            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("ToDoを追加")
+        }
+    }
+}
+
+/** ToDo 画面から手動 ToDo を追加するフォーム。クライアント詳細の `TodoFormDialog` にクライアント選択を足したもの。 */
+@Composable
+private fun GlobalTodoAddDialog(
+    clients: List<Pair<Long, String>>,
+    onDismiss: () -> Unit,
+    onConfirm: (clientId: Long, task: String, dueDate: String?) -> Unit
+) {
+    var clientId by remember { mutableStateOf(clients.firstOrNull()?.first) }
+    var task by remember { mutableStateOf("") }
+    var due by remember { mutableStateOf<java.time.LocalDate?>(null) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("ToDoを追加") },
+        text = {
+            if (clients.isEmpty()) {
+                Text("クライアントがいません。先にクライアントを追加してください。")
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LabeledDropdownField(
+                        label = "クライアント",
+                        options = clients,
+                        selected = clientId ?: clients.first().first,
+                        onSelect = { clientId = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = task,
+                        onValueChange = { task = it },
+                        label = { Text("内容") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { showDatePicker = true }) {
+                            Text(due?.let { "期限: ${it.monthValue}月${it.dayOfMonth}日" } ?: "期限日を設定")
+                        }
+                        if (due != null) {
+                            TextButton(onClick = { due = null }) { Text("クリア") }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { clientId?.let { onConfirm(it, task, due?.toString()) } },
+                enabled = clients.isNotEmpty() && clientId != null && task.isNotBlank()
+            ) { Text("追加") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("キャンセル") } }
+    )
+
+    if (showDatePicker) {
+        NextMeetingDateTimeDialog(
+            initial = (due ?: java.time.LocalDate.now()).atStartOfDay(),
+            initialHasTime = false,
+            onDismiss = { showDatePicker = false },
+            onConfirm = { dt, _ -> due = dt.toLocalDate(); showDatePicker = false }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -191,6 +322,7 @@ private fun TodoItemList(
     onOpen: (TodoScreenItem) -> Unit,
     onToggle: (Long) -> Unit,
     done: Boolean = false,
+    showSnoozeChip: Boolean = true,
     trailing: (@Composable (TodoScreenItem) -> Unit)?
 ) {
     if (items.isEmpty()) {
@@ -215,6 +347,7 @@ private fun TodoItemList(
                 ),
                 onToggle = { onToggle(item.id) },
                 onClick = { onOpen(item) },
+                showSnoozeChip = showSnoozeChip,
                 trailing = trailing?.let { { it(item) } }
             )
         }

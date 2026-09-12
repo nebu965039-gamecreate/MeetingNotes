@@ -108,7 +108,14 @@ class TranscriptionManager(private val context: Context) {
             _events.value = TranscriptionEvent.Unsupported
             return
         }
-        if (isListening) return
+        if (isListening) {
+            // 前回のセッションが stop() を経由せずに残ったまま(=何らかの理由で isListening が
+            // true のまま)次の録音が始まった場合の保険。以前はここで単に return していたため、
+            // 前回セッションの committedSegments/currentPartial が引き継がれてしまい、
+            // 新しい録音の文字起こしに前回分が残って見えることがあった(2026-09-15 report)。
+            // 一旦きちんと stop() してから、新しいセッションとして始め直す。
+            stop()
+        }
 
         _transcript.value = ""
         _audioLevel.value = 0f
@@ -332,6 +339,20 @@ class TranscriptionManager(private val context: Context) {
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
             if (!partial.isNullOrBlank()) {
+                // 通常の(Google等の)オンデバイス認識器は onPartialResults を「このセッション内で
+                // 話された内容の累積」として返す(例: "こんにちは"→"こんにちはこれから"→...)ため、
+                // 新しい partial で単純に置き換えれば常に最新かつ全文になる。
+                // ただし一部端末(2026-09-15 report で確認、対面録音・OPPO/ColorOS 系)は
+                // 文の切れ目ごとに「直近の1フレーズだけ」を新しい partial として返してくることがあり、
+                // その場合は単純な置き換えだと前の文がまるごと消えてしまう
+                // (例: "こんにちは。"→"これから会議を始めます。"→"聞こえますか。" の3回の
+                // onPartialResults で、最後の「聞こえますか。」しか画面に残らなかった)。
+                // 新しい partial が直前の partial の続き(前方一致)でなければ「別の新しいフレーズ」と
+                // 判断し、直前の partial を確定させてから新しい partial を今回分として扱う。
+                // 累積型の端末では新しい partial は常に前方一致するため、この分岐は無害。
+                if (currentPartial.isNotBlank() && !partial.startsWith(currentPartial)) {
+                    committedSegments.add(currentPartial)
+                }
                 currentPartial = partial
                 rebuildTranscript()
             }

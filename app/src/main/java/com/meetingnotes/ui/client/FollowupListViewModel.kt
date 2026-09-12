@@ -49,18 +49,40 @@ class FollowupListViewModel(private val repository: MeetingRepository) : ViewMod
     private val _dueFilter = MutableStateFlow(TodoDueFilter.ALL)
     val dueFilter: StateFlow<TodoDueFilter> = _dueFilter
 
-    /** 未完了 ToDo。[dueFilter] で絞り込み、期限順(未設定は後ろ)。スヌーズ中は最後尾へ。 */
-    val openTodos: StateFlow<List<TodoScreenItem>> = combine(openTodosAll, _dueFilter) { list, filter ->
-        list.filter { matchesDueFilter(it.todo.dueDate, filter) }
-            .sortedWith(
-                compareBy(
-                    { todoIsSnoozed(it.todo.snoozedUntil) },
-                    { it.todo.dueDate == null },
-                    { it.todo.dueDate ?: "" },
-                    { -it.todo.id }
-                )
-            )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    /** ToDo タブの並び替え。クライアント詳細の ToDo タブと同じ `TodoSortOrder` を再利用(2026-09-15)。 */
+    private val _sortOrder = MutableStateFlow(TodoSortOrder.DUE_DATE)
+    val sortOrder: StateFlow<TodoSortOrder> = _sortOrder
+
+    /** 未完了 ToDo。[dueFilter] で絞り込み、[sortOrder] で並び替え。スヌーズ中は常に最後尾へ。 */
+    val openTodos: StateFlow<List<TodoScreenItem>> =
+        combine(openTodosAll, _dueFilter, _sortOrder) { list, filter, sort ->
+            val filtered = list.filter { matchesDueFilter(it.todo.dueDate, filter) }
+            val snoozedLast = compareBy<TodoScreenItem> { todoIsSnoozed(it.todo.snoozedUntil) }
+            when (sort) {
+                TodoSortOrder.DUE_DATE ->
+                    filtered.sortedWith(
+                        snoozedLast.thenBy { it.todo.dueDate == null }
+                            .thenBy { it.todo.dueDate ?: "" }
+                            .thenByDescending { it.todo.id }
+                    )
+                TodoSortOrder.CREATED ->
+                    filtered.sortedWith(snoozedLast.thenByDescending { it.todo.id })
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun setSortOrder(order: TodoSortOrder) {
+        _sortOrder.value = order
+    }
+
+    /** 手動 ToDo 追加のクライアント選択肢(名前順)。 */
+    val clients: StateFlow<List<Pair<Long, String>>> = repository.observeClients()
+        .map { list -> list.sortedBy { it.name }.map { it.id to it.name } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** ToDo 画面から手動 ToDo を追加する(クライアントを選んで登録)。 */
+    fun addManualTodo(clientId: Long, task: String, dueDate: String?) {
+        viewModelScope.launch { repository.addManualTodo(clientId, task, dueDate) }
+    }
 
     /** タブの件数バッジ用。フィルタの影響を受けない「今やるべき」総数(スヌーズ中除く)。下部ナビのバッジと一致。 */
     val activeTodoCount: StateFlow<Int> = openTodosAll

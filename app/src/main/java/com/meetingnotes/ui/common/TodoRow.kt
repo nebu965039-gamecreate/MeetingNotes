@@ -60,6 +60,12 @@ fun TodoRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     showCheckbox: Boolean = true,
+    /**
+     * スヌーズ中の 😴 M/d まで チップを表示するか。ToDo 画面(`FollowupListScreen`)の「ToDo」タブは
+     * クライアント名も同じ行にあり、チップまで出すと横幅が足りずレイアウトが崩れるため false で使う
+     * (2026-09-15。スヌーズ状態の確認は専用の「スヌーズ」タブで行う)。既定は true。
+     */
+    showSnoozeChip: Boolean = true,
     trailing: (@Composable () -> Unit)? = null
 ) {
     val snoozed = !data.done && todoIsSnoozed(data.snoozedUntil)
@@ -136,7 +142,7 @@ fun TodoRow(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    if (snoozed) {
+                    if (snoozed && showSnoozeChip) {
                         if (data.clientName != null || due != null) Spacer(Modifier.width(6.dp))
                         SnoozeChip(data.snoozedUntil!!)
                     }

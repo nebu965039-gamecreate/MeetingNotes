@@ -124,6 +124,15 @@ fun HomeScreen(
                 }
             }
 
+            // 「本日の予定を一番上に」というフィードバックを受け、ダッシュボードより上に配置(2026-09-15)。
+            item(key = "upcoming_board") {
+                UpcomingBoard(
+                    items = upcoming,
+                    onOpenSchedule = { scheduleToView = it },
+                    onShowAll = onOpenSchedule
+                )
+            }
+
             item(key = "dashboard") {
                 HomeDashboardCard(
                     data = dashboard,
@@ -140,14 +149,6 @@ fun HomeScreen(
                         onDiscard = { app.recordingDraftStore.clear() }
                     )
                 }
-            }
-
-            item(key = "upcoming_board") {
-                UpcomingBoard(
-                    items = upcoming,
-                    onOpenSchedule = { scheduleToView = it },
-                    onShowAll = onOpenSchedule
-                )
             }
 
             if (overdueTodos.isNotEmpty() || dueSoonTodos.isNotEmpty()) {

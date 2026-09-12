@@ -375,6 +375,13 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
 
     fun discardDraft() {
         draftStore.clear()
+        // 「破棄して新しく録音」の直後に前回分が残らないよう、編集用テキストと認識器の状態を
+        // 念のためここでも明示的にリセットする(2026-09-15 report: 破棄後の新しい録音に前回の
+        // 文字起こしが残っていた)。次の録音は beginRecordingFlow → transcriptionManager.start()
+        // で改めてリセットされるが、start() が万一 isListening のまま呼ばれても安全なように二重に保険をかける。
+        _editableTranscript.value = ""
+        originalTranscript = ""
+        transcriptionManager.stop()
     }
 
     /** 手編集を、文字起こし直後(前処理済み)のテキストに戻す。 */
