@@ -63,9 +63,10 @@
 
 ## 5. Google Play Billing(サブスクを入れる場合)
 
-- [ ] Play Console でサブスク商品を登録(月額 / 年額、価格、無料トライアル等)
-- [ ] アプリに Billing Library を実装(購入フロー、購入状態の照会)
-- [ ] 購入の**サーバー側検証**(Worker に検証エンドポイントを追加。RTDN / Play Developer API)
+- [x] アプリに Billing Library を実装(2026-09-09、`billing/BillingManager` 7.1.1。購入フロー・復元・acknowledge・ペイウォールは実装済み。`PRO_GATING_ENABLED` 既定 false のため現状ロック表示なし)
+- [ ] Play Console でサブスク商品 `meetingnotes_pro` を登録(月額 / 年額、価格、無料トライアル等)
+- [ ] ライセンステストで購入フローを確認 → `PRO_GATING_ENABLED=true` に切替
+- [ ] 購入の**サーバー側検証**(Worker に検証エンドポイントを追加。RTDN / Play Developer API。現状はクライアント側検証のみ)
 - [ ] 透かし ON/OFF をサブスク状態で自動判定に変更(現在はダイアログで毎回手動選択)
 - [ ] エクスポート形式をサブスク制限: **無料 = PDF(透かし付き)のみ / 有料 = Word 出力・共有 + 追加形式**。`ExportOptionsDialog` の形式チップを entitlement で出し分け、無料ユーザーが有料形式を選んだら paywall へ
 - [ ] サブスク向け追加エクスポート形式の実装(候補と工数の目安):

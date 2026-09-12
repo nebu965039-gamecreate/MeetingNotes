@@ -172,49 +172,77 @@ Send feedback to contact.manaapps@gmail.com — bug reports, rough edges, anythi
 
 ---
 
-## クローズドテスト 7回目 (versionName 0.2.0 / versionCode 11 予定)
+## クローズドテスト 7回目 (versionName 0.2.0 / versionCode 11 予定・★未配信)
 
-「1人CRM」をパイプライン管理まで広げた版です。
-※ 6回目 (vc10 / 0.1.9) がまだ配信されていない場合は、この版に統合して配信してください（そのときは versionCode / versionName を 10 / 0.1.9 のまま据え置き）。
+**★ 2026-09-12 時点でまだ Play Console に提出していない。`app/build.gradle.kts` の `versionCode`/`versionName` も
+まだ 10 / 0.1.9 のまま(6回目と同じ)。配信時に versionCode を 11、versionName を `"0.2.0"` に上げること。**
+以前ここに書かれていた案件・パイプラインの下書きは、実際にはパイプラインボードを試験導入した直後に
+廃止(フェーズ管理を一本化)する方針変更が入ったため、内容を全面的に書き直した。「1人CRM」の
+案件管理をひとまず完成させ、フェーズの管理方法を整理し、配色を刷新した版。
 
-### Play Console 貼り付け用(約440字)
+### 配信前にやること
+
+- [ ] 実機で一通り確認(`docs/test-plan.md` の「実機必須」項目、特にフェーズ確認プロンプト・予定詳細ダイアログ・バックアップ復元・ネイビー配色のダーク表示)
+- [ ] `app/build.gradle.kts` の `versionCode` を `11`、`versionName` を `"0.2.0"` に更新
+- [ ] `./gradlew.bat bundleRelease` → 実機インストールで最終確認
+- [ ] Play Console「テスト > クローズドテスト」で新しいリリースを作成、上記の文面を貼り付け
+
+### Play Console 貼り付け用(約470字)
 
 ```
-今回は案件（商談）の管理を強化しました。
+商談メモ アップデートです。多くの改善を行いました。
 
-【案件・パイプライン】
-・案件ごとに見積額・成約額・成約日・受注確度・想定クローズ日を記録
-・「パイプライン」ボードで進行中の案件をフェーズ別に一覧、その場でフェーズ変更
-・21日以上動いていない案件をホームの「動いていない案件」に表示
-・失注時に理由を記録
+【フェーズ管理を刷新】
+・案件のフェーズを「現在の状態」の正としました。商談を保存した直後に、案件を作成/フェーズを更新するか確認が出ます
+・分かりにくかった「パイプラインボード」は廃止しました
 
-【フォロー・予定】
-・録音しなくても ToDo を手動で追加・編集できるように
-・フォローを1週間〜3ヶ月「スヌーズ」して一時的に伏せられます
-・予定に会議URL・場所を登録、行から「カレンダーに追加」
-
-【データ】
-・設定に「データのバックアップ」を追加（全データを1ファイルに書き出し／復元、任意でパスワード暗号化）
+【案件・データ】
+・案件ごとに見積額・成約額・失注理由・受注確度・想定クローズ日を記録
+・設定から全データをバックアップ/復元できます(パスワード任意)
 ・クライアントに流入経路・紹介元を記録
 
-不具合は contact.manaapps@gmail.com へ（操作手順・端末名を添えて）。
+【予定表・クライアント画面】
+・予定をタップすると詳細(クライアント・参加者・URL等)が見られるように
+・カレンダーの見やすさを改善(今日の日付を左上に赤く表示)
+・クライアント画面に下部メニューを追加、タブのデザインを他画面と統一
+
+【デザイン】
+・アプリ全体の配色をネイビー基調に刷新しました
+
+不具合は contact.manaapps@gmail.com へ(操作手順・端末名を添えて)。
 ```
 
 ### この版に含まれる主な変更(社内メモ)
 
+**案件・データ(2026-09-09)**
+- 案件の金額・状態(`client_projects` に `phase`/`currency`/`estimatedAmount`/`wonAmount`/`wonAt`、DB v18)+ 失注理由(`lostReason`、DB v20)+ 想定クローズ日・受注確度(`expectedCloseAt`/`probability`、DB v21、`DealPhase.defaultProbability`)
 - 手動 ToDo 追加(`todos.meetingId` を nullable 化 + `clientId`、DB v19)
-- 失注理由(`client_projects.lostReason`、DB v20)
-- 案件の金額・状態(`client_projects` に `phase`/`currency`/`estimatedAmount`/`wonAmount`/`wonAt`、DB v18)+ 想定クローズ日・受注確度(`expectedCloseAt`/`probability`、DB v21、`DealPhase.defaultProbability`)
-- 売上・実績ビュー(`ui/sales/`、`SalesRules`：月次成約額・成約率・売上予測(加重)・セールスサイクル日数・フェーズ別滞留・失注理由内訳。Pro 予定・現状ロックなし)
+- 売上・実績ビュー→分析タブ「売上」に統合(`ui/sales/`・`ui/analytics/`、`SalesRules`/`AnalyticsRules`)
 - よどみ検知(`client_projects.phaseChangedAt`、DB v22、`StaleDealRules`、ホーム「動いていない案件」)
-- 定期フォローのスヌーズ(`clients.followBoardSnoozedUntil`、DB v23、`FollowupListScreen` 3タブ化)
-- 案件パイプラインボード(`ui/pipeline/`、`Routes.PIPELINE`、ホームのドーナツタップで遷移)
-- 予定に会議URL・場所(`schedules.meetingUrl`/`location`、DB v24、カレンダー連携)
-- クライアントに流入経路・紹介元(`clients.leadSource`/`referredBy`、DB v25)
-- 全データのバックアップ/復元(`data/backup/BackupManager`、JSON + 任意 AES-GCM、復元は全置換え+再起動、設定画面)
-- Google Play Billing 基盤(`billing/BillingManager` 7.1.1、商品 `meetingnotes_pro`、購入フロー/復元/acknowledge、ペイウォール)。`PRO_GATING_ENABLED` 既定 false のためロック表示なし
+- 定期フォローのスヌーズ→個別 ToDo のスヌーズに刷新(`todos.snoozedUntil`、DB v28、`FollowupListScreen` 3タブ化)
+- 予定に会議URL・場所(`schedules.meetingUrl`/`location`、DB v24、カレンダー連携)/ クライアントに流入経路・紹介元(`clients.leadSource`/`referredBy`、DB v25)
+- 全データのバックアップ/復元(`data/backup/BackupManager`、JSON + 任意 AES-GCM、復元は全置換え+再起動)、メール文面テンプレート(DB v26)
+- Google Play Billing 基盤(`billing/BillingManager` 7.1.1)。`PRO_GATING_ENABLED` 既定 false のためロック表示なし
+
+**フェーズ体系の一本化(2026-09-09〜11)**
+- 案件パイプラインボードを試験導入(`ui/pipeline/`)→**廃止**(操作してもホームのドーナツに反映されず「必要性が感じられない」というフィードバックを受け、正式に方針転換)
+- **案件フェーズ(`client_projects.phase`)を「クライアントの現在の状態」の正に統一**。商談フェーズ(`meetings.dealPhase`)はその商談時点のスナップショットに限定
+- `ui/client/ClientDealPhaseRules`(代表フェーズの算出。進行中の最先端 / 無ければ成約 / 失注)、`MeetingRepository.observeClientDealPhase`
+- 要約保存直後の確認プロンプト(`MeetingViewModel.PostSavePrompt`、`ResultScreen.PostSavePromptDialog`): 案件0件→作成を促す、進行中案件とAI推定フェーズが食い違う→更新を促す
+- 既存クライアントの自動バックフィル(`MeetingRepository.backfillClientProjects`)、ホームのドーナツ・成約率・成約/失注数を案件フェーズ基準に変更
+
+**予定表・クライアント画面(2026-09-10〜11)**
+- 予定表: カレンダー枠を強調・今日を左上の赤三角で表示(丸枠を廃止)、予定/ToDo印を数字から離す、本日/これからの予定を`ScheduleListPanel`(ホーム「直近の予定」と共通)に統一
+- 予定の詳細ダイアログ(`ScheduleDetailDialog`、公開化): 全項目を常時表示・未登録は「なし」、クライアント名がリンク、「前回の会議を開く」「カレンダーアプリに追加」。ホームの「直近の予定」タップでも同ダイアログを表示
+- クライアント詳細画面: `PrimaryTabRow`→`FolderTabRow`、下部ナビ追加(`AppBottomNav`共通化)、プロジェクト絞り込みをプルダウンに(「すべてのプロジェクト」/「未定のプロジェクト」)
+- `TabTopBar`のホームボタンとタイトルの間隔調整
+
+**デザイン(2026-09-12)**
+- アプリ全体の配色をネイビー基調のカスタム `ColorScheme` に(`ui/theme/NavyTheme.kt`)。作成/録音アクションの色を青からアンバーに(`CreateActionColors.kt`)
+- 4タブ共通ヘッダー(`TabTopBar`)・フォルダ型タブ(`FolderTabRow`)・クライアント詳細ヘッダー・ホームダッシュボードをネイビー地に(`ui/theme/BrandNavy.kt`)
+
+- DB マイグレーション v15→v28(各1段、`MigrationTest` / `MigrationIntegrityTest`)
 - CI 修正(`gradlew` 実行権限)
-- DB マイグレーション v15→v25(各1段、`MigrationTest` / `MigrationIntegrityTest`)
 - プライバシーポリシー: 2.5 に「データのバックアップ」(利用者操作でのファイル書き出し)を追記
 
 ---
