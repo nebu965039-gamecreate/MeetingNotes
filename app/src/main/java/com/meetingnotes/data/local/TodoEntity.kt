@@ -46,9 +46,11 @@ data class TodoEntity(
      */
     val isFollowupEmail: Boolean = false,
     /**
-     * スヌーズの再表示日時(epoch millis)。未来のときは「催促する画面」
-     * (下部ナビのバッジ / ホームの「期限切れ・3日以内のToDo」/ 期限リマインド)から外れる。
-     * ToDo 一覧・完了一覧・スヌーズ一覧には残る。null = スヌーズなし(v28)。
+     * この ToDo についてユーザーが指定した通知予約日時(epoch millis)。null = 予約なし。
+     * `TodoNotificationScheduler` が WorkManager の一回限りジョブとしてこの日時に端末通知を送る。
+     * (2026-09-16、v29。旧 `snoozedUntil`〈v28〉をリネーム — 「スヌーズ(一覧から一時的に隠す)」は
+     * 「気づきにくい」というフィードバックにより廃止し、ToDo は常に一覧・件数に含めたまま
+     * 「指定日時に通知する」方式に置き換えた)。通知が発火すると `null` に戻る。
      */
-    val snoozedUntil: Long? = null
+    val notifyAt: Long? = null
 )

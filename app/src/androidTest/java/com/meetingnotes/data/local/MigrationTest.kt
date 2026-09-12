@@ -239,6 +239,25 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate28To29_renamesSnoozedUntilToNotifyAt() {
+        helper.createDatabase(dbName, 28).apply {
+            execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")
+            execSQL(
+                "INSERT INTO todos (meetingId, clientId, task, assignee, deadline, dueDate, isDone, isFollowupEmail, snoozedUntil) " +
+                    "VALUES (NULL, 1, 'call', '自分', '', NULL, 0, 0, 123456789)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 29, true, MIGRATION_28_29)
+
+        db.query("SELECT notifyAt FROM todos WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getLong(0) == 123456789L)
+        }
+    }
+
+    @Test
     fun migrate26To27_dropsBriefingTable() {
         helper.createDatabase(dbName, 26).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

@@ -253,8 +253,7 @@ fun ClientDetailScreen(
             onOpenMeeting = onMeetingSelected,
             onComplete = { viewModel.completeTodo(it) },
             onReopen = { viewModel.reopenTodo(it) },
-            onSnooze = { id, until -> viewModel.snoozeTodo(id, until) },
-            onUnsnooze = { viewModel.unsnoozeTodo(it) },
+            onNotifyAtChange = { id, atMillis -> viewModel.setTodoNotifyAt(id, atMillis) },
             onAddTodo = { task, dueDate -> viewModel.addManualTodo(task, dueDate) },
             onEditTodo = { id, task, dueDate -> viewModel.updateTodo(id, task, dueDate) },
             onDeleteTodo = { viewModel.deleteTodo(it) },
@@ -1306,8 +1305,7 @@ private fun TodoTab(
     onOpenMeeting: (Long) -> Unit,
     onComplete: (Long) -> Unit,
     onReopen: (Long) -> Unit,
-    onSnooze: (todoId: Long, untilMillis: Long) -> Unit,
-    onUnsnooze: (Long) -> Unit,
+    onNotifyAtChange: (todoId: Long, atMillis: Long?) -> Unit,
     onAddTodo: (task: String, dueDate: String?) -> Unit,
     onEditTodo: (todoId: Long, task: String, dueDate: String?) -> Unit,
     onDeleteTodo: (Long) -> Unit,
@@ -1393,7 +1391,7 @@ private fun TodoTab(
                             dueDate = t.dueDate,
                             deadlineText = t.deadline,
                             done = sub == 1,
-                            snoozedUntil = t.snoozedUntil
+                            notifyAt = t.notifyAt
                         ),
                         onToggle = { if (sub == 0) onComplete(t.id) else onReopen(t.id) },
                         onClick = {
@@ -1402,10 +1400,10 @@ private fun TodoTab(
                         },
                         trailing = if (sub == 0) {
                             {
-                                com.meetingnotes.ui.common.SnoozeMenu(
-                                    snoozed = com.meetingnotes.ui.common.todoIsSnoozed(t.snoozedUntil),
-                                    onSnooze = { until -> onSnooze(t.id, until) },
-                                    onClearSnooze = { onUnsnooze(t.id) }
+                                com.meetingnotes.ui.common.TodoNotifyButton(
+                                    todoId = t.id,
+                                    notifyAt = t.notifyAt,
+                                    onNotifyAtChange = { atMillis -> onNotifyAtChange(t.id, atMillis) }
                                 )
                             }
                         } else null

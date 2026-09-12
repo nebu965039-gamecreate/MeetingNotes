@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meetingnotes.MeetingNotesApp
+import com.meetingnotes.ui.theme.CreateActionAmber
 import com.meetingnotes.ui.theme.ThemeMode
 import com.meetingnotes.ui.theme.TodoDueSoonColor
 import java.time.Instant
@@ -40,17 +41,16 @@ data class TodoRowData(
     val dueDate: String?,          // ISO(yyyy-MM-dd)。解決できていなければ null
     val deadlineText: String = "", // dueDate が無いときの原文フォールバック
     val done: Boolean = false,
-    val snoozedUntil: Long? = null,
+    /** ユーザーが指定した通知予約日時(epoch millis)。null = 予約なし(2026-09-16、旧 snoozedUntil)。 */
+    val notifyAt: Long? = null,
     val clientName: String? = null // 横断 ToDo 一覧でのみ表示。クライアント詳細内では null
 )
 
 private val mdFormatter = DateTimeFormatter.ofPattern("M/d")
-
-fun todoIsSnoozed(snoozedUntil: Long?, nowMillis: Long = System.currentTimeMillis()): Boolean =
-    snoozedUntil != null && snoozedUntil > nowMillis
+private val notifyFormatter = DateTimeFormatter.ofPattern("M/d H:mm")
 
 /**
- * ToDo 1行(チェックボックス + 本文 + サブ行 + スヌーズチップ + trailing)。
+ * ToDo 1行(チェックボックス + 本文 + サブ行 + 通知予約チップ + trailing)。
  * クライアント詳細の ToDo タブと、ToDo 画面の横断一覧で共有する。
  */
 @Composable
@@ -61,14 +61,14 @@ fun TodoRow(
     modifier: Modifier = Modifier,
     showCheckbox: Boolean = true,
     /**
-     * スヌーズ中の 😴 M/d まで チップを表示するか。ToDo 画面(`FollowupListScreen`)の「ToDo」タブは
+     * 通知予約中の 🔔 M/d H:mm チップを表示するか。ToDo 画面(`FollowupListScreen`)の「ToDo」タブは
      * クライアント名も同じ行にあり、チップまで出すと横幅が足りずレイアウトが崩れるため false で使う
-     * (2026-09-15。スヌーズ状態の確認は専用の「スヌーズ」タブで行う)。既定は true。
+     * (2026-09-15。予約状態自体は trailing の `TodoNotifyButton` の塗りつぶし表示で分かる)。既定は true。
      */
-    showSnoozeChip: Boolean = true,
+    showNotifyChip: Boolean = true,
     trailing: (@Composable () -> Unit)? = null
 ) {
-    val snoozed = !data.done && todoIsSnoozed(data.snoozedUntil)
+    val hasNotify = !data.done && data.notifyAt != null
     val app = LocalContext.current.applicationContext as MeetingNotesApp
     val darkTheme = when (app.themeModeState.value) {
         ThemeMode.LIGHT -> false
@@ -109,8 +109,7 @@ fun TodoRow(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     textDecoration = if (data.done) TextDecoration.LineThrough else null,
-                    color = if (snoozed && !data.done) MaterialTheme.colorScheme.onSurfaceVariant
-                    else MaterialTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -142,9 +141,9 @@ fun TodoRow(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    if (snoozed && showSnoozeChip) {
+                    if (hasNotify && showNotifyChip) {
                         if (data.clientName != null || due != null) Spacer(Modifier.width(6.dp))
-                        SnoozeChip(data.snoozedUntil!!)
+                        NotifyChip(data.notifyAt!!)
                     }
                 }
             }
@@ -154,17 +153,17 @@ fun TodoRow(
 }
 
 @Composable
-private fun SnoozeChip(untilMillis: Long) {
-    val d = Instant.ofEpochMilli(untilMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+private fun NotifyChip(atMillis: Long) {
+    val dt = Instant.ofEpochMilli(atMillis).atZone(ZoneId.systemDefault()).toLocalDateTime()
     Box(
         modifier = Modifier
             .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(6.dp))
             .padding(horizontal = 6.dp, vertical = 1.dp)
     ) {
         Text(
-            "😴 ${d.monthValue}/${d.dayOfMonth}まで",
+            "🔔 ${dt.format(notifyFormatter)}",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = CreateActionAmber
         )
     }
 }

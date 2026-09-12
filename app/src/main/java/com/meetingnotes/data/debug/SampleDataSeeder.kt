@@ -265,7 +265,7 @@ object SampleDataSeeder {
             val taskN = if (recent) 2 + rnd.nextInt(0, 2) else 1
             repeat(taskN) { k ->
                 val due = if (recent) iso(-4 + rnd.nextInt(0, 24)) else isoFromMillis(recordedAt + (2 + k) * DAY)
-                val snoozed = recent && m % 7 == 0 && k == 0
+                val hasNotify = recent && m % 7 == 0 && k == 0
                 todoDao.insert(
                     TodoEntity(
                         meetingId = meetingId, clientId = clientId,
@@ -273,7 +273,7 @@ object SampleDataSeeder {
                         deadline = "", dueDate = due,
                         isDone = !recent || rnd.nextInt(0, 10) < 3,
                         isFollowupEmail = false,
-                        snoozedUntil = if (snoozed) now + (3 + rnd.nextInt(0, 12)) * DAY else null
+                        notifyAt = if (hasNotify) now + (3 + rnd.nextInt(0, 12)) * DAY else null
                     )
                 )
                 todoCount++
@@ -288,7 +288,7 @@ object SampleDataSeeder {
                     task = listOf("契約書の押印を依頼", "請求書を発行", "先方の年度予算を確認", "紹介のお礼を連絡")[i],
                     assignee = "自分", deadline = "", dueDate = iso(-2 + i * 3),
                     isDone = false, isFollowupEmail = false,
-                    snoozedUntil = if (i == 3) now + 9 * DAY else null
+                    notifyAt = if (i == 3) now + 9 * DAY else null
                 )
             )
             todoCount++

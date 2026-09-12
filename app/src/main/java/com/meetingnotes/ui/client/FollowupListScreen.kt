@@ -51,12 +51,11 @@ import com.meetingnotes.ui.common.FolderTab
 import com.meetingnotes.ui.common.FolderTabRow
 import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.NextMeetingDateTimeDialog
-import com.meetingnotes.ui.common.SnoozeMenu
 import com.meetingnotes.ui.common.TabTopBar
 import com.meetingnotes.ui.common.TodoDueFilter
+import com.meetingnotes.ui.common.TodoNotifyButton
 import com.meetingnotes.ui.common.TodoRow
 import com.meetingnotes.ui.common.TodoRowData
-import com.meetingnotes.ui.common.todoIsSnoozed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +73,6 @@ fun FollowupListScreen(
     val dueFilter by viewModel.dueFilter.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
     val clients by viewModel.clients.collectAsState()
-    val snoozed by viewModel.snoozedTodos.collectAsState()
     val done by viewModel.doneTodos.collectAsState()
 
     var tab by remember { mutableIntStateOf(0) }
@@ -100,11 +98,11 @@ fun FollowupListScreen(
                 .padding(padding)
                 .background(com.meetingnotes.ui.common.FolderTabDefaults.sheetColor)
         ) {
-            // ToDo タブの件数はスヌーズ中を除いた「今やるべき」数に合わせる(下部ナビのバッジと一致。フィルタの影響を受けない)。
+            // 2026-09-16、スヌーズ廃止に伴い「スヌーズ」タブを削除(ToDo / 完了 の2タブに)。
+            // 通知予約中かどうかは各行の🔔ボタン・チップで分かるため、隠れた一覧を別途持つ必要が無くなった。
             FolderTabRow(
                 tabs = listOf(
                     FolderTab("ToDo", activeCount),
-                    FolderTab("スヌーズ", snoozed.size),
                     FolderTab("完了", done.size)
                 ),
                 selectedIndex = tab,
@@ -129,26 +127,18 @@ fun FollowupListScreen(
                         emptyText = "現在ToDoはありません",
                         onOpen = ::openItem,
                         onToggle = { viewModel.complete(it) },
-                        // スヌーズ中のチップ(😴 M/d まで)はクライアント名も同じ行にあるとレイアウトが
-                        // 崩れるため非表示に(2026-09-15)。スヌーズ状態の確認は「スヌーズ」タブで行う。
-                        showSnoozeChip = false,
+                        // 通知予約チップ(🔔 M/d H:mm)はクライアント名も同じ行にあるとレイアウトが
+                        // 崩れるため非表示に(2026-09-15)。予約有無は trailing のベルボタンの色で分かる。
+                        showNotifyChip = false,
                         trailing = { item ->
-                            SnoozeMenu(
-                                snoozed = todoIsSnoozed(item.todo.snoozedUntil),
-                                onSnooze = { until -> viewModel.snooze(item.id, until) },
-                                onClearSnooze = { viewModel.unsnooze(item.id) },
-                                // スヌーズ中はこのタブでも表示したままにし(下記「スヌーズ」タブと重複表示)、
-                                // 解除は「スヌーズ」タブの「解除」ボタンに一本化するため、ここは非活性にする。
-                                disableWhenSnoozed = true
+                            TodoNotifyButton(
+                                todoId = item.id,
+                                notifyAt = item.todo.notifyAt,
+                                onNotifyAtChange = { atMillis -> viewModel.setNotifyAt(item.id, atMillis) }
                             )
                         }
                     )
                 }
-                1 -> SnoozedList(
-                    items = snoozed,
-                    onOpen = ::openItem,
-                    onUnsnooze = { viewModel.unsnooze(it) }
-                )
                 else -> Column(modifier = Modifier.fillMaxSize()) {
                     if (done.isNotEmpty()) {
                         Row(
@@ -322,7 +312,7 @@ private fun TodoItemList(
     onOpen: (TodoScreenItem) -> Unit,
     onToggle: (Long) -> Unit,
     done: Boolean = false,
-    showSnoozeChip: Boolean = true,
+    showNotifyChip: Boolean = true,
     trailing: (@Composable (TodoScreenItem) -> Unit)?
 ) {
     if (items.isEmpty()) {
@@ -342,52 +332,13 @@ private fun TodoItemList(
                     dueDate = item.todo.dueDate,
                     deadlineText = item.todo.deadline,
                     done = done,
-                    snoozedUntil = item.todo.snoozedUntil,
+                    notifyAt = item.todo.notifyAt,
                     clientName = item.clientName
                 ),
                 onToggle = { onToggle(item.id) },
                 onClick = { onOpen(item) },
-                showSnoozeChip = showSnoozeChip,
+                showNotifyChip = showNotifyChip,
                 trailing = trailing?.let { { it(item) } }
-            )
-        }
-    }
-}
-
-@Composable
-private fun SnoozedList(
-    items: List<TodoScreenItem>,
-    onOpen: (TodoScreenItem) -> Unit,
-    onUnsnooze: (Long) -> Unit
-) {
-    if (items.isEmpty()) {
-        EmptyMessage("スヌーズ中のToDoはありません")
-        return
-    }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(items, key = { it.id }) { item ->
-            TodoRow(
-                data = TodoRowData(
-                    id = item.id,
-                    task = item.todo.task,
-                    // このタブは全件スヌーズ中なので、サブ行は元の期限ではなくスヌーズマーク+日時だけにする。
-                    dueDate = null,
-                    deadlineText = "",
-                    snoozedUntil = item.todo.snoozedUntil,
-                    clientName = item.clientName
-                ),
-                onToggle = {},
-                onClick = { onOpen(item) },
-                showCheckbox = false,
-                trailing = {
-                    TextButton(onClick = { onUnsnooze(item.id) }) {
-                        Text("解除", style = MaterialTheme.typography.labelLarge)
-                    }
-                }
             )
         }
     }

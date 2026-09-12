@@ -47,7 +47,8 @@ fun NextMeetingDateTimeDialog(
     initial: LocalDateTime?,
     initialHasTime: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (dateTime: LocalDateTime, hasTime: Boolean) -> Unit
+    onConfirm: (dateTime: LocalDateTime, hasTime: Boolean) -> Unit,
+    title: String = "次回打ち合わせ"
 ) {
     val base = initial ?: LocalDate.now().plusWeeks(1).atTime(10, 0)
     var date by remember { mutableStateOf(base.toLocalDate()) }
@@ -59,7 +60,7 @@ fun NextMeetingDateTimeDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("次回打ち合わせ") },
+        title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 FieldRow(
@@ -145,46 +146,6 @@ fun NextMeetingDateTimeDialog(
                 }) { Text("OK") }
             },
             dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("キャンセル") } }
-        )
-    }
-}
-
-/**
- * 日付だけを選ぶシンプルなダイアログ(スヌーズの「日付を指定」など)。
- * 「次回打ち合わせ」の枠や時刻トグルは出さない。
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PickDateDialog(
-    initial: LocalDate,
-    onDismiss: () -> Unit,
-    onConfirm: (LocalDate) -> Unit,
-    title: String = "日付を選択"
-) {
-    val state = rememberDatePickerState(
-        initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-    )
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = {
-                state.selectedDateMillis?.let {
-                    onConfirm(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate())
-                }
-            }) { Text("OK") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("キャンセル") } }
-    ) {
-        DatePicker(
-            state = state,
-            showModeToggle = true,
-            title = {
-                Text(
-                    title,
-                    modifier = Modifier.padding(start = 24.dp, top = 16.dp),
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
         )
     }
 }

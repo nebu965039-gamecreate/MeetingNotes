@@ -8,7 +8,6 @@ import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.data.local.TodoEntity
 import com.meetingnotes.ui.common.TodoDueFilter
 import com.meetingnotes.ui.common.matchesDueFilter
-import com.meetingnotes.ui.common.todoIsSnoozed
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,9 +27,14 @@ data class TodoScreenItem(
 
 /**
  * ToDo 画面(下部ナビ)の VM。クライアント詳細の ToDo タブと同じ「個別 ToDo」粒度。
- * - ToDo タブ  = 未完了(スヌーズ中も残す。末尾に寄せる)
- * - スヌーズタブ = スヌーズ中の未完了だけ(確認用)
- * - 完了タブ    = 完了済み(新しい順)
+ * - ToDo タブ = 未完了(すべて。通知予約の有無に関わらず常に表示)
+ * - 完了タブ  = 完了済み(新しい順)
+ *
+ * **2026-09-16、スヌーズ廃止 → 通知予約に置き換え**: 旧「スヌーズ」(指定日時まで一覧・バッジ・
+ * リマインドから隠す)は「ただ再表示されるだけで気づきにくい」というフィードバックを受けて廃止。
+ * 代わりに ToDo 1件ごとに任意の日時を指定して**端末通知**を送る仕組み(`TodoNotificationScheduler`)
+ * に置き換えた。ToDo は通知予約の有無に関わらず常に一覧・件数に含まれる(隠す概念が無くなった)。
+ * 旧「スヌーズ」タブは廃止(`FollowupListScreen` 参照)。
  */
 class FollowupListViewModel(private val repository: MeetingRepository) : ViewModel() {
 
@@ -53,20 +57,18 @@ class FollowupListViewModel(private val repository: MeetingRepository) : ViewMod
     private val _sortOrder = MutableStateFlow(TodoSortOrder.DUE_DATE)
     val sortOrder: StateFlow<TodoSortOrder> = _sortOrder
 
-    /** 未完了 ToDo。[dueFilter] で絞り込み、[sortOrder] で並び替え。スヌーズ中は常に最後尾へ。 */
+    /** 未完了 ToDo。[dueFilter] で絞り込み、[sortOrder] で並び替え。 */
     val openTodos: StateFlow<List<TodoScreenItem>> =
         combine(openTodosAll, _dueFilter, _sortOrder) { list, filter, sort ->
             val filtered = list.filter { matchesDueFilter(it.todo.dueDate, filter) }
-            val snoozedLast = compareBy<TodoScreenItem> { todoIsSnoozed(it.todo.snoozedUntil) }
             when (sort) {
                 TodoSortOrder.DUE_DATE ->
                     filtered.sortedWith(
-                        snoozedLast.thenBy { it.todo.dueDate == null }
+                        compareBy<TodoScreenItem> { it.todo.dueDate == null }
                             .thenBy { it.todo.dueDate ?: "" }
                             .thenByDescending { it.todo.id }
                     )
-                TodoSortOrder.CREATED ->
-                    filtered.sortedWith(snoozedLast.thenByDescending { it.todo.id })
+                TodoSortOrder.CREATED -> filtered.sortedByDescending { it.todo.id }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -84,22 +86,14 @@ class FollowupListViewModel(private val repository: MeetingRepository) : ViewMod
         viewModelScope.launch { repository.addManualTodo(clientId, task, dueDate) }
     }
 
-    /** タブの件数バッジ用。フィルタの影響を受けない「今やるべき」総数(スヌーズ中除く)。下部ナビのバッジと一致。 */
+    /** タブの件数バッジ用。フィルタの影響を受けない未完了 ToDo の総数。下部ナビのバッジと一致。 */
     val activeTodoCount: StateFlow<Int> = openTodosAll
-        .map { list -> list.count { !todoIsSnoozed(it.todo.snoozedUntil) } }
+        .map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     fun setDueFilter(filter: TodoDueFilter) {
         _dueFilter.value = filter
     }
-
-    /** 現在スヌーズ中の未完了 ToDo。再表示が近い順。 */
-    val snoozedTodos: StateFlow<List<TodoScreenItem>> = source
-        .map { list ->
-            list.filter { !it.todo.isDone && todoIsSnoozed(it.todo.snoozedUntil) }
-                .sortedBy { it.todo.snoozedUntil }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** 完了済み ToDo。新しい順。 */
     val doneTodos: StateFlow<List<TodoScreenItem>> = source
@@ -114,12 +108,9 @@ class FollowupListViewModel(private val repository: MeetingRepository) : ViewMod
         viewModelScope.launch { repository.setTodoDone(todoId, false) }
     }
 
-    fun snooze(todoId: Long, untilMillis: Long) {
-        viewModelScope.launch { repository.setTodoSnooze(todoId, untilMillis) }
-    }
-
-    fun unsnooze(todoId: Long) {
-        viewModelScope.launch { repository.setTodoSnooze(todoId, null) }
+    /** ToDo 1件に通知予約を設定/解除する(DB の更新のみ。WorkManager への登録・解除は呼び出し側の Composable が行う)。 */
+    fun setNotifyAt(todoId: Long, atMillis: Long?) {
+        viewModelScope.launch { repository.setTodoNotifyAt(todoId, atMillis) }
     }
 
     /** 完了済み ToDo をすべて削除する(確認ダイアログを経て呼ばれる想定)。 */

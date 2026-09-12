@@ -55,16 +55,14 @@ class ClientDetailViewModel(
         _todoSort.value = order
     }
 
-    /** このクライアントの未完了 ToDo。プロジェクト絞り込み + 並び替え適用後。スヌーズ中は末尾へ。 */
+    /** このクライアントの未完了 ToDo。プロジェクト絞り込み + 並び替え適用後。 */
     val openTodos: StateFlow<List<TodoEntity>> =
         combine(todos, _projectFilter, meetingProjectById, _todoSort) { list, filter, projById, sort ->
-            val now = System.currentTimeMillis()
             val filtered = list.filter { !it.isDone && matchesProject(it.meetingId?.let(projById::get), filter) }
-            val snoozedLast = compareBy<TodoEntity> { (it.snoozedUntil ?: 0L) > now }
             when (sort) {
                 TodoSortOrder.DUE_DATE ->
-                    filtered.sortedWith(snoozedLast.thenBy { it.dueDate == null }.thenBy { it.dueDate ?: "" }.thenByDescending { it.id })
-                TodoSortOrder.CREATED -> filtered.sortedWith(snoozedLast.thenByDescending { it.id })
+                    filtered.sortedWith(compareBy<TodoEntity> { it.dueDate == null }.thenBy { it.dueDate ?: "" }.thenByDescending { it.id })
+                TodoSortOrder.CREATED -> filtered.sortedByDescending { it.id }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -194,12 +192,9 @@ class ClientDetailViewModel(
         viewModelScope.launch { repository.setTodoDone(todoId, false) }
     }
 
-    fun snoozeTodo(todoId: Long, untilMillis: Long) {
-        viewModelScope.launch { repository.setTodoSnooze(todoId, untilMillis) }
-    }
-
-    fun unsnoozeTodo(todoId: Long) {
-        viewModelScope.launch { repository.setTodoSnooze(todoId, null) }
+    /** ToDo 1件に通知予約を設定/解除する(DB のみ。WorkManager 登録・解除は呼び出し側の Composable が行う)。 */
+    fun setTodoNotifyAt(todoId: Long, atMillis: Long?) {
+        viewModelScope.launch { repository.setTodoNotifyAt(todoId, atMillis) }
     }
 
     /** クライアント直下に手動 ToDo を追加。 */
