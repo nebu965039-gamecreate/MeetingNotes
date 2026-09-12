@@ -138,6 +138,12 @@ fun ClientListScreen(
                         )
                     }
                 } else {
+                    item {
+                        Text(
+                            text = "グループ",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
                     items(groups, key = { "group_${it.id}" }) { group ->
                         val groupClients = clients.filter { it.groupId == group.id }
                         val isExpanded = expandedGroups[group.id] == true

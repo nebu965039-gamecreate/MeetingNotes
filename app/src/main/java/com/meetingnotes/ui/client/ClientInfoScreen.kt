@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.SmallFloatingActionButton
@@ -34,7 +35,7 @@ import com.meetingnotes.ui.common.DealPhaseChip
 
 /**
  * クライアント情報の閲覧表示。クライアント詳細画面の「情報」タブで使う。
- * 編集は [onEdit](→ `ClientEditScreen`)へ。
+ * 編集は [onEdit](→ `ClientEditDialog`)へ。
  */
 @Composable
 fun ClientInfoContent(
@@ -61,7 +62,7 @@ fun ClientInfoContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
 
-        ElevatedCard {
+        ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -101,7 +102,10 @@ fun ClientInfoContent(
             Text("案件", style = MaterialTheme.typography.titleMedium)
             projects.forEach { p ->
                 val cur = com.meetingnotes.util.Currency.of(p.currency)
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
                     Column(
                         modifier = Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -177,7 +181,10 @@ fun ClientInfoContent(
             )
         } else {
             contacts.forEach { contact ->
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
                     Column(
                         modifier = Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)

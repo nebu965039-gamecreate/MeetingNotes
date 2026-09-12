@@ -56,9 +56,13 @@ class HomeViewModel(private val repository: MeetingRepository) : ViewModel() {
     private val clients = repository.observeClients()
     private val latestMeetings = repository.observeLatestMeetingPerClient()
 
+    /** ホーム「本日の予定」。本日分だけに絞る(全件は予定表タブで確認)。 */
     val upcoming: StateFlow<List<UpcomingItem>> =
         repository.observeSchedules()
-            .map { UpcomingRules.order(it) }
+            .map { schedules ->
+                val today = LocalDate.now()
+                UpcomingRules.order(schedules).filter { it.start.toLocalDate() == today }
+            }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** クライアントID → 直近の商談ID(予定詳細から「前回の会議」へ飛ぶため)。 */

@@ -15,11 +15,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,6 +47,7 @@ import com.meetingnotes.ui.common.TodoRow
 import com.meetingnotes.ui.common.TodoRowData
 import com.meetingnotes.ui.common.todoIsSnoozed
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FollowupListScreen(
     repository: MeetingRepository,
@@ -160,24 +163,20 @@ fun FollowupListScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TodoDueFilterRow(selected: TodoDueFilter, onSelect: (TodoDueFilter) -> Unit) {
-    Row(
+    SingleChoiceSegmentedButtonRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        TodoDueFilter.entries.forEach { filter ->
-            FilterChip(
+        TodoDueFilter.entries.forEachIndexed { index, filter ->
+            SegmentedButton(
                 selected = selected == filter,
                 onClick = { onSelect(filter) },
-                label = { Text(filter.label) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                )
-            )
+                shape = SegmentedButtonDefaults.itemShape(index, TodoDueFilter.entries.size)
+            ) { Text(filter.label) }
         }
     }
 }

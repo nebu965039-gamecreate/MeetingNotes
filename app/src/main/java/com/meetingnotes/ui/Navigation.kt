@@ -10,7 +10,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.client.ClientDetailScreen
-import com.meetingnotes.ui.client.ClientEditScreen
 import com.meetingnotes.ui.help.HelpScreen
 import com.meetingnotes.ui.home.MainTab
 import com.meetingnotes.ui.home.MainTabsShell
@@ -32,12 +31,10 @@ object Routes {
     const val NOTIFICATIONS = "notifications"
     const val SETTINGS = "settings"
     const val EMAIL_TEMPLATES = "emailTemplates"
-    const val CLIENT_EDIT = "clientEdit/{clientId}"
 
     fun clientDetail(clientId: Long) = "clientDetail/$clientId"
     fun recording(clientId: Long) = "recording/$clientId"
     fun meetingDetail(meetingId: Long) = "meetingDetail/$meetingId"
-    fun clientEdit(clientId: Long) = "clientEdit/$clientId"
 }
 
 @Composable
@@ -106,7 +103,6 @@ fun MeetingNotesNavHost(
                 onMeetingSelected = { meetingId ->
                     navController.navigate(Routes.meetingDetail(meetingId))
                 },
-                onEditClient = { navController.navigate(Routes.clientEdit(clientId)) },
                 onBack = { navController.popBackStack() },
                 onClientDeleted = { navController.popBackStack(Routes.MAIN, inclusive = false) },
                 onSwitchTab = { tab ->
@@ -117,17 +113,6 @@ fun MeetingNotesNavHost(
                     meetingViewModel.resetForNewMeeting()
                     navController.navigate(Routes.RECORDING_UNASSIGNED)
                 }
-            )
-        }
-        composable(
-            Routes.CLIENT_EDIT,
-            arguments = listOf(navArgument("clientId") { type = NavType.LongType })
-        ) { backStackEntry ->
-            val clientId = backStackEntry.arguments?.getLong("clientId") ?: return@composable
-            ClientEditScreen(
-                repository = repository,
-                clientId = clientId,
-                onBack = { navController.popBackStack() }
             )
         }
         composable(

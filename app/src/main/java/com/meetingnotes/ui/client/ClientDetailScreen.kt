@@ -106,7 +106,6 @@ fun ClientDetailScreen(
     repository: MeetingRepository,
     clientId: Long,
     onMeetingSelected: (Long) -> Unit,
-    onEditClient: () -> Unit,
     onBack: () -> Unit,
     onClientDeleted: () -> Unit,
     onSwitchTab: (com.meetingnotes.ui.home.MainTab) -> Unit = {},
@@ -145,6 +144,7 @@ fun ClientDetailScreen(
     var showDeleteClientDialog by remember { mutableStateOf(false) }
     var showAddFolderDialog by remember { mutableStateOf(false) }
     var showManageProjects by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
     // フォルダごとの展開状態。未登録(=このMapに無い)場合はデフォルトで未展開。
     val expandedFolders = remember { mutableStateMapOf<Long, Boolean>() }
     var meetingToRename by remember { mutableStateOf<MeetingEntity?>(null) }
@@ -258,11 +258,14 @@ fun ClientDetailScreen(
             onEditTodo = { id, task, dueDate -> viewModel.updateTodo(id, task, dueDate) },
             onDeleteTodo = { viewModel.deleteTodo(it) }
         )
-        2 -> ClientInfoContent(repository = repository, clientId = clientId, onEdit = onEditClient)
+        2 -> ClientInfoContent(repository = repository, clientId = clientId, onEdit = { showEditDialog = true })
         else -> LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp, end = 16.dp, bottom = 16.dp,
+                // プロジェクトのフィルターとの間が広く見えないよう、上だけ詰める。
+                top = if (projects.isNotEmpty()) 4.dp else 16.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
@@ -575,6 +578,14 @@ fun ClientDetailScreen(
             }
         )
     }
+
+    if (showEditDialog) {
+        ClientEditDialog(
+            repository = repository,
+            clientId = clientId,
+            onDismiss = { showEditDialog = false }
+        )
+    }
 }
 
 /** アーカイブの検索入力欄。丸みのあるコンパクトなバー。 */
@@ -875,7 +886,7 @@ private fun ProjectFilterBar(
         ClientDetailViewModel.NO_PROJECT -> "未定のプロジェクト"
         else -> projects.firstOrNull { it.id == selected }?.name ?: "すべてのプロジェクト"
     }
-    Box(modifier.padding(horizontal = 8.dp, vertical = 2.dp)) {
+    Box(modifier.padding(horizontal = 8.dp)) {
         TextButton(onClick = { expanded = true }) {
             Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
@@ -1305,7 +1316,10 @@ private fun TodoTab(
     var sortMenu by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        PrimaryTabRow(selectedTabIndex = sub) {
+        PrimaryTabRow(
+            selectedTabIndex = sub,
+            containerColor = com.meetingnotes.ui.common.FolderTabDefaults.sheetColor
+        ) {
             Tab(selected = sub == 0, onClick = { sub = 0 }, text = { Text("ToDo (${openTodos.size})") })
             Tab(selected = sub == 1, onClick = { sub = 1 }, text = { Text("完了 (${doneTodos.size})") })
         }

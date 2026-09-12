@@ -150,28 +150,16 @@ fun HomeScreen(
                 )
             }
 
-            if (overdueTodos.isNotEmpty()) {
-                item(key = "overdue_todos") {
-                    OverdueTodoBoard(
-                        items = overdueTodos,
+            if (overdueTodos.isNotEmpty() || dueSoonTodos.isNotEmpty()) {
+                item(key = "due_todos") {
+                    DueTodoBoard(
+                        overdueItems = overdueTodos,
+                        dueSoonItems = dueSoonTodos,
                         onOpen = { t ->
                             if (t.meetingId != null) onOpenMeeting(t.meetingId) else onOpenClient(t.clientId)
                         },
                         onComplete = { viewModel.completeTodo(it) },
-                        onShowAll = { onOpenTodo(TodoDueFilter.OVERDUE) }
-                    )
-                }
-            }
-
-            if (dueSoonTodos.isNotEmpty()) {
-                item(key = "due_soon_todos") {
-                    DueSoonTodoBoard(
-                        items = dueSoonTodos,
-                        onOpen = { t ->
-                            if (t.meetingId != null) onOpenMeeting(t.meetingId) else onOpenClient(t.clientId)
-                        },
-                        onComplete = { viewModel.completeTodo(it) },
-                        onShowAll = { onOpenTodo(TodoDueFilter.DUE_SOON) }
+                        onShowAll = { onOpenTodo(TodoDueFilter.ALL) }
                     )
                 }
             }

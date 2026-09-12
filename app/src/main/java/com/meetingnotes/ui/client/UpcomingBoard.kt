@@ -83,7 +83,7 @@ object UpcomingRules {
 
 private const val PREVIEW_COUNT = 3
 
-/** ホーム画面の「直近の予定」カード。0件でも表示する。行タップで予定の詳細ダイアログへ。 */
+/** ホーム画面の「本日の予定」カード。0件でも表示する。行タップで予定の詳細ダイアログへ。 */
 @Composable
 fun UpcomingBoard(
     items: List<UpcomingItem>,
@@ -100,8 +100,8 @@ fun UpcomingBoard(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             SectionHeading(
-                title = "直近の予定",
-                count = "全${items.size}件",
+                title = "本日の予定",
+                count = "${items.size}件",
                 trailing = {
                     Text(
                         "すべて表示",
@@ -121,7 +121,7 @@ fun UpcomingBoard(
                         .padding(16.dp)
                 ) {
                     Text(
-                        "次回打ち合わせの予定はありません。",
+                        "本日の予定はありません。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
