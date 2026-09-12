@@ -280,7 +280,15 @@ class TranscriptionManager(private val context: Context) {
         override fun onError(error: Int) {
             sessionActive = false
             errorCountByCode[error] = (errorCountByCode[error] ?: 0) + 1
-            // 未確定分は破棄(次セッションで取り直す)。確定済みだけ残す。
+            // ERROR_NO_MATCH 等は「確定(onResults)に失敗しただけ」で、話された内容自体は
+            // onPartialResults で既に画面に出ている。ここで破棄すると、話し終えた直後に
+            // 無音でセッションが切れるたびに直前の発言が消えてしまう(2026-09-13 report:
+            // 「数秒話して途切れると、その文字起こしが消える」)。次セッションでの「取り直し」は
+            // 発話者が同じ内容を話し直してくれない限り実際には起きないため、確定できなかった
+            // partial はそのまま確定扱いにして残す。
+            if (currentPartial.isNotBlank()) {
+                committedSegments.add(currentPartial)
+            }
             currentPartial = ""
             rebuildTranscript()
             if (!isListening) return
