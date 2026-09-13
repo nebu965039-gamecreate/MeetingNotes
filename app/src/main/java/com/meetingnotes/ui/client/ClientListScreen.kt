@@ -238,7 +238,7 @@ fun ClientListScreen(
     clientToDelete?.let { client ->
         ConfirmDialog(
             title = "クライアントを削除",
-            text = "「${client.name}」を削除します。関連する商談・ToDoもすべて削除され、元に戻せません。",
+            text = "「${client.name}」を削除します。関連する打ち合わせ・ToDoもすべて削除され、元に戻せません。",
             onDismiss = { clientToDelete = null },
             onConfirm = {
                 viewModel.deleteClient(client.id)

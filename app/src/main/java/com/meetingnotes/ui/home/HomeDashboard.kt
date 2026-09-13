@@ -87,7 +87,7 @@ fun HomeDashboardCard(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatCell("クライアント", data.clientCount.toString(), Modifier.weight(1f))
-                StatCell("今月の商談", data.meetingsThisMonth.toString(), Modifier.weight(1f))
+                StatCell("今月の打ち合わせ", data.meetingsThisMonth.toString(), Modifier.weight(1f))
                 StatCell(
                     "未完了ToDo",
                     data.openTodoTotal.toString(),

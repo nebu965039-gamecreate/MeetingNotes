@@ -300,7 +300,7 @@ fun ScheduleScreen(
         ConfirmDialog(
             title = "予定を削除",
             text = "「${item.clientName}」の予定「${item.title}」を削除します。" +
-                if (item.fromAi) "商談の「次回打ち合わせ」も未設定に戻ります。" else "",
+                if (item.fromAi) "打ち合わせ記録の「次回打ち合わせ」も未設定に戻ります。" else "",
             onDismiss = { scheduleToDelete = null },
             onConfirm = {
                 viewModel.deleteSchedule(item.scheduleId)

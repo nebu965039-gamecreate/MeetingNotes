@@ -43,7 +43,7 @@ object IcsExporter {
 
         val summary = clientName?.let { "$it との打ち合わせ" } ?: "次回打ち合わせ($meetingTitle)"
         val descriptionParts = buildList {
-            add("商談メモ「$meetingTitle」の次回打ち合わせ")
+            add("打ち合わせメモ「$meetingTitle」の次回打ち合わせ")
             nextMeetingOriginalText?.takeIf { it.isNotBlank() }?.let { add("元の表現: $it") }
         }
         val dtStamp = ZonedDateTime.now(ZoneOffset.UTC).format(UTC_STAMP)

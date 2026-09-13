@@ -112,7 +112,7 @@ fun NotificationScreen(
             if (upcoming.isEmpty()) {
                 item {
                     Text(
-                        "次回打ち合わせが設定されている商談はありません。",
+                        "次回打ち合わせが設定されている予定はありません。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

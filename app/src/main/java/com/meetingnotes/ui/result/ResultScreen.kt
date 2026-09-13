@@ -348,7 +348,7 @@ private fun PostSavePromptDialog(
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            "AI はこの商談を「${prompt.suggestedPhase.label}」と判断しました。\n" +
+                            "AI はこの打ち合わせを「${prompt.suggestedPhase.label}」と判断しました。\n" +
                                 "案件「${prompt.projectName}」を " +
                                 "「${prompt.currentPhase?.label ?: "未設定"}」→「${prompt.suggestedPhase.label}」に" +
                                 "進めますか？",

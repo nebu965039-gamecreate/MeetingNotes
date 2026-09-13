@@ -89,7 +89,7 @@ fun AnalyticsScreen(repository: MeetingRepository, onHome: () -> Unit) {
         if (locked) {
             ProLockedContent(
                 title = "分析は Pro 限定の機能です",
-                message = "案件・商談・フォローの数値を月次で振り返れます。",
+                message = "案件・打ち合わせ・フォローの数値を月次で振り返れます。",
                 onLearnMore = { showPaywall = true },
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
@@ -323,10 +323,10 @@ private fun EmptyTab(text: String, modifier: Modifier) {
 @Composable
 private fun ActivityTab(stats: ActivityStats?, barColor: Color, modifier: Modifier) {
     if (stats == null || (stats.inPerson + stats.remote) == 0) {
-        EmptyTab("まだ商談の記録がありません。", modifier); return
+        EmptyTab("まだ打ち合わせの記録がありません。", modifier); return
     }
     AnalyticsTabList(modifier) {
-        StatCard("月次の商談数（直近12ヶ月）") {
+        StatCard("月次の打ち合わせ数（直近12ヶ月）") {
             MonthlyTrend(stats.monthlyMeetings, unit = "件", barColor = barColor)
         }
         StatCard("実施形態・時間") {

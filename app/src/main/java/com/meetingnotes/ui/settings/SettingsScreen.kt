@@ -269,7 +269,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                         )
                         SettingActionRow(
                             title = "バックアップを作成",
-                            subtitle = "全クライアント・商談・ToDo・案件・予定を1ファイルに書き出します。",
+                            subtitle = "全クライアント・打ち合わせ・ToDo・案件・予定を1ファイルに書き出します。",
                             enabled = !working,
                             onClick = { showExportPasswordDialog = true }
                         )
@@ -283,7 +283,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                             title = "クライアント一覧をCSVで書き出し",
                             subtitle = "名前・グループ・連絡先・流入経路などをCSVに。表計算ソフトや他ツールへ。",
                             enabled = !working,
-                            onClick = { createCsvLauncher.launch("商談メモ-クライアント-${LocalDate.now()}.csv") }
+                            onClick = { createCsvLauncher.launch("打ち合わせメモ-クライアント-${LocalDate.now()}.csv") }
                         )
                         SettingActionRow(
                             title = "CSVからクライアントを取り込み",
@@ -322,7 +322,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                             )
                             SettingActionRow(
                                 title = "サンプルデータを投入",
-                                subtitle = "既存データを全消去し、過去1年ぶんのクライアント・商談・案件・ToDo・予定を入れます。",
+                                subtitle = "既存データを全消去し、過去1年ぶんのクライアント・打ち合わせ・案件・ToDo・予定を入れます。",
                                 enabled = !working,
                                 onClick = { showSeedConfirm = true }
                             )
@@ -373,7 +373,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
             onConfirm = { pw ->
                 exportPassword = pw
                 showExportPasswordDialog = false
-                createBackupLauncher.launch("商談メモ-backup-${LocalDate.now()}.json")
+                createBackupLauncher.launch("打ち合わせメモ-backup-${LocalDate.now()}.json")
             }
         )
     }

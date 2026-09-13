@@ -209,6 +209,6 @@ class AnthropicClient(
         const val MAX_TRANSCRIPT_CHARS = 20000
 
         const val TRANSCRIPT_TOO_LONG_MESSAGE =
-            "この商談は長すぎるため要約できません(目安: 約60〜80分ぶんまで)。録音を分けて保存してからお試しください。"
+            "この打ち合わせは長すぎるため要約できません(目安: 約60〜80分ぶんまで)。録音を分けて保存してからお試しください。"
     }
 }

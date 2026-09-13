@@ -338,7 +338,7 @@ fun ClientDetailScreen(
                     )
                 }
                 if (searchResults.isEmpty()) {
-                    item { Text("一致する商談がありません。", style = MaterialTheme.typography.bodyMedium) }
+                    item { Text("一致する打ち合わせがありません。", style = MaterialTheme.typography.bodyMedium) }
                 } else {
                     items(searchResults, key = { it.meeting.id }) { result ->
                         MeetingRow(
@@ -365,7 +365,7 @@ fun ClientDetailScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "まだ商談の記録がありません。",
+                            "まだ打ち合わせの記録がありません。",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -400,7 +400,7 @@ fun ClientDetailScreen(
                     }
                     if (isExpanded) {
                         if (folderMeetings.isEmpty()) {
-                            item { Text("(このフォルダには商談がありません)", style = MaterialTheme.typography.bodySmall) }
+                            item { Text("(このフォルダには打ち合わせがありません)", style = MaterialTheme.typography.bodySmall) }
                         } else {
                             items(folderMeetings, key = { it.id }) { meeting ->
                                 MeetingRow(
@@ -457,7 +457,7 @@ fun ClientDetailScreen(
     if (showDeleteClientDialog) {
         ConfirmDialog(
             title = "クライアントを削除",
-            text = "「${client?.name}」を削除します。関連する商談・ToDoもすべて削除され、元に戻せません。",
+            text = "「${client?.name}」を削除します。関連する打ち合わせ・ToDoもすべて削除され、元に戻せません。",
             onDismiss = { showDeleteClientDialog = false },
             onConfirm = {
                 showDeleteClientDialog = false
@@ -481,7 +481,7 @@ fun ClientDetailScreen(
 
     meetingToRename?.let { meeting ->
         TextInputDialog(
-            title = "商談タイトルを変更",
+            title = "打ち合わせタイトルを変更",
             label = "タイトル",
             initialValue = meeting.title,
             confirmLabel = "変更",
@@ -518,7 +518,7 @@ fun ClientDetailScreen(
 
     meetingToDelete?.let { meeting ->
         ConfirmDialog(
-            title = "商談を削除",
+            title = "打ち合わせを削除",
             text = "「${meeting.title}」を削除します。元に戻せません。",
             onDismiss = { meetingToDelete = null },
             onConfirm = {
@@ -545,7 +545,7 @@ fun ClientDetailScreen(
     folderToDelete?.let { folder ->
         ConfirmDialog(
             title = "フォルダを削除",
-            text = "「${folder.name}」を削除します。含まれる商談は削除されず、未分類に戻ります。",
+            text = "「${folder.name}」を削除します。含まれる打ち合わせは削除されず、未分類に戻ります。",
             onDismiss = { folderToDelete = null },
             onConfirm = {
                 viewModel.deleteFolder(folder.id)
@@ -1100,7 +1100,7 @@ private fun ManageProjectsDialog(
     projectToDelete?.let { p ->
         ConfirmDialog(
             title = "案件を削除",
-            text = "「${p.name}」を削除します。この案件の商談は削除されず、案件未設定に戻ります。",
+            text = "「${p.name}」を削除します。この案件の打ち合わせは削除されず、案件未設定に戻ります。",
             onDismiss = { projectToDelete = null },
             onConfirm = {
                 onDelete(p.id)

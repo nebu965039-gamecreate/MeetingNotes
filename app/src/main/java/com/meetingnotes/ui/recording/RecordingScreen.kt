@@ -324,7 +324,7 @@ fun RecordingScreen(
                 Text(
                     "このモードでは、録音した音声を文字起こしのためだけに Cloudflare のサーバーへ送信します。" +
                         "文字起こし後すぐに削除し、保存はしません。\n\n" +
-                        "対面の商談では、音声が端末の外に出ない通常モードをおすすめします。"
+                        "対面の打ち合わせでは、音声が端末の外に出ない通常モードをおすすめします。"
                 )
             },
             confirmButton = {
@@ -380,7 +380,7 @@ private fun RecordingModePicker(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("この商談は？") },
+        title = { Text("この打ち合わせは？") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("対面: 端末内で文字起こし（音声は端末外に出ません）", style = MaterialTheme.typography.bodyMedium)

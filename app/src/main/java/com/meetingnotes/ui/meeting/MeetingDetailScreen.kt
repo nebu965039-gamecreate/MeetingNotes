@@ -151,7 +151,7 @@ fun MeetingDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(meeting?.title ?: "商談詳細") },
+                title = { Text(meeting?.title ?: "打ち合わせ詳細") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
@@ -266,7 +266,7 @@ fun MeetingDetailScreen(
                                     title = "${clientName ?: ""}との打ち合わせ".trim().ifEmpty { current.title },
                                     start = parsed.start,
                                     allDay = parsed.allDay,
-                                    description = "商談メモ「${current.title}」の次回打ち合わせ"
+                                    description = "打ち合わせメモ「${current.title}」の次回打ち合わせ"
                                 )
                             }) { Text("カレンダーに追加") }
                         }
@@ -340,17 +340,17 @@ fun MeetingDetailScreen(
                     ExportFormat.PDF -> viewModel.exportPdf(
                         watermark = watermark,
                         password = password,
-                        onReady = { deliver(it, PdfExporter.MIME_TYPE, "商談メモをPDFで共有") },
+                        onReady = { deliver(it, PdfExporter.MIME_TYPE, "打ち合わせメモをPDFで共有") },
                         onError = { message -> Toast.makeText(context, message, Toast.LENGTH_LONG).show() }
                     )
                     ExportFormat.WORD -> viewModel.exportWord {
-                        deliver(it, WordExporter.MIME_TYPE, "商談メモをWordで共有")
+                        deliver(it, WordExporter.MIME_TYPE, "打ち合わせメモをWordで共有")
                     }
                     ExportFormat.MARKDOWN -> viewModel.exportMarkdown {
-                        deliver(it, MarkdownExporter.MIME_TYPE, "商談メモをMarkdownで共有")
+                        deliver(it, MarkdownExporter.MIME_TYPE, "打ち合わせメモをMarkdownで共有")
                     }
                     ExportFormat.EXCEL -> viewModel.exportExcel {
-                        deliver(it, ExcelExporter.MIME_TYPE, "商談メモをExcelで共有")
+                        deliver(it, ExcelExporter.MIME_TYPE, "打ち合わせメモをExcelで共有")
                     }
                     ExportFormat.CSV -> viewModel.exportCsv {
                         deliver(it, CsvExporter.MIME_TYPE, "ToDo を CSV で共有")
@@ -372,7 +372,7 @@ fun MeetingDetailScreen(
 
     if (showRenameDialog) {
         TextInputDialog(
-            title = "商談タイトルを変更",
+            title = "打ち合わせタイトルを変更",
             label = "タイトル",
             initialValue = meeting?.title.orEmpty(),
             confirmLabel = "変更",
@@ -410,7 +410,7 @@ fun MeetingDetailScreen(
 
     if (showDeleteDialog) {
         ConfirmDialog(
-            title = "商談を削除",
+            title = "打ち合わせを削除",
             text = "「${meeting?.title}」を削除します。元に戻せません。",
             onDismiss = { showDeleteDialog = false },
             onConfirm = {
@@ -514,8 +514,8 @@ private fun FollowupDialog(
                     }
                     FollowupState.Empty -> {
                         Text(
-                            "この商談には下書きがありません" +
-                                "(以前に録音した商談、またはサーバー更新前の商談)。" +
+                            "この打ち合わせには下書きがありません" +
+                                "(以前に録音した打ち合わせ、またはサーバー更新前の打ち合わせ)。" +
                                 "1回だけ作成できます。作成後は再作成できません。",
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -539,7 +539,7 @@ private fun FollowupDialog(
                     }
                     is FollowupState.Ready -> {
                         Text(
-                            "商談内容から自動生成した下書きです。必要に応じて編集してお使いください。",
+                            "打ち合わせ内容から自動生成した下書きです。必要に応じて編集してお使いください。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

@@ -33,7 +33,7 @@ object SampleDataSeeder {
         val schedules: Int
     ) {
         val summary: String
-            get() = "サンプルを投入しました: クライアント$clients / 商談$meetings / 案件$projects / ToDo$todos / 予定$schedules"
+            get() = "サンプルを投入しました: クライアント$clients / 打ち合わせ$meetings / 案件$projects / ToDo$todos / 予定$schedules"
     }
 
     private const val DAY = 86_400_000L
@@ -236,7 +236,7 @@ object SampleDataSeeder {
                     title = "${CLIENTS[ci].name} 打ち合わせ (${m + 1})",
                     recordedAt = recordedAt,
                     endedAt = recordedAt + durationMs,
-                    transcript = "（サンプル用の文字起こしプレースホルダ。実際の商談音声は保存されません。）",
+                    transcript = "（サンプル用の文字起こしプレースホルダ。実際の打ち合わせ音声は保存されません。）",
                     summary = SUMMARIES[m % SUMMARIES.size],
                     decisions = listOf(DECISIONS[m % DECISIONS.size], DECISIONS[(m + 2) % DECISIONS.size]),
                     concerns = if (m % 3 == 0) listOf(CONCERNS[m % CONCERNS.size]) else emptyList(),

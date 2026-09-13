@@ -77,7 +77,7 @@ fun DealPhasePickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("商談フェーズ") },
+        title = { Text("打ち合わせフェーズ") },
         text = {
             Column {
                 DealPhase.entries.forEach { phase ->

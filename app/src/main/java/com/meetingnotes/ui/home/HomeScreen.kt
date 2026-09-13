@@ -225,7 +225,7 @@ private fun DraftRecoveryCard(
                     )
                 }
                 Text(
-                    "未完了の商談メモがあります",
+                    "未完了の打ち合わせメモがあります",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error

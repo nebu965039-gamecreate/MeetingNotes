@@ -11,7 +11,7 @@ object MeetingExportContentBuilder {
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
 
     fun build(clientName: String?, meeting: MeetingEntity, todos: List<TodoEntity>): List<ExportBlock> = buildList {
-        add(ExportBlock.Heading(meeting.title.ifBlank { "商談メモ" }))
+        add(ExportBlock.Heading(meeting.title.ifBlank { "打ち合わせメモ" }))
         clientName?.let { add(ExportBlock.Paragraph("クライアント: $it")) }
         val recordedAt = Instant.ofEpochMilli(meeting.recordedAt).atZone(ZoneId.systemDefault())
         val endedAtText = meeting.endedAt?.let {
