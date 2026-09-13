@@ -6,6 +6,7 @@ import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.MeetingType
+import com.meetingnotes.ui.sales.SalesPeriod
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -90,7 +91,7 @@ class AnalyticsRulesTest {
         val meetings = listOf(
             meeting(1, 9, followedUpDays = 1), meeting(2, 9, followedUpDays = 3), meeting(3, 9)
         )
-        val f = AnalyticsRules.follow(todos, meetings, today)
+        val f = AnalyticsRules.follow(todos, meetings, today = today)
         assertEquals(40, f.todoDoneRate)       // 2/5
         assertEquals(1, f.overdueOpen)
         assertEquals(50, f.emailFollowRate)    // 1/2
@@ -98,11 +99,32 @@ class AnalyticsRulesTest {
     }
 
     @Test
+    fun `follow period filters todos by their source meeting's month, manual todos excluded outside all`() {
+        val meetings = listOf(
+            meeting(1, 9), // 今月(9月)
+            meeting(2, 3)  // 今年だが今月ではない(3月)
+        )
+        val todos = listOf(
+            TodoEntity(id = 1, meetingId = 1, clientId = 1, task = "今月分", isDone = true),
+            TodoEntity(id = 2, meetingId = 2, clientId = 1, task = "今年分(3月)", isDone = false),
+            TodoEntity(id = 3, clientId = 1, task = "手動(商談なし)", isDone = false)
+        )
+        val thisMonth = AnalyticsRules.follow(todos, meetings, SalesPeriod.THIS_MONTH, now = now, zone = zone)
+        assertEquals(1, thisMonth.todoTotal) // 今月の商談由来の1件のみ
+
+        val thisYear = AnalyticsRules.follow(todos, meetings, SalesPeriod.THIS_YEAR, now = now, zone = zone)
+        assertEquals(2, thisYear.todoTotal) // 今月・3月の商談由来の2件(手動は除外)
+
+        val all = AnalyticsRules.follow(todos, meetings, SalesPeriod.ALL, now = now, zone = zone)
+        assertEquals(3, all.todoTotal) // 手動を含む全件
+    }
+
+    @Test
     fun `empty inputs are safe`() {
         val a = AnalyticsRules.activity(emptyList(), now, zone)
         assertEquals(0, a.meetingsThisMonth)
         assertNull(a.avgDurationMin)
-        val f = AnalyticsRules.follow(emptyList(), emptyList(), today)
+        val f = AnalyticsRules.follow(emptyList(), emptyList(), today = today)
         assertNull(f.todoDoneRate)
         assertNull(f.avgFollowDays)
     }

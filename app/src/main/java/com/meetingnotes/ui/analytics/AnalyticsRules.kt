@@ -6,6 +6,7 @@ import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
 import com.meetingnotes.data.model.DealPhase
 import com.meetingnotes.data.model.MeetingType
+import com.meetingnotes.ui.sales.SalesPeriod
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -135,20 +136,41 @@ object AnalyticsRules {
         )
     }
 
+    /**
+     * 「フォロー」タブの集計。[period] は売上タブと同じ [SalesPeriod](今月/今年/全期間、2026-09-19)。
+     * ToDo は由来商談の `recordedAt` で期間判定する(手動 ToDo は商談に紐付かず時期を特定できないため、
+     * 全期間以外では対象外。売上タブが `wonAt` の無い案件を期間内から除外するのと同じ考え方)。
+     */
     fun follow(
         todos: List<TodoEntity>,
         meetings: List<MeetingEntity>,
-        today: LocalDate = LocalDate.now()
+        period: SalesPeriod = SalesPeriod.ALL,
+        today: LocalDate = LocalDate.now(),
+        now: YearMonth = YearMonth.now(),
+        zone: ZoneId = ZoneId.systemDefault()
     ): FollowStats {
+        val meetingById = meetings.associateBy { it.id }
+
+        fun inPeriod(millis: Long?): Boolean = when (period) {
+            SalesPeriod.ALL -> true
+            else -> {
+                val m = millis?.let { monthOf(it, zone) } ?: return false
+                if (period == SalesPeriod.THIS_MONTH) m == now else m.year == now.year
+            }
+        }
+
+        val scopedTodos = todos.filter { t -> inPeriod(t.meetingId?.let { meetingById[it]?.recordedAt }) }
+        val scopedMeetings = meetings.filter { inPeriod(it.recordedAt) }
+
         val todayIso = today.toString()
-        val emailTodos = todos.filter { it.isFollowupEmail }
-        val followDurations = meetings.mapNotNull { m ->
+        val emailTodos = scopedTodos.filter { it.isFollowupEmail }
+        val followDurations = scopedMeetings.mapNotNull { m ->
             m.followedUpAt?.let { ((it - m.recordedAt) / DAY_MS).coerceAtLeast(0) }
         }
         return FollowStats(
-            todoTotal = todos.size,
-            todoDone = todos.count { it.isDone },
-            overdueOpen = todos.count { t -> !t.isDone && (t.dueDate?.let { it < todayIso } == true) },
+            todoTotal = scopedTodos.size,
+            todoDone = scopedTodos.count { it.isDone },
+            overdueOpen = scopedTodos.count { t -> !t.isDone && (t.dueDate?.let { it < todayIso } == true) },
             emailFollowTotal = emailTodos.size,
             emailFollowDone = emailTodos.count { it.isDone },
             avgFollowDays = followDurations.takeIf { it.isNotEmpty() }

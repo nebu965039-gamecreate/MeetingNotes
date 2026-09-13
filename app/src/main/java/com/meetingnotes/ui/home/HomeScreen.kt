@@ -1,6 +1,9 @@
 package com.meetingnotes.ui.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,8 +11,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Notifications
@@ -124,6 +130,18 @@ fun HomeScreen(
                 }
             }
 
+            // 「未完了の商談メモをホーム最上部に」というフィードバックを受け、ヘッダー直下の最優先位置に配置(2026-09-17)。
+            draft?.let { d ->
+                item(key = "draft_recovery") {
+                    DraftRecoveryCard(
+                        endedAt = d.endedAt,
+                        updatedAt = d.updatedAt,
+                        onOpen = { onRecoverDraft(d.clientId) },
+                        onDiscard = { app.recordingDraftStore.clear() }
+                    )
+                }
+            }
+
             // 「本日の予定を一番上に」というフィードバックを受け、ダッシュボードより上に配置(2026-09-15)。
             item(key = "upcoming_board") {
                 UpcomingBoard(
@@ -138,17 +156,6 @@ fun HomeScreen(
                     data = dashboard,
                     onOpenSales = onOpenSales
                 )
-            }
-
-            draft?.let { d ->
-                item(key = "draft_recovery") {
-                    DraftRecoveryCard(
-                        endedAt = d.endedAt,
-                        updatedAt = d.updatedAt,
-                        onOpen = { onRecoverDraft(d.clientId) },
-                        onDiscard = { app.recordingDraftStore.clear() }
-                    )
-                }
             }
 
             if (overdueTodos.isNotEmpty() || dueSoonTodos.isNotEmpty()) {
@@ -192,15 +199,38 @@ private fun DraftRecoveryCard(
     val whenText = java.time.Instant.ofEpochMilli(if (updatedAt > 0) updatedAt else endedAt)
         .atZone(java.time.ZoneId.systemDefault())
         .format(java.time.format.DateTimeFormatter.ofPattern("M/d HH:mm"))
+    // 「見落としやすい」というフィードバックを受け、枠を強調色にし「!」バッジを添える(2026-09-17)。
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(2.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(12.dp)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("未完了の商談メモがあります", style = MaterialTheme.typography.titleSmall)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .background(MaterialTheme.colorScheme.error, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "!",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onError
+                    )
+                }
+                Text(
+                    "未完了の商談メモがあります",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             Text(
                 "$whenText の録音。文字起こしが保存されています。",
                 style = MaterialTheme.typography.bodySmall

@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -304,53 +305,69 @@ private fun MonthlyBarChart(data: List<MonthlyAmount>, barColor: Color) {
         val rotatedExtentPx = widestLabelLayout?.let { (it.size.width + it.size.height) * 0.7071f } ?: 0f
         rotatedExtentPx.toDp() + 12.dp
     }
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(barAreaHeight + labelAreaHeight)
-            .background(cardColor, RoundedCornerShape(11.dp))
-            .border(1.dp, frameColor, RoundedCornerShape(11.dp))
-            // 万一ラベルが計算よりはみ出しても、カードの外(ページの地)まで描画されないよう
-            // 角丸の枠でクリップする(2026-09-18、保険)。
-            .clip(RoundedCornerShape(11.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-    ) {
-        val labelAreaHeightPx = labelAreaHeight.toPx()
-        val chartHeight = size.height - labelAreaHeightPx
-        val slot = size.width / data.size
-        val barW = slot * 0.58f
-        val strokeW = 1.5.dp.toPx()
+    val basePadding = 12.dp
+    // 「x軸の値が見切れる」再発の原因: 高さは実測で直したが、左右の余白は固定12dpのままだった。
+    // ラベルは目盛りの右上端を軸に-45度回転して斜め左下へ伸びるため、先頭の月ほど回転後の左端が
+    // カード外に出やすい(幅が狭くバー本数が多いほど顕著)。左余白だけ、実測ラベル幅から逆算した
+    // 「はみ出す分」だけ広げる(2026-09-19)。
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val totalWidthPx = with(density) { maxWidth.toPx() }
+        val basePaddingPx = with(density) { basePadding.toPx() }
+        val n = data.size.coerceAtLeast(1)
+        val requiredLeftPx = widestLabelLayout?.let { (it.size.width + it.size.height / 2f) * 0.7071f } ?: 0f
+        val estSlot = ((totalWidthPx - 2 * basePaddingPx) / n).coerceAtLeast(0f)
+        val safetyPx = with(density) { 4.dp.toPx() }
+        val extraLeftPx = (requiredLeftPx - (estSlot / 2f + basePaddingPx) + safetyPx).coerceAtLeast(0f)
+        val padStart = with(density) { (basePaddingPx + extraLeftPx).toDp() }
 
-        // 軸線(x軸・y軸)
-        drawLine(axisColor, Offset(0f, 0f), Offset(0f, chartHeight), strokeWidth = strokeW)
-        drawLine(axisColor, Offset(0f, chartHeight), Offset(size.width, chartHeight), strokeWidth = strokeW)
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(barAreaHeight + labelAreaHeight)
+                .background(cardColor, RoundedCornerShape(11.dp))
+                .border(1.dp, frameColor, RoundedCornerShape(11.dp))
+                // 計算が万一ずれても、カードの外(ページの地)まで描画されないよう
+                // 角丸の枠でクリップする(2026-09-18、保険)。
+                .clip(RoundedCornerShape(11.dp))
+                .padding(start = padStart, end = basePadding, top = 8.dp, bottom = 8.dp)
+        ) {
+            val labelAreaHeightPx = labelAreaHeight.toPx()
+            val chartHeight = size.height - labelAreaHeightPx
+            val slot = size.width / data.size
+            val barW = slot * 0.58f
+            val strokeW = 1.5.dp.toPx()
 
-        data.forEachIndexed { i, m ->
-            val cx = i * slot + slot / 2f
-            val h = if (m.amount <= 0L) 0f else (m.amount.toFloat() / maxAmount) * chartHeight
-            if (h > 0f) {
-                drawRoundRect(
-                    color = barColor,
-                    topLeft = Offset(cx - barW / 2f, chartHeight - h),
-                    size = Size(barW, h),
-                    cornerRadius = CornerRadius(3f, 3f)
-                )
-            } else {
-                drawRoundRect(
-                    color = emptyBarColor,
-                    topLeft = Offset(cx - barW / 2f, chartHeight - 2f),
-                    size = Size(barW, 2f),
-                    cornerRadius = CornerRadius(1f, 1f)
-                )
-            }
+            // 軸線(x軸・y軸)
+            drawLine(axisColor, Offset(0f, 0f), Offset(0f, chartHeight), strokeWidth = strokeW)
+            drawLine(axisColor, Offset(0f, chartHeight), Offset(size.width, chartHeight), strokeWidth = strokeW)
 
-            val layout = textMeasurer.measure(m.month.format(monthLabelFormatter), labelStyle)
-            // ラベルの右上端が目盛り位置に来るよう配置してから -45度回転(斜め下に伸びる)。
-            rotate(degrees = -45f, pivot = Offset(cx, chartHeight + 6.dp.toPx())) {
-                drawText(
-                    layout,
-                    topLeft = Offset(cx - layout.size.width, chartHeight + 6.dp.toPx() - layout.size.height / 2f)
-                )
+            data.forEachIndexed { i, m ->
+                val cx = i * slot + slot / 2f
+                val h = if (m.amount <= 0L) 0f else (m.amount.toFloat() / maxAmount) * chartHeight
+                if (h > 0f) {
+                    drawRoundRect(
+                        color = barColor,
+                        topLeft = Offset(cx - barW / 2f, chartHeight - h),
+                        size = Size(barW, h),
+                        cornerRadius = CornerRadius(3f, 3f)
+                    )
+                } else {
+                    drawRoundRect(
+                        color = emptyBarColor,
+                        topLeft = Offset(cx - barW / 2f, chartHeight - 2f),
+                        size = Size(barW, 2f),
+                        cornerRadius = CornerRadius(1f, 1f)
+                    )
+                }
+
+                val layout = textMeasurer.measure(m.month.format(monthLabelFormatter), labelStyle)
+                // ラベルの右上端が目盛り位置に来るよう配置してから -45度回転(斜め下に伸びる)。
+                rotate(degrees = -45f, pivot = Offset(cx, chartHeight + 6.dp.toPx())) {
+                    drawText(
+                        layout,
+                        topLeft = Offset(cx - layout.size.width, chartHeight + 6.dp.toPx() - layout.size.height / 2f)
+                    )
+                }
             }
         }
     }

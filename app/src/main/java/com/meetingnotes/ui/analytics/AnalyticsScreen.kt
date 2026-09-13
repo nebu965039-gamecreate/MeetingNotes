@@ -25,6 +25,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -53,6 +56,7 @@ import com.meetingnotes.ui.common.ProLockedContent
 import com.meetingnotes.ui.common.ProPaywallDialog
 import com.meetingnotes.ui.common.SectionHeading
 import com.meetingnotes.ui.common.TabTopBar
+import com.meetingnotes.ui.sales.SalesPeriod
 import com.meetingnotes.ui.sales.SalesReportTab
 import com.meetingnotes.ui.theme.AnalyticsChartColors
 import com.meetingnotes.ui.theme.ThemeMode
@@ -114,8 +118,11 @@ fun AnalyticsScreen(repository: MeetingRepository, onHome: () -> Unit) {
                 }
                 else -> {
                     val stats by viewModel.follow.collectAsState()
+                    val followPeriod by viewModel.followPeriod.collectAsState()
                     FollowTab(
                         stats,
+                        period = followPeriod,
+                        onSetPeriod = viewModel::setFollowPeriod,
                         todoColor = AnalyticsChartColors.followTodo(darkTheme),
                         emailColor = AnalyticsChartColors.followEmail(darkTheme),
                         modifier = contentMod
@@ -375,22 +382,45 @@ private fun CustomerTab(stats: CustomerStats?, barColor: Color, modifier: Modifi
 // ---- フォロー ----
 
 @Composable
-private fun FollowTab(stats: FollowStats?, todoColor: Color, emailColor: Color, modifier: Modifier) {
-    if (stats == null || stats.todoTotal == 0) {
-        EmptyTab("まだ ToDo がありません。", modifier); return
-    }
+private fun FollowTab(
+    stats: FollowStats?,
+    period: SalesPeriod,
+    onSetPeriod: (SalesPeriod) -> Unit,
+    todoColor: Color,
+    emailColor: Color,
+    modifier: Modifier
+) {
+    // 「フォローも売上と同じ今月/今年の切り替えがほしい」というフィードバックを受け、
+    // 売上タブと同じ SingleChoiceSegmentedButtonRow を追加(2026-09-19)。
     AnalyticsTabList(modifier) {
-        StatCard("ToDo の消化") {
-            KeyValueRow("完了率", stats.todoDoneRate?.let { "$it%" } ?: "—")
-            HBar((stats.todoDoneRate ?: 0) / 100f, todoColor)
-            KeyValueRow("完了 / 全体", "${stats.todoDone} / ${stats.todoTotal}")
-            KeyValueRow("期限切れの未完了", "${stats.overdueOpen} 件", emphasize = stats.overdueOpen > 0)
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            SalesPeriod.entries.forEachIndexed { index, p ->
+                SegmentedButton(
+                    selected = p == period,
+                    onClick = { onSetPeriod(p) },
+                    shape = SegmentedButtonDefaults.itemShape(index, SalesPeriod.entries.size)
+                ) { Text(p.label) }
+            }
         }
-        StatCard("フォローアップ") {
-            KeyValueRow("お礼メール送信率", stats.emailFollowRate?.let { "$it%" } ?: "—")
-            HBar((stats.emailFollowRate ?: 0) / 100f, emailColor)
-            stats.avgFollowDays?.let {
-                KeyValueRow("平均フォロー日数", String.format(java.util.Locale.JAPAN, "%.1f 日", it))
+        if (stats == null || stats.todoTotal == 0) {
+            Text(
+                "この期間の ToDo がありません。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            StatCard("ToDo の消化") {
+                KeyValueRow("完了率", stats.todoDoneRate?.let { "$it%" } ?: "—")
+                HBar((stats.todoDoneRate ?: 0) / 100f, todoColor)
+                KeyValueRow("完了 / 全体", "${stats.todoDone} / ${stats.todoTotal}")
+                KeyValueRow("期限切れの未完了", "${stats.overdueOpen} 件", emphasize = stats.overdueOpen > 0)
+            }
+            StatCard("フォローアップ") {
+                KeyValueRow("お礼メール送信率", stats.emailFollowRate?.let { "$it%" } ?: "—")
+                HBar((stats.emailFollowRate ?: 0) / 100f, emailColor)
+                stats.avgFollowDays?.let {
+                    KeyValueRow("平均フォロー日数", String.format(java.util.Locale.JAPAN, "%.1f 日", it))
+                }
             }
         }
     }
