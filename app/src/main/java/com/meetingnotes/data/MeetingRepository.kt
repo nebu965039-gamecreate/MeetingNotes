@@ -291,7 +291,11 @@ class MeetingRepository(
     suspend fun notificationAlreadyFired(meetingId: Long, scheduledFor: String): Boolean =
         notificationLogDao.countFor(meetingId, scheduledFor) > 0
 
-    suspend fun logNotification(entity: NotificationLogEntity) = notificationLogDao.insert(entity)
+    suspend fun logNotification(entity: NotificationLogEntity) {
+        notificationLogDao.insert(entity)
+        // 保存上限(99件)を超えたぶんは古い順に削除する。
+        notificationLogDao.trimToLimit()
+    }
 
     suspend fun pruneNotificationLog(beforeMillis: Long) = notificationLogDao.deleteOlderThan(beforeMillis)
 

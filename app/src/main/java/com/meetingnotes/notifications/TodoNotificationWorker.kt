@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.meetingnotes.MeetingNotesApp
+import com.meetingnotes.data.local.NotificationLogEntity
 
 /**
  * ToDo 1件の通知予約(`TodoNotificationScheduler`)から起動される一回限りの Worker。
@@ -27,11 +28,23 @@ class TodoNotificationWorker(
         if (NotificationHelper.hasPermission(applicationContext)) {
             val client = repository.getClient(todo.clientId)
             val clientName = client?.name ?: "(不明なクライアント)"
+            val title = "ToDoの通知: $clientName"
             NotificationHelper.notify(
                 context = applicationContext,
                 notificationId = ("todo-notify-$todoId").hashCode(),
-                title = "ToDoの通知: $clientName",
+                title = title,
                 body = todo.task
+            )
+            // アプリ内の「通知」画面(通知履歴)にも残す。
+            repository.logNotification(
+                NotificationLogEntity(
+                    meetingId = todo.meetingId ?: 0L,
+                    clientId = todo.clientId,
+                    title = title,
+                    body = todo.task,
+                    scheduledFor = "todo-notify-$todoId-${todo.notifyAt}",
+                    firedAt = System.currentTimeMillis()
+                )
             )
         }
 
