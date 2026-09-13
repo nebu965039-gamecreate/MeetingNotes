@@ -48,18 +48,10 @@ import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.client.UpcomingBoard
 import com.meetingnotes.ui.common.TodoDueFilter
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val headerDateFormatter = DateTimeFormatter.ofPattern("M月d日(E)", Locale.JAPAN)
-
-/** 開いた時刻に応じた挨拶文。5-10時=朝、11-17時=昼、それ以外=夜。 */
-private fun greetingFor(hour: Int): String = when (hour) {
-    in 5..10 -> "おはようございます"
-    in 11..17 -> "こんにちは"
-    else -> "こんばんは"
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,7 +76,6 @@ fun HomeScreen(
     val dueSoonTodos by viewModel.dueSoonTodos.collectAsState()
     val staleDeals by viewModel.staleDeals.collectAsState()
     var scheduleToView by remember { mutableStateOf<com.meetingnotes.ui.client.UpcomingItem?>(null) }
-    val greeting = remember { greetingFor(LocalTime.now().hour) }
 
     val context = LocalContext.current
     val app = context.applicationContext as MeetingNotesApp
@@ -110,11 +101,6 @@ fun HomeScreen(
                     Column {
                         Text(
                             text = LocalDate.now().format(headerDateFormatter),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = greeting,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
