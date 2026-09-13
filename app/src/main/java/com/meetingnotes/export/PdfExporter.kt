@@ -128,7 +128,7 @@ object PdfExporter {
         }
         val metrics = titlePaint.fontMetrics
         val baselineY = HEADER_HEIGHT / 2f - (metrics.ascent + metrics.descent) / 2f
-        canvas.drawText("商談メモ", MARGIN.toFloat(), baselineY, titlePaint)
+        canvas.drawText("SecretAlly", MARGIN.toFloat(), baselineY, titlePaint)
     }
 
     private fun drawFooter(canvas: Canvas, pageNumber: Int) {

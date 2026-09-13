@@ -222,7 +222,7 @@ private fun IntroBand() {
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(
-                    "商談メモの使い方",
+                    "SecretAllyの使い方",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer

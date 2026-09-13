@@ -4,7 +4,7 @@ Claude Codeがこのリポジトリで作業する際のガイド。ユーザー
 
 ## プロジェクト概要
 
-フリーランス・個人事業主向けの商談録音・要約Androidアプリ「商談メモ」。録音→オンデバイス音声認識で文字起こし→Claude APIで構造化要約(サマリー/決定事項/ToDo/次回打ち合わせ/懸念点)→クライアント別に保存、が中心機能。元の設計仕様書は `C:\projects\商談メモアプリ_設計仕様書.md`(このリポジトリの外にある)。
+フリーランス・個人事業主向けの商談録音・要約Androidアプリ「SecretAlly」(2026-09-19改称、旧名: 商談メモ。秘書=Secretary + 味方=Ally の造語)。録音→オンデバイス音声認識で文字起こし→Claude APIで構造化要約(サマリー/決定事項/ToDo/次回打ち合わせ/懸念点)→クライアント別に保存、が中心機能。元の設計仕様書は `C:\projects\商談メモアプリ_設計仕様書.md`(このリポジトリの外にある。ファイル名は旧名のまま)。
 
 ## 技術スタック
 
@@ -78,6 +78,7 @@ Kotlin 2.4.0 / Jetpack Compose(Material3、BOM 2026.08.00) / Navigation Compose 
 - **要フォロー/次回の予定は0件でも常に表示**: `FollowupBoard`/`UpcomingBoard` から `if (items.isEmpty()) return` を撤去し、0件時は「フォローが必要な商談はありません」等の空状態メッセージを表示
 - **クライアント追加・グループ移動はセレクトボックス**: `ClientListScreen` の「クライアントを追加」ダイアログはグループ選択(`ui/common/LabeledDropdownField.kt`、既定「未分類」)付きに変更(`MeetingRepository.addClient(name, groupId)`)。「グループに移動」もセレクトボックス+「変更」ボタンの確定式に変更(旧 RadioButton 一覧から置き換え)。`LabeledDropdownField` は総称型の再利用可能コンポーネントで、`ScheduleScreen` のクライアント選択でも使用
 - **`ClientListScreen` のグループ一覧に見出し「グループ」を追加(2026-09-12)**: グループが1件以上あるとき、一覧の先頭に「未分類」と同じ `titleSmall` の `Text("グループ")` を表示(グループ0件時は元々 else 分岐に入らないため自動的に非表示)。
+- **アプリ名を「SecretAlly」に改称(2026-09-19、旧: 商談メモ)**: 秘書(Secretary)+ 味方(Ally)の造語。改称前に Google Play / App Store / 一般ウェブ検索で重複が無いことを確認済み(完全一致なし)。`applicationId`(`com.manaapps.meetingnotes`)は Play Console 公開後変更不可のため**変更していない**(namespace `com.meetingnotes`、`server/` の Cloudflare Worker名 `meetingnotes-summary-proxy` も同様に不変。パッケージ名・クラス名・リポジトリ名は旧名のまま=技術的な影響はなし)。変更したのはユーザーに見える文言のみ: `strings.xml` の `app_name`(ランチャーアイコンのラベル)、`HelpScreen` の見出し「SecretAllyの使い方」、`PdfExporter` が PDF ヘッダー帯に描画するブランド文字列。**「商談メモ」という言葉自体(=商談の記録という一般名詞)は据え置き**(下書き復元カードの文言・PDF/Markdown見出しの既定値・.ics の予定説明文など、アプリの成果物である「商談の記録」を指す箇所は改称の対象外。ブランド名として使っている箇所のみ変更、という整理)。`README.md`・`docs/privacy-policy.md/html`・`docs/index.html`・`docs/play-store-listing.md` の表題・アプリ名表記も追従済み。**未対応**: `docs/admob.md`・`docs/play-console-checklist.md`・`docs/play-data-safety.md`・`docs/production-release-checklist.md`・`docs/release-notes.md`・`docs/design/*.md` の見出し(すべて「— 商談メモ」表記のまま、実害はないが要望があれば追従)。**アプリアイコンは未着手**(ユーザーがデザイン案を検討中、`docs/store-assets/アプリアイコン-512.png` 等は旧ブランドのまま残置)。
 
 ## コーディング上のルール
 
