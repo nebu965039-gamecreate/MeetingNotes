@@ -136,7 +136,7 @@ adb shell am start -n com.manaapps.meetingnotes/com.meetingnotes.MainActivity
 
 MVP相当の機能は一通り実装済み。Google Play Console でのクローズドテストを回している段階。すべての変更はコミット・push 済み(`origin/main`、`github.com/nebu965039-gamecreate/MeetingNotes`、**Public**)。
 
-現在 `versionCode = 10` / `versionName = "0.1.9"`(= クローズドテスト6回目。`feature/solo-crm` の 1人CRM 拡張・リモート会議モード・Tier 1 CRM をまとめて配信)。Play Console 提出の詳細な進捗・手順は `docs/` を参照(`play-console-checklist.md`、`play-data-safety.md`、`play-store-listing.md`、`release-notes.md` の「6回目」)。**7回目(未配信、2026-09-09〜12の変更一式)は `release-notes.md` の「7回目」に配信前チェックリスト込みでまとめてある**。回帰テストの一覧・実機必須/AI可否の分担は `docs/test-plan.md` を参照(機能追加のたびにこの一覧へ追記する)。
+現在 `versionCode = 11` / `versionName = "0.2.0"`(= クローズドテスト7回目・未配信。2026-09-09〜20の変更一式: 案件フェーズの一本化・パイプラインボード廃止・案件の金額/失注理由等・全データのバックアップ/復元・ネイビー基調のリデザイン・SecretAlly への改称・「商談」→「打ち合わせ」の用語統一・ToDo通知〈スヌーズ廃止〉・時刻入力のドラムロール化・分析グラフの見やすさ改善 をまとめて配信予定)。**旧: `versionCode = 10` / `versionName = "0.1.9"` は6回目(`feature/solo-crm` の 1人CRM 拡張・リモート会議モード・Tier 1 CRM をまとめて配信、配信済み)**。Play Console 提出の詳細な進捗・手順は `docs/` を参照(`play-console-checklist.md`、`play-data-safety.md`、`play-store-listing.md`、`release-notes.md` の「7回目」)。回帰テストの一覧・実機必須/AI可否の分担は `docs/test-plan.md` を参照(機能追加のたびにこの一覧へ追記する)。
 
 ### 対応済み(Play Console クローズドテスト準備)
 
