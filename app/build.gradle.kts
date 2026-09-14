@@ -71,21 +71,28 @@ android {
         val admobBanner: String
         val admobInterstitial: String
         val admobRewarded: String
+        val admobAppOpen: String
         if (useProductionAds) {
             admobAppId = "ca-app-pub-7474417689976149~4169817438"
             admobBanner = "ca-app-pub-7474417689976149/9542502966"
             admobInterstitial = "ca-app-pub-7474417689976149/9522321669"
             admobRewarded = "ca-app-pub-7474417689976149/1355574535"
+            // App Openアド(2026-09-21追加)。AdMobコンソールでApp Open広告ユニットを作成し、
+            // local.properties に ADMOB_APP_OPEN_UNIT_ID=ca-app-pub-... を設定してから本番配信すること。
+            // 未設定のままだと本番ビルドでも読み込みに失敗するだけ(クラッシュはしない)。
+            admobAppOpen = localProperties.getProperty("ADMOB_APP_OPEN_UNIT_ID") ?: ""
         } else {
             admobAppId = "ca-app-pub-3940256099942544~3347511713"
             admobBanner = "ca-app-pub-3940256099942544/9214589741"
             admobInterstitial = "ca-app-pub-3940256099942544/1033173712"
             admobRewarded = "ca-app-pub-3940256099942544/5224354917"
+            admobAppOpen = "ca-app-pub-3940256099942544/9257395921"
         }
         manifestPlaceholders["admobAppId"] = admobAppId
         buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"$admobBanner\"")
         buildConfigField("String", "ADMOB_INTERSTITIAL_UNIT_ID", "\"$admobInterstitial\"")
         buildConfigField("String", "ADMOB_REWARDED_UNIT_ID", "\"$admobRewarded\"")
+        buildConfigField("String", "ADMOB_APP_OPEN_UNIT_ID", "\"$admobAppOpen\"")
 
         // 本番広告に切り替えたあとも実機テスターにテスト広告を出すための端末ID
         // (カンマ区切り、local.properties)。テスト広告のうちは不要。
@@ -149,6 +156,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))

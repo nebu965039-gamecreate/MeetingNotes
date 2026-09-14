@@ -1,12 +1,19 @@
 package com.meetingnotes
 
+import android.app.Activity
 import android.app.Application
+import android.os.Bundle
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.edit
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.room.Room
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
+import com.meetingnotes.ads.AppOpenAdController
+import com.meetingnotes.ads.RecordingScreenGuard
 import com.meetingnotes.billing.BillingManager
 import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.data.MeetingRepository
@@ -24,6 +31,9 @@ import com.meetingnotes.ui.theme.ThemePrefs
 import kotlinx.coroutines.launch
 
 class MeetingNotesApp : Application() {
+
+    /** App Openアド用に、現在フォアグラウンドのActivityを追跡する(単一Activity構成)。 */
+    private var currentActivity: Activity? = null
 
     val database: MeetingNotesDatabase by lazy {
         Room.databaseBuilder(this, MeetingNotesDatabase::class.java, "meeting-notes.db")
@@ -45,6 +55,9 @@ class MeetingNotesApp : Application() {
 
     /** Google Play Billing(Pro サブスクリプション)。 */
     val billingManager: BillingManager by lazy { BillingManager(this) }
+
+    /** アプリ復帰時に表示するApp Openアド(2026-09-21〜)。 */
+    val appOpenAdController: AppOpenAdController by lazy { AppOpenAdController(this) }
 
     private val themePrefs: ThemePrefs by lazy { ThemePrefs(this) }
 
@@ -101,6 +114,33 @@ class MeetingNotesApp : Application() {
         // Google Play Billing を起動し、購入状態を ProAccess に流し込む。
         billingManager.start()
         appScope.launch { billingManager.isPro.collect { ProAccess.setPro(it) } }
+
+        // App Openアド(2026-09-21〜): アプリがバックグラウンドから復帰したときに表示する。
+        // 現在のActivityを追跡しておき(単一Activity構成)、ProcessLifecycleOwner の onStart で
+        // 表示を試みる。初回起動(コールドスタート)と録音画面表示中(RecordingScreenGuard)は
+        // スキップする(起動直後・録音中に広告で覆うのは体験が悪いため)。
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+            override fun onActivityStarted(activity: Activity) {}
+            override fun onActivityResumed(activity: Activity) { currentActivity = activity }
+            override fun onActivityPaused(activity: Activity) { if (currentActivity === activity) currentActivity = null }
+            override fun onActivityStopped(activity: Activity) {}
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+            override fun onActivityDestroyed(activity: Activity) {}
+        })
+        appOpenAdController.load()
+        var isColdStart = true
+        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) {
+                if (isColdStart) {
+                    // 起動直後の最初の onStart は「これから開く」瞬間なのでスキップする。
+                    isColdStart = false
+                    return
+                }
+                if (RecordingScreenGuard.isActive) return
+                currentActivity?.let { appOpenAdController.tryShow(it) }
+            }
+        })
 
         // F7: 次回打ち合わせのリマインドチェック(周期ジョブ)。
         NotificationHelper.ensureChannel(this)

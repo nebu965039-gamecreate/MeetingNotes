@@ -57,6 +57,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -82,6 +83,7 @@ import androidx.compose.ui.unit.dp
 import com.meetingnotes.data.remote.AnthropicClient
 import com.meetingnotes.ui.MeetingViewModel
 import com.meetingnotes.ui.RecordingPhase
+import com.meetingnotes.ui.common.ProPaywallDialog
 import com.meetingnotes.ui.theme.BrandNavy
 import com.meetingnotes.ui.theme.CreateActionAmber
 import com.meetingnotes.ui.theme.OnBrandNavy
@@ -111,6 +113,12 @@ fun RecordingScreen(
     val activity = LocalActivity.current as Activity
     val scope = rememberCoroutineScope()
 
+    // 録音画面が表示されている間はApp Openアドを表示しない(AppOpenAdController 参照)。
+    DisposableEffect(Unit) {
+        com.meetingnotes.ads.RecordingScreenGuard.isActive = true
+        onDispose { com.meetingnotes.ads.RecordingScreenGuard.isActive = false }
+    }
+
     var permissionDenied by remember { mutableStateOf(false) }
     var flowStarted by remember { mutableStateOf(false) }
     var showDraftDialog by remember { mutableStateOf(false) }
@@ -118,6 +126,7 @@ fun RecordingScreen(
     var showModePicker by remember { mutableStateOf(false) }
     var showRemoteConsent by remember { mutableStateOf(false) }
     var showRemoteLimit by remember { mutableStateOf(false) }
+    var showRemoteLimitPaywall by remember { mutableStateOf(false) }
     var remoteRemainingSeconds by remember { mutableLongStateOf(0L) }
     var pendingMode by remember { mutableStateOf(com.meetingnotes.data.model.MeetingType.IN_PERSON) }
 
@@ -368,8 +377,24 @@ fun RecordingScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRemoteLimit = false; handleCancel() }) { Text("閉じる") }
+                Row {
+                    // 上限到達=最も転換が見込める瞬間なので、広告視聴に加えてPro登録の導線も出す
+                    // (2026-09-21〜、旧: 広告のみで登録導線が無かった)。
+                    if (!isPro) {
+                        TextButton(onClick = { showRemoteLimit = false; showRemoteLimitPaywall = true }) {
+                            Text("Proに登録する")
+                        }
+                    }
+                    TextButton(onClick = { showRemoteLimit = false; handleCancel() }) { Text("閉じる") }
+                }
             }
+        )
+    }
+
+    if (showRemoteLimitPaywall) {
+        ProPaywallDialog(
+            featureName = "リモート会議モードの拡張",
+            onDismiss = { showRemoteLimitPaywall = false }
         )
     }
 }
@@ -777,6 +802,16 @@ private fun EditingContent(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(if (isRewardedAdLoaded) "広告を見てクレジットを獲得" else "広告を準備中...")
+            }
+            Spacer(Modifier.height(8.dp))
+            // クレジット切れの瞬間はPro登録への転換が最も見込める場面なので、広告視聴と並べて導線を出す
+            // (2026-09-21〜、旧: 広告のみで登録導線が無かった)。
+            var showProPaywall by remember { mutableStateOf(false) }
+            OutlinedButton(onClick = { showProPaywall = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("Proに登録する(AI要約が無制限)")
+            }
+            if (showProPaywall) {
+                ProPaywallDialog(featureName = "AI要約の無制限利用", onDismiss = { showProPaywall = false })
             }
         }
 
