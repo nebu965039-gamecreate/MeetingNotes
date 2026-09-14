@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Drafts
@@ -151,7 +152,13 @@ fun MeetingDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(meeting?.title ?: "打ち合わせ詳細") },
+                title = {
+                    Text(
+                        meeting?.title ?: "打ち合わせ詳細",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
@@ -376,6 +383,7 @@ fun MeetingDetailScreen(
             label = "タイトル",
             initialValue = meeting?.title.orEmpty(),
             confirmLabel = "変更",
+            maxLength = com.meetingnotes.util.InputLimits.TITLE,
             onDismiss = { showRenameDialog = false },
             onConfirm = { title ->
                 viewModel.renameTitle(title)
@@ -736,7 +744,7 @@ private fun ExportOptionsDialog(
                 if (watermarkActive) {
                     OutlinedTextField(
                         value = watermarkText,
-                        onValueChange = { watermarkText = it },
+                        onValueChange = { watermarkText = it.take(com.meetingnotes.util.InputLimits.WATERMARK) },
                         label = { Text("透かし文字") },
                         modifier = Modifier.fillMaxWidth()
                     )

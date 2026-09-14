@@ -253,7 +253,7 @@ private fun GlobalTodoAddDialog(
                     )
                     OutlinedTextField(
                         value = task,
-                        onValueChange = { task = it },
+                        onValueChange = { task = it.take(com.meetingnotes.util.InputLimits.SHORT_TEXT) },
                         label = { Text("内容") },
                         modifier = Modifier.fillMaxWidth()
                     )

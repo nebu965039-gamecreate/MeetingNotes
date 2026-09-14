@@ -200,7 +200,7 @@ private fun SummaryContent(
         item {
             OutlinedTextField(
                 value = title,
-                onValueChange = { title = it },
+                onValueChange = { title = it.take(com.meetingnotes.util.InputLimits.TITLE) },
                 label = { Text("タイトル") },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -229,7 +229,7 @@ private fun SummaryContent(
                     if (newClientMode) {
                         OutlinedTextField(
                             value = newClientName,
-                            onValueChange = { newClientName = it },
+                            onValueChange = { newClientName = it.take(com.meetingnotes.util.InputLimits.NAME) },
                             label = { Text("クライアント名") },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -318,7 +318,7 @@ private fun PostSavePromptDialog(
                         )
                         OutlinedTextField(
                             value = name,
-                            onValueChange = { name = it },
+                            onValueChange = { name = it.take(com.meetingnotes.util.InputLimits.NAME) },
                             label = { Text("案件名") },
                             modifier = Modifier.fillMaxWidth()
                         )

@@ -814,35 +814,35 @@ private fun ScheduleFormDialog(
                     }
                     OutlinedTextField(
                         value = title,
-                        onValueChange = { title = it },
+                        onValueChange = { title = it.take(com.meetingnotes.util.InputLimits.TITLE) },
                         label = { Text("内容・タイトル") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = participants,
-                        onValueChange = { participants = it },
+                        onValueChange = { participants = it.take(com.meetingnotes.util.InputLimits.SHORT_TEXT) },
                         label = { Text("参加者") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = meetingUrl,
-                        onValueChange = { meetingUrl = it },
+                        onValueChange = { meetingUrl = it.take(com.meetingnotes.util.InputLimits.CONTACT) },
                         label = { Text("会議URL（Zoom/Meet 等）") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = location,
-                        onValueChange = { location = it },
+                        onValueChange = { location = it.take(com.meetingnotes.util.InputLimits.NAME) },
                         label = { Text("場所") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = note,
-                        onValueChange = { note = it },
+                        onValueChange = { note = it.take(com.meetingnotes.util.InputLimits.LONG_TEXT) },
                         label = { Text("メモ") },
                         modifier = Modifier.fillMaxWidth()
                     )

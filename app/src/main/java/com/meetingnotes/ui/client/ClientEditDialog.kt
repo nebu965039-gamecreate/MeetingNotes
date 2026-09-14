@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.ui.common.LabeledDropdownField
+import com.meetingnotes.util.InputLimits
 
 /** 流入経路のプリセット候補(自由入力も可)。 */
 private val LEAD_SOURCES = listOf(
@@ -93,7 +94,7 @@ fun ClientEditDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedTextField(
-                    value = name, onValueChange = { name = it },
+                    value = name, onValueChange = { name = it.take(InputLimits.NAME) },
                     label = { Text("クライアント名") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -105,17 +106,17 @@ fun ClientEditDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = email, onValueChange = { email = it },
+                    value = email, onValueChange = { email = it.take(InputLimits.CONTACT) },
                     label = { Text("メールアドレス（任意）") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = phone, onValueChange = { phone = it },
+                    value = phone, onValueChange = { phone = it.take(InputLimits.PHONE) },
                     label = { Text("電話番号（任意）") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = memo, onValueChange = { memo = it },
+                    value = memo, onValueChange = { memo = it.take(InputLimits.LONG_TEXT) },
                     label = { Text("備考（任意）") },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp)
                 )
@@ -128,12 +129,12 @@ fun ClientEditDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = leadSource, onValueChange = { leadSource = it },
+                    value = leadSource, onValueChange = { leadSource = it.take(InputLimits.NAME) },
                     label = { Text("流入経路（自由記述可）") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = referredBy, onValueChange = { referredBy = it },
+                    value = referredBy, onValueChange = { referredBy = it.take(InputLimits.NAME) },
                     label = { Text("紹介元・紹介者（任意）") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -156,22 +157,22 @@ fun ClientEditDialog(
                     ) {
                         Text("担当者を追加", style = MaterialTheme.typography.titleSmall)
                         OutlinedTextField(
-                            value = newContactName, onValueChange = { newContactName = it },
+                            value = newContactName, onValueChange = { newContactName = it.take(InputLimits.NAME) },
                             label = { Text("氏名") }, singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
-                            value = newContactNote, onValueChange = { newContactNote = it },
+                            value = newContactNote, onValueChange = { newContactNote = it.take(InputLimits.NAME) },
                             label = { Text("役職・部署など（任意）") }, singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
-                            value = newContactEmail, onValueChange = { newContactEmail = it },
+                            value = newContactEmail, onValueChange = { newContactEmail = it.take(InputLimits.CONTACT) },
                             label = { Text("メールアドレス（任意）") }, singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
-                            value = newContactPhone, onValueChange = { newContactPhone = it },
+                            value = newContactPhone, onValueChange = { newContactPhone = it.take(InputLimits.PHONE) },
                             label = { Text("電話番号（任意）") }, singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -230,7 +231,7 @@ private fun ContactEditRow(
         ) {
             Row {
                 OutlinedTextField(
-                    value = n, onValueChange = { n = it; save() },
+                    value = n, onValueChange = { n = it.take(InputLimits.NAME); save() },
                     label = { Text("氏名") }, singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -239,17 +240,17 @@ private fun ContactEditRow(
                 }
             }
             OutlinedTextField(
-                value = note, onValueChange = { note = it; save() },
+                value = note, onValueChange = { note = it.take(InputLimits.NAME); save() },
                 label = { Text("役職・部署など（任意）") }, singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
-                value = email, onValueChange = { email = it; save() },
+                value = email, onValueChange = { email = it.take(InputLimits.CONTACT); save() },
                 label = { Text("メールアドレス（任意）") }, singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
-                value = phone, onValueChange = { phone = it; save() },
+                value = phone, onValueChange = { phone = it.take(InputLimits.PHONE); save() },
                 label = { Text("電話番号（任意）") }, singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )

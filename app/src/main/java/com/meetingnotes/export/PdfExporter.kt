@@ -141,41 +141,59 @@ object PdfExporter {
         canvas.drawText(pageNumber.toString(), PAGE_WIDTH / 2f, (PAGE_HEIGHT - FOOTER_HEIGHT / 2f), paint)
     }
 
+    /**
+     * 透かし文字は自由入力(最大30文字、`InputLimits.WATERMARK`)だが、日本語のような全角文字は
+     * 半角に比べて1文字あたりの幅が広く、そのままの文字サイズでは特に中央配置(56pt・-45度回転)で
+     * ページ幅からはみ出すことがある。`maxWidthPx` に収まるまで `minSize` を下限に文字サイズを
+     * 縮小してから描画する(2026-09-21、表示崩れ対策)。
+     */
+    private fun fitTextSize(paint: TextPaint, text: String, initialSize: Float, minSize: Float, maxWidthPx: Float): Float {
+        var size = initialSize
+        paint.textSize = size
+        while (size > minSize && paint.measureText(text) > maxWidthPx) {
+            size -= 1f
+            paint.textSize = size
+        }
+        return size
+    }
+
     private fun drawWatermark(canvas: Canvas, watermark: Watermark) {
         val paint = TextPaint().apply {
             isAntiAlias = true
             color = Color.GRAY
             alpha = (watermark.opacity.coerceIn(0f, 1f) * 255).toInt()
         }
+        val text = watermark.text
 
         when (watermark.position) {
             WatermarkPosition.CENTER -> {
-                paint.textSize = 56f
+                // 回転描画のため、ページ短辺を基準に安全マージンを取った幅に収める。
+                fitTextSize(paint, text, 56f, 10f, (minOf(PAGE_WIDTH, PAGE_HEIGHT) * 0.9f))
                 paint.textAlign = Paint.Align.CENTER
                 canvas.save()
                 canvas.rotate(-45f, PAGE_WIDTH / 2f, PAGE_HEIGHT / 2f)
-                canvas.drawText(watermark.text, PAGE_WIDTH / 2f, PAGE_HEIGHT / 2f, paint)
+                canvas.drawText(text, PAGE_WIDTH / 2f, PAGE_HEIGHT / 2f, paint)
                 canvas.restore()
             }
             WatermarkPosition.TOP_LEFT -> {
-                paint.textSize = 12f
+                fitTextSize(paint, text, 12f, 6f, PAGE_WIDTH - 40f)
                 paint.textAlign = Paint.Align.LEFT
-                canvas.drawText(watermark.text, 20f, 24f, paint)
+                canvas.drawText(text, 20f, 24f, paint)
             }
             WatermarkPosition.TOP_RIGHT -> {
-                paint.textSize = 12f
+                fitTextSize(paint, text, 12f, 6f, PAGE_WIDTH - 40f)
                 paint.textAlign = Paint.Align.RIGHT
-                canvas.drawText(watermark.text, PAGE_WIDTH - 20f, 24f, paint)
+                canvas.drawText(text, PAGE_WIDTH - 20f, 24f, paint)
             }
             WatermarkPosition.BOTTOM_LEFT -> {
-                paint.textSize = 12f
+                fitTextSize(paint, text, 12f, 6f, PAGE_WIDTH - 40f)
                 paint.textAlign = Paint.Align.LEFT
-                canvas.drawText(watermark.text, 20f, PAGE_HEIGHT - 20f, paint)
+                canvas.drawText(text, 20f, PAGE_HEIGHT - 20f, paint)
             }
             WatermarkPosition.BOTTOM_RIGHT -> {
-                paint.textSize = 12f
+                fitTextSize(paint, text, 12f, 6f, PAGE_WIDTH - 40f)
                 paint.textAlign = Paint.Align.RIGHT
-                canvas.drawText(watermark.text, PAGE_WIDTH - 20f, PAGE_HEIGHT - 20f, paint)
+                canvas.drawText(text, PAGE_WIDTH - 20f, PAGE_HEIGHT - 20f, paint)
             }
         }
     }

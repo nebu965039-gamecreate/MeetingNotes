@@ -147,14 +147,14 @@ private fun TemplateFormDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = { name = it.take(com.meetingnotes.util.InputLimits.NAME) },
                     label = { Text("テンプレート名") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = body,
-                    onValueChange = { body = it },
+                    onValueChange = { body = it.take(com.meetingnotes.util.InputLimits.EMAIL_BODY) },
                     label = { Text("本文") },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp)
                 )

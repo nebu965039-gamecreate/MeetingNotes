@@ -485,6 +485,7 @@ fun ClientDetailScreen(
             label = "タイトル",
             initialValue = meeting.title,
             confirmLabel = "変更",
+            maxLength = com.meetingnotes.util.InputLimits.TITLE,
             onDismiss = { meetingToRename = null },
             onConfirm = { title ->
                 viewModel.renameMeeting(meeting.id, title)
@@ -1162,7 +1163,7 @@ private fun ProjectFormDialog(
             ) {
                 androidx.compose.material3.OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = { name = it.take(com.meetingnotes.util.InputLimits.NAME) },
                     label = { Text("案件名") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -1183,7 +1184,7 @@ private fun ProjectFormDialog(
                 )
                 androidx.compose.material3.OutlinedTextField(
                     value = estText,
-                    onValueChange = { estText = it.filter { c -> c.isDigit() } },
+                    onValueChange = { estText = it.filter { c -> c.isDigit() }.take(12) },
                     label = { Text("見積額 (${currency.symbol})") },
                     singleLine = true,
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -1193,7 +1194,7 @@ private fun ProjectFormDialog(
                 )
                 androidx.compose.material3.OutlinedTextField(
                     value = wonText,
-                    onValueChange = { wonText = it.filter { c -> c.isDigit() } },
+                    onValueChange = { wonText = it.filter { c -> c.isDigit() }.take(12) },
                     label = { Text("成約額 (${currency.symbol})") },
                     singleLine = true,
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -1240,7 +1241,7 @@ private fun ProjectFormDialog(
                     )
                     androidx.compose.material3.OutlinedTextField(
                         value = lostReason,
-                        onValueChange = { lostReason = it },
+                        onValueChange = { lostReason = it.take(com.meetingnotes.util.InputLimits.SHORT_TEXT) },
                         label = { Text("失注理由（自由記述可）") },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1466,7 +1467,7 @@ private fun TodoFormDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 androidx.compose.material3.OutlinedTextField(
                     value = task,
-                    onValueChange = { task = it },
+                    onValueChange = { task = it.take(com.meetingnotes.util.InputLimits.SHORT_TEXT) },
                     label = { Text("内容") },
                     modifier = Modifier.fillMaxWidth()
                 )

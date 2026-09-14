@@ -483,7 +483,7 @@ private fun AddClientDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = { name = it.take(com.meetingnotes.util.InputLimits.NAME) },
                     label = { Text("クライアント名") },
                     modifier = Modifier.fillMaxWidth()
                 )
