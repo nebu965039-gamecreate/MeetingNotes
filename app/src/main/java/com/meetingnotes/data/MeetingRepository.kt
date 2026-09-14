@@ -696,8 +696,13 @@ class MeetingRepository(
         return existing
     }
 
-    /** クレジットを1消費する。残高が無ければ何もせずfalseを返す。 */
-    suspend fun consumeCredit(deviceIdHash: String): Boolean {
+    /**
+     * クレジットを1消費する。残高が無ければ何もせずfalseを返す。
+     * Pro加入者は月間上限なし(2026-09-21〜)。`balance` は無料ユーザーの表示・広告獲得用に
+     * そのまま維持するため、Proでも消費はスキップする(減らさない)。
+     */
+    suspend fun consumeCredit(deviceIdHash: String, isPro: Boolean): Boolean {
+        if (isPro) return true
         val current = getOrInitCredits(deviceIdHash)
         if (current.balance <= 0) return false
         userCreditsDao.update(current.copy(balance = current.balance - 1))

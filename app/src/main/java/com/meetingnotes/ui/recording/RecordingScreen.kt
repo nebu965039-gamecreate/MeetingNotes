@@ -105,6 +105,7 @@ fun RecordingScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val transcribeError by viewModel.transcribeError.collectAsState()
     val creditBalance by viewModel.creditBalance.collectAsState()
+    val isPro by com.meetingnotes.billing.ProAccess.isProFlow.collectAsState()
     val isRewardedAdLoaded by viewModel.isRewardedAdLoaded.collectAsState()
     val recordingElapsedMs by viewModel.recordingElapsedMs.collectAsState()
     val activity = LocalActivity.current as Activity
@@ -252,6 +253,7 @@ fun RecordingScreen(
                 editableTranscript = editableTranscript,
                 errorMessage = errorMessage,
                 creditBalance = creditBalance,
+                isPro = isPro,
                 isRewardedAdLoaded = isRewardedAdLoaded,
                 onTranscriptChange = { viewModel.updateEditableTranscript(it) },
                 onRevert = { viewModel.revertToOriginalTranscript() },
@@ -707,6 +709,7 @@ private fun EditingContent(
     editableTranscript: String,
     errorMessage: String?,
     creditBalance: Int,
+    isPro: Boolean,
     isRewardedAdLoaded: Boolean,
     onTranscriptChange: (String) -> Unit,
     onRevert: () -> Unit,
@@ -760,9 +763,10 @@ private fun EditingContent(
             }
         }
 
-        Text(text = "残りクレジット: ${creditBalance}回")
+        // Pro は月間上限なし(2026-09-21〜)。表示も「無制限」にし、広告視聴の分岐自体をスキップする。
+        Text(text = if (isPro) "残りクレジット: 無制限(Pro)" else "残りクレジット: ${creditBalance}回")
 
-        if (creditBalance > 0) {
+        if (isPro || creditBalance > 0) {
             Button(onClick = onSubmit, enabled = !isOverLimit, modifier = Modifier.fillMaxWidth()) {
                 Text("この内容で要約する")
             }

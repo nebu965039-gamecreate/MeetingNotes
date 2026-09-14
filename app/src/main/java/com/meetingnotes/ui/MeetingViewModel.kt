@@ -409,7 +409,7 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
 
         _summaryState.value = SummaryUiState.Loading
         viewModelScope.launch {
-            if (!repository.consumeCredit(deviceIdHash)) {
+            if (!repository.consumeCredit(deviceIdHash, ProAccess.isPro)) {
                 _summaryState.value = SummaryUiState.Error("クレジットが残っていません。広告を見て獲得してください。")
                 return@launch
             }
