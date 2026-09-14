@@ -55,24 +55,36 @@ class TranscriptPreprocessor {
 
     /**
      * 文単位のフィルタ:
-     *  - 隣接する同一文を畳む(音声認識のセッション切り替えで直前の発話が二重確定しやすい)
+     *  - 近傍の同一文を畳む(音声認識のセッション切り替えで直前・近傍の発話が二重確定しやすい)
      *  - 相槌・つなぎ言葉だけの文を落とす(要約には不要)
+     *
+     * 2026-09-21: 「直前の1文のみと比較」だと、`TranscriptionManager` 側のセッション境界処理で
+     * 間に他の文が挟まった状態で重複が発生するケース(実機報告)を取りこぼしていたため、
+     * 直近 [RECENT_SENTENCE_WINDOW] 文以内での重複も畳むよう拡張した。長い商談の中で離れた
+     * タイミングに本当に同じ発言が繰り返された場合(要約上は残したい)まで潰さないよう、
+     * 窓は「近傍」に留め、トランスクリプト全体を対象にした重複除去はしない。
      */
     private fun filterSentences(text: String): String {
         val parts = sentenceSplitRegex.split(text)
         val out = StringBuilder()
-        var prevKey: String? = null
+        val recentKeys = ArrayDeque<String>()
         for (part in parts) {
             val key = ignorableForCompareRegex.replace(part, "")
             if (key.isEmpty()) {
                 out.append(part)
                 continue
             }
-            if (key == prevKey) continue
+            if (key in recentKeys) continue
             if (key in pureBackchannels) continue
             out.append(part)
-            prevKey = key
+            recentKeys.addLast(key)
+            if (recentKeys.size > RECENT_SENTENCE_WINDOW) recentKeys.removeFirst()
         }
         return out.toString()
+    }
+
+    private companion object {
+        /** 重複判定で「近傍」とみなす文の数(直前のNつぶんと比較)。 */
+        const val RECENT_SENTENCE_WINDOW = 5
     }
 }

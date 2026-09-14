@@ -27,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -52,6 +53,8 @@ import com.meetingnotes.ui.SummaryUiState
 import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.meetingSummarySections
 import com.meetingnotes.ui.common.nextMeetingSection
+import com.meetingnotes.ui.theme.BrandNavy
+import com.meetingnotes.ui.theme.OnBrandNavy
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,7 +95,14 @@ fun ResultScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                     }
-                }
+                },
+                // 録音フロー(RecordingScreen)の続きの画面のため、同じネイビーのヘッダーに揃える
+                // (2026-09-21〜。旧: 未指定でM3既定の白背景のままだった)。
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = BrandNavy,
+                    titleContentColor = OnBrandNavy,
+                    navigationIconContentColor = OnBrandNavy
+                )
             )
         },
         bottomBar = {

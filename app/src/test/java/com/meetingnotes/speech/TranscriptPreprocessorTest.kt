@@ -51,6 +51,23 @@ class TranscriptPreprocessorTest {
     }
 
     @Test
+    fun `nearby duplicate sentences separated by other content are collapsed`() {
+        // 2026-09-21: 直前の1文だけでなく、近傍(数文以内)の重複も畳む。
+        val result = preprocessor.preprocess(
+            "来週見積もりを送ります。予算感はこれくらいです。来週見積もりを送ります。次回は水曜。"
+        )
+        assertEquals("来週見積もりを送ります。予算感はこれくらいです。次回は水曜。", result)
+    }
+
+    @Test
+    fun `distant repeated sentences beyond the window are both kept`() {
+        // 近傍の外(直近5文より前、離れたタイミング)での正当な繰り返しまでは畳まない。
+        val input = "契約に合意しました。第一フェーズを開始します。要件を整理します。" +
+            "スケジュールを確認します。体制を確定します。来月の予定を共有します。契約に合意しました。"
+        assertEquals(input, preprocessor.preprocess(input))
+    }
+
+    @Test
     fun `backchannel-only sentences are removed`() {
         val result = preprocessor.preprocess("はい。なるほど。わかりました。来週契約します。")
         assertEquals("来週契約します。", result)

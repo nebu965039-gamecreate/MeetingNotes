@@ -109,6 +109,18 @@ class TranscriptionManager(private val context: Context) {
         _transcript.value = committedSegments.joinToString(separator = "") + currentPartial
     }
 
+    /**
+     * `incoming`(新しい partial)が `previous`(直前の partial)の「続き」とみなせるか(2026-09-21)。
+     * 厳密な前方一致だけでなく、共通接頭辞が `previous` の大部分(70%以上)を占める場合も続きとみなす
+     * (語尾の微修正などで完全な前方一致にならないケースの誤判定を減らすため)。
+     */
+    private fun isLikelyContinuation(previous: String, incoming: String): Boolean {
+        if (incoming.startsWith(previous)) return true
+        if (previous.isEmpty()) return true
+        val commonPrefixLen = previous.commonPrefixWith(incoming).length
+        return commonPrefixLen.toDouble() / previous.length >= 0.7
+    }
+
     fun isSupported(): Boolean = SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
 
     fun start() {
@@ -370,7 +382,13 @@ class TranscriptionManager(private val context: Context) {
                 // 新しい partial が直前の partial の続き(前方一致)でなければ「別の新しいフレーズ」と
                 // 判断し、直前の partial を確定させてから新しい partial を今回分として扱う。
                 // 累積型の端末では新しい partial は常に前方一致するため、この分岐は無害。
-                if (currentPartial.isNotBlank() && !partial.startsWith(currentPartial)) {
+                // 2026-09-21: 厳密な前方一致(startsWith)だと、累積型の端末でも語尾の言い直し等で
+                // 直前partialの先頭がわずかに変わっただけの「同じ内容の微修正」を誤って「別の新しい
+                // フレーズ」と判定してしまうことがあり、その断片が(onResultsで置き換えられない
+                // ERROR_NO_MATCH/TIMEOUT経由のセッション終了時に)確定済みとして残って重複の原因に
+                // なっていた。共通接頭辞が直前partialの大部分(70%以上)を占める場合も「続き」とみなす
+                // ゆるい判定に変更し、誤って早期確定する頻度そのものを減らす。
+                if (currentPartial.isNotBlank() && !isLikelyContinuation(currentPartial, partial)) {
                     committedSegments.add(currentPartial)
                 }
                 currentPartial = partial
