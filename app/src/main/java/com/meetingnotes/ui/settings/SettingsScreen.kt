@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -313,6 +314,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                 item {
                     val working = backupState is SettingsViewModel.BackupState.Working
                     var showSeedConfirm by remember { mutableStateOf(false) }
+                    val debugPreviewLocked by ProAccess.debugPreviewLockedFlow.collectAsState()
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(vertical = 4.dp)) {
                             Text(
@@ -326,6 +328,29 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                                 enabled = !working,
                                 onClick = { showSeedConfirm = true }
                             )
+                            HorizontalDivider()
+                            // 無料ユーザーが見るPro限定機能のロック表示(バッジ・ペイウォール)を、
+                            // 実際の購入状態に関わらずプレビューできるトグル(2026-09-21〜)。
+                            // PRO_GATING_ENABLED が本番でONになる前でも見比べられるようにする用途。
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Proロック表示をプレビュー", style = MaterialTheme.typography.bodyLarge)
+                                    Text(
+                                        "ONの間、実際の加入状態に関わらず無料ユーザー向けのProバッジ・ペイウォールを表示します(分析画面・エクスポート形式など)。",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = debugPreviewLocked,
+                                    onCheckedChange = { ProAccess.setDebugPreviewLocked(it) }
+                                )
+                            }
                         }
                     }
                     if (showSeedConfirm) {

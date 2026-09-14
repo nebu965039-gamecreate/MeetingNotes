@@ -65,7 +65,10 @@ import com.meetingnotes.ui.theme.ThemeMode
 @Composable
 fun AnalyticsScreen(repository: MeetingRepository, onHome: () -> Unit) {
     val isPro by ProAccess.isProFlow.collectAsState()
-    val locked = ProAccess.gatingEnabled && !isPro
+    // デバッグプレビュー(設定画面「Proロック表示をプレビュー」)の切替にも即座に追従させるため、
+    // gatingEnabled は plain val ではなくこちらも collectAsState() で観測する(2026-09-21〜)。
+    val debugPreviewLocked by ProAccess.debugPreviewLockedFlow.collectAsState()
+    val locked = debugPreviewLocked || (ProAccess.gatingEnabled && !isPro)
     var showPaywall by remember { mutableStateOf(false) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
 
