@@ -46,7 +46,11 @@ class AnthropicClient(
         .readTimeout(180, TimeUnit.SECONDS)
         .build()
 
-    suspend fun summarizeMeeting(transcript: String): MeetingSummary = withContext(Dispatchers.IO) {
+    /**
+     * @param onUsage 成功時、そのAPI呼び出しで消費したトークン数(概算合計)を通知する
+     *   (2026-09-21〜、1日あたりの上限チェック用。Workerがレスポンスをそのまま中継するため取得できる)。
+     */
+    suspend fun summarizeMeeting(transcript: String, onUsage: suspend (Int) -> Unit = {}): MeetingSummary = withContext(Dispatchers.IO) {
         if (proxyUrl.isBlank()) {
             throw AnthropicApiException(
                 "要約サーバーのURLが未設定です。local.propertiesにSUMMARY_PROXY_URLを設定してください。"
@@ -81,7 +85,9 @@ class AnthropicClient(
                     val responseBody = response.body.string()
 
                     if (response.isSuccessful) {
-                        return@withContext parseSummary(responseBody)
+                        val (summary, usage) = parseSummary(responseBody)
+                        if (usage != null) onUsage(usage.total)
+                        return@withContext summary
                     }
 
                     if (response.code == 413) {
@@ -188,7 +194,7 @@ class AnthropicClient(
             throw lastError ?: AnthropicApiException("生成APIの呼び出しに失敗しました。")
         }
 
-    private fun parseSummary(responseBody: String): MeetingSummary {
+    private fun parseSummary(responseBody: String): Pair<MeetingSummary, Usage?> {
         val response = json.decodeFromString(MessagesResponse.serializer(), responseBody)
         val toolUseBlock = response.content.firstOrNull { it.type == "tool_use" && it.name == TOOL_NAME }
             ?: throw AnthropicApiException("要約レスポンスにtool_useが含まれていません: $responseBody")
@@ -197,7 +203,7 @@ class AnthropicClient(
             ?: throw AnthropicApiException("要約レスポンスのinputが不正です: $responseBody")
 
         val dto = json.decodeFromJsonElement(SummaryDto.serializer(), input)
-        return dto.toDomain()
+        return dto.toDomain() to response.usage
     }
 
     companion object {

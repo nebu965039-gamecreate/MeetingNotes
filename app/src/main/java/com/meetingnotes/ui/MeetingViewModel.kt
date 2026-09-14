@@ -409,12 +409,26 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
 
         _summaryState.value = SummaryUiState.Loading
         viewModelScope.launch {
+            // 1日あたりのトークン消費上限(無料/Pro共通の安全弁、2026-09-21〜)。
+            // 回数ではなくトークン量で見ているため、通常利用では実質到達しない。
+            if (repository.isDailyTokenCapReached(deviceIdHash)) {
+                _summaryState.value = SummaryUiState.Error(
+                    "本日のAIご利用上限に達しました。日付が変わってからもう一度お試しください。"
+                )
+                return@launch
+            }
             if (!repository.consumeCredit(deviceIdHash, ProAccess.isPro)) {
                 _summaryState.value = SummaryUiState.Error("クレジットが残っていません。広告を見て獲得してください。")
                 return@launch
             }
 
-            val summaryJob = async { runCatching { anthropicClient.summarizeMeeting(transcript) } }
+            val summaryJob = async {
+                runCatching {
+                    anthropicClient.summarizeMeeting(transcript) { tokens ->
+                        repository.recordTokenUsage(deviceIdHash, tokens)
+                    }
+                }
+            }
 
             // 待ち時間にインタースティシャル広告を挟む。ただし要約が短時間で終わる場合
             // (結果が出た後に広告)は不快なので、少し待って まだ処理中のときだけ表示する。

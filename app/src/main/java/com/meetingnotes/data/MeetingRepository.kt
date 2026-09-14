@@ -667,33 +667,63 @@ class MeetingRepository(
     fun observeCredits(deviceIdHash: String): Flow<UserCreditsEntity?> =
         userCreditsDao.observeByHash(deviceIdHash)
 
-    /** 残高が無ければ初回付与、月が変わっていればリセットして返す(仕様書7.1)。 */
+    /** 残高が無ければ初回付与、月/日が変わっていればそれぞれリセットして返す(仕様書7.1)。 */
     suspend fun getOrInitCredits(deviceIdHash: String): UserCreditsEntity {
         val currentMonth = CreditPolicy.currentYearMonth()
+        val currentDay = CreditPolicy.currentDate()
         val existing = userCreditsDao.getByHash(deviceIdHash)
 
         if (existing == null) {
             val fresh = UserCreditsEntity(
                 deviceIdHash = deviceIdHash,
                 balance = CreditPolicy.MONTHLY_FREE_CREDITS,
-                lastResetYearMonth = currentMonth
+                lastResetYearMonth = currentMonth,
+                tokensResetDate = currentDay
             )
             userCreditsDao.insert(fresh)
             return fresh
         }
 
+        var updated = existing
+        var needsUpdate = false
+
         if (CreditPolicy.shouldReset(currentMonth, existing.lastResetYearMonth)) {
-            val reset = existing.copy(
+            updated = updated.copy(
                 balance = CreditPolicy.MONTHLY_FREE_CREDITS,
                 lastResetYearMonth = currentMonth,
                 onlineTranscriptionsUsed = 0,
                 onlineTranscriptionsBonus = 0
             )
-            userCreditsDao.update(reset)
-            return reset
+            needsUpdate = true
         }
 
-        return existing
+        // 月次リセットとは独立に、1日あたりのトークン消費量(DAILY_TOKEN_CAP)だけ日次でリセットする。
+        if (CreditPolicy.shouldResetDaily(currentDay, updated.tokensResetDate)) {
+            updated = updated.copy(tokensUsedToday = 0, tokensResetDate = currentDay)
+            needsUpdate = true
+        }
+
+        if (needsUpdate) {
+            userCreditsDao.update(updated)
+        }
+        return updated
+    }
+
+    /**
+     * 今日すでにAI要約のトークン消費上限(`CreditPolicy.DAILY_TOKEN_CAP`)に達しているか。
+     * 呼び出し前の事前チェック用(2026-09-21〜)。回数ではなくトークン量で見るため、
+     * 録音を途中でやめた/失敗したなど短い文字起こしの要約は消費が少なく、正当な利用を圧迫しない。
+     */
+    suspend fun isDailyTokenCapReached(deviceIdHash: String): Boolean {
+        val current = getOrInitCredits(deviceIdHash)
+        return current.tokensUsedToday >= CreditPolicy.DAILY_TOKEN_CAP
+    }
+
+    /** 要約APIの呼び出し後、実際に消費したトークン数(概算合計)を積算する。 */
+    suspend fun recordTokenUsage(deviceIdHash: String, tokens: Int) {
+        if (tokens <= 0) return
+        val current = getOrInitCredits(deviceIdHash)
+        userCreditsDao.update(current.copy(tokensUsedToday = current.tokensUsedToday + tokens))
     }
 
     /**

@@ -239,6 +239,25 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate29To30_addsTokenUsageColumns_defaultZeroAndEmpty() {
+        helper.createDatabase(dbName, 29).apply {
+            execSQL(
+                "INSERT INTO user_credits (deviceIdHash, balance, lastResetYearMonth) " +
+                    "VALUES ('device1', 5, '2026-09')"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 30, true, MIGRATION_29_30)
+
+        db.query("SELECT tokensUsedToday, tokensResetDate FROM user_credits WHERE deviceIdHash = 'device1'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getLong(0) == 0L)
+            assertTrue(c.getString(1) == "")
+        }
+    }
+
+    @Test
     fun migrate28To29_renamesSnoozedUntilToNotifyAt() {
         helper.createDatabase(dbName, 28).apply {
             execSQL("INSERT INTO clients (name, memo, groupId, createdAt) VALUES ('C', NULL, NULL, 0)")

@@ -6,6 +6,7 @@ import com.meetingnotes.data.model.Decision
 import com.meetingnotes.data.model.MeetingSummary
 import com.meetingnotes.data.model.NextMeeting
 import com.meetingnotes.data.model.TodoItem
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
@@ -25,8 +26,23 @@ data class TextResponse(val text: String = "")
 
 @Serializable
 data class MessagesResponse(
-    val content: List<ContentBlock> = emptyList()
+    val content: List<ContentBlock> = emptyList(),
+    /** 2026-09-21〜: 1日あたりのトークン消費上限チェックに使う。Workerがレスポンスをそのまま
+     *  中継するため、既存のパース処理に影響なく追加できる(未知フィールドは無視される設定)。 */
+    val usage: Usage? = null
 )
+
+@Serializable
+data class Usage(
+    @SerialName("input_tokens") val inputTokens: Int = 0,
+    @SerialName("output_tokens") val outputTokens: Int = 0,
+    /** プロンプトキャッシュのヒット分。コスト計算では input_tokens とは別料金だが、
+     *  トークン消費量の上限チェックとしては合算して問題ない(キャッシュ書込分の概算)。 */
+    @SerialName("cache_creation_input_tokens") val cacheCreationInputTokens: Int = 0,
+    @SerialName("cache_read_input_tokens") val cacheReadInputTokens: Int = 0
+) {
+    val total: Int get() = inputTokens + outputTokens + cacheCreationInputTokens + cacheReadInputTokens
+}
 
 @Serializable
 data class ContentBlock(
