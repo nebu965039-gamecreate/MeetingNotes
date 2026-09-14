@@ -59,6 +59,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -117,6 +120,23 @@ fun RecordingScreen(
     DisposableEffect(Unit) {
         com.meetingnotes.ads.RecordingScreenGuard.isActive = true
         onDispose { com.meetingnotes.ads.RecordingScreenGuard.isActive = false }
+    }
+
+    // アプリがバックグラウンドに回ったら、録音中(Recordingフェーズ)なら安全に停止する
+    // (2026-09-21〜。実機報告: 録音中に別アプリへ切り替えて戻ると、画面はホームに戻っている一方で
+    // 認識セッションの開始/終了音が鳴り続ける=TranscriptionManagerがバックグラウンドで
+    // 生き残ったまま制御を失っていた。バックグラウンドでのオンデバイス音声認識継続はOS側の制限で
+    // 不安定なため、継続を試みず`requestStopRecording()`で通常の「停止」と同じ経路に乗せて
+    // 文字起こしを確定させる。Countdown/Transcribing 等の他フェーズでは no-op)。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                viewModel.requestStopRecording()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     var permissionDenied by remember { mutableStateOf(false) }

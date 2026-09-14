@@ -97,6 +97,14 @@ class TranscriptionManager(private val context: Context) {
     /** 現在のセッションの途中経過(未確定)。onResults で committedSegments に移す。 */
     private var currentPartial: String = ""
 
+    /**
+     * 現在の認識セッションが始まった時点での committedSegments のサイズ(2026-09-21〜)。
+     * `onPartialResults` のフレーズ単位ヒューリスティック(下記)が同一セッション中に先行確定した
+     * 断片を、セッション終了時の `onResults`(そのセッション全体の最終認識結果)で正しく
+     * 置き換えるための目印。この値より後ろの要素が「今セッションの speculative な確定分」。
+     */
+    private var segmentsAtSessionStart = 0
+
     private fun rebuildTranscript() {
         _transcript.value = committedSegments.joinToString(separator = "") + currentPartial
     }
@@ -122,6 +130,7 @@ class TranscriptionManager(private val context: Context) {
         _events.value = null
         committedSegments.clear()
         currentPartial = ""
+        segmentsAtSessionStart = 0
         consecutiveErrors = 0
         recreateOnNextStart = false
         sessionActive = false
@@ -237,6 +246,7 @@ class TranscriptionManager(private val context: Context) {
         val r = recognizer ?: return@Runnable
         restartCount++
         sessionActive = true
+        segmentsAtSessionStart = committedSegments.size
         try {
             r.startListening(recognizerIntent())
         } catch (e: Exception) {
@@ -326,9 +336,19 @@ class TranscriptionManager(private val context: Context) {
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
             if (!text.isNullOrBlank()) {
+                // onResults の text はそのセッション全体の最終認識結果(セッション開始からの累積)。
+                // onPartialResults のフレーズ単位ヒューリスティック(下記)で同一セッション中に
+                // 先行確定していた断片がここに含まれるため、単純に add すると丸ごと重複してしまう
+                // (2026-09-21 report: 「一度文字起こしされた文言が重複し、文章量が多くなる」)。
+                // 今セッションぶんの speculative な確定済みセグメントは取り除き、この最終結果で置き換える。
+                while (committedSegments.size > segmentsAtSessionStart) {
+                    committedSegments.removeAt(committedSegments.lastIndex)
+                }
                 committedSegments.add(text)
                 consecutiveErrors = 0
             }
+            // text が空のときはここで committedSegments に触れない(累積型の端末で最終結果が
+            // 空になることもあるため、セッション中に確定済みの断片が消えないよう従来の挙動を維持)。
             currentPartial = ""
             rebuildTranscript()
             scheduleSessionStart()
