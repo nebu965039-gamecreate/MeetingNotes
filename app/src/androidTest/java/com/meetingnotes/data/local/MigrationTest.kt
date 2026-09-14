@@ -239,6 +239,24 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate30To31_renamesOnlineTranscriptionsUsedToSeconds() {
+        helper.createDatabase(dbName, 30).apply {
+            execSQL(
+                "INSERT INTO user_credits (deviceIdHash, balance, lastResetYearMonth, onlineTranscriptionsUsed) " +
+                    "VALUES ('device1', 5, '2026-09', 3)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 31, true, MIGRATION_30_31)
+
+        db.query("SELECT onlineTranscriptionsUsedSeconds FROM user_credits WHERE deviceIdHash = 'device1'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getLong(0) == 3L)
+        }
+    }
+
+    @Test
     fun migrate29To30_addsTokenUsageColumns_defaultZeroAndEmpty() {
         helper.createDatabase(dbName, 29).apply {
             execSQL(

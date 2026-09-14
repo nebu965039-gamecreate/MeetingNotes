@@ -61,7 +61,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -118,7 +118,7 @@ fun RecordingScreen(
     var showModePicker by remember { mutableStateOf(false) }
     var showRemoteConsent by remember { mutableStateOf(false) }
     var showRemoteLimit by remember { mutableStateOf(false) }
-    var remoteRemaining by remember { mutableIntStateOf(0) }
+    var remoteRemainingSeconds by remember { mutableLongStateOf(0L) }
     var pendingMode by remember { mutableStateOf(com.meetingnotes.data.model.MeetingType.IN_PERSON) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -148,9 +148,9 @@ fun RecordingScreen(
 
     val onChooseRemote: () -> Unit = {
         scope.launch {
-            remoteRemaining = viewModel.remainingRemoteTranscriptions()
+            remoteRemainingSeconds = viewModel.remainingRemoteTranscriptionSeconds()
             when {
-                remoteRemaining <= 0 -> showRemoteLimit = true
+                remoteRemainingSeconds <= 0 -> showRemoteLimit = true
                 !RemoteConsentPrefs.hasConsented(activity) -> showRemoteConsent = true
                 else -> startWithMode(com.meetingnotes.data.model.MeetingType.REMOTE)
             }
@@ -349,9 +349,9 @@ fun RecordingScreen(
             title = { Text("リモート会議モードの上限") },
             text = {
                 Text(
-                    if (isPro) "今月のリモート会議モードの上限に達しました。来月またご利用いただけます。"
-                    else "今月の無料のリモート会議モードを使い切りました。" +
-                        "広告を見ると今月あと1回使えます（Pro なら月40回まで）。"
+                    if (isPro) "今月のリモート会議モードの上限(合計30時間ぶん)に達しました。来月またご利用いただけます。"
+                    else "今月の無料のリモート会議モード(45分ぶん)を使い切りました。" +
+                        "広告を見ると今月あと45分ぶん使えます（Pro なら月30時間まで）。"
                 )
             },
             confirmButton = {

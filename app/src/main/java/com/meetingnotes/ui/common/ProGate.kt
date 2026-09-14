@@ -120,7 +120,7 @@ fun ProPaywallDialog(featureName: String, onDismiss: () -> Unit) {
                     Text(
                         buildString {
                             append("・AI要約が無制限(無料は月5回)\n")
-                            append("・リモート会議モードが月40回(無料は月1回)\n")
+                            append("・リモート会議モードが月30時間ぶん(無料は月45分)\n")
                             append("・録音の要約→文字起こしの根拠リンク\n")
                             append("・ヒアリング分析\n")
                             append("・売上・実績ビュー / 売上予測\n")

@@ -691,7 +691,7 @@ class MeetingRepository(
             updated = updated.copy(
                 balance = CreditPolicy.MONTHLY_FREE_CREDITS,
                 lastResetYearMonth = currentMonth,
-                onlineTranscriptionsUsed = 0,
+                onlineTranscriptionsUsedSeconds = 0,
                 onlineTranscriptionsBonus = 0
             )
             needsUpdate = true
@@ -739,30 +739,24 @@ class MeetingRepository(
         return true
     }
 
-    // --- リモート会議モード(サーバー文字起こし)の月間上限 ---
+    // --- リモート会議モード(サーバー文字起こし)の月間上限(2026-09-21〜、秒単位で管理) ---
 
-    /** その月に残っているリモート会議モードの回数。 */
-    suspend fun remainingOnlineTranscriptions(deviceIdHash: String, isPro: Boolean): Int {
+    /** その月に残っているリモート会議モードの秒数。 */
+    suspend fun remainingOnlineTranscriptionSeconds(deviceIdHash: String, isPro: Boolean): Long {
         val c = getOrInitCredits(deviceIdHash)
-        val allowance = CreditPolicy.onlineTranscriptionAllowance(isPro, c.onlineTranscriptionsBonus)
-        return (allowance - c.onlineTranscriptionsUsed).coerceAtLeast(0)
+        val allowance = CreditPolicy.onlineTranscriptionAllowanceSeconds(isPro, c.onlineTranscriptionsBonus)
+        return (allowance - c.onlineTranscriptionsUsedSeconds).coerceAtLeast(0)
     }
 
-    /** リモート会議モードを1回消費する。上限に達していれば false。 */
-    suspend fun consumeOnlineTranscription(deviceIdHash: String, isPro: Boolean): Boolean {
+    /**
+     * リモート会議モードで実際に消費した録音時間(秒)を積算する。文字起こし成功後に呼ぶ
+     * (失敗時は呼ばない=消費しない、という従来の挙動を踏襲)。事後会計のため、1回の録音が
+     * その時点の残り秒数を超えていても記録は行う(= 次回以降の呼び出しが上限に引っかかる)。
+     */
+    suspend fun recordOnlineTranscriptionUsage(deviceIdHash: String, durationSeconds: Long) {
+        if (durationSeconds <= 0) return
         val c = getOrInitCredits(deviceIdHash)
-        val allowance = CreditPolicy.onlineTranscriptionAllowance(isPro, c.onlineTranscriptionsBonus)
-        if (c.onlineTranscriptionsUsed >= allowance) return false
-        userCreditsDao.update(c.copy(onlineTranscriptionsUsed = c.onlineTranscriptionsUsed + 1))
-        return true
-    }
-
-    /** 文字起こしに失敗したときの返却。 */
-    suspend fun refundOnlineTranscription(deviceIdHash: String) {
-        val c = getOrInitCredits(deviceIdHash)
-        if (c.onlineTranscriptionsUsed > 0) {
-            userCreditsDao.update(c.copy(onlineTranscriptionsUsed = c.onlineTranscriptionsUsed - 1))
-        }
+        userCreditsDao.update(c.copy(onlineTranscriptionsUsedSeconds = c.onlineTranscriptionsUsedSeconds + durationSeconds))
     }
 
     /** リワード広告視聴で無料ユーザーのリモート会議モードを1回追加(上限あり)。 */

@@ -152,13 +152,13 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
 
     fun currentMeetingType(): MeetingType = meetingType
 
-    /** その月に残っているリモート会議モードの回数。 */
-    suspend fun remainingRemoteTranscriptions(): Int =
-        repository.remainingOnlineTranscriptions(deviceIdHash, ProAccess.isPro)
+    /** その月に残っているリモート会議モードの秒数。 */
+    suspend fun remainingRemoteTranscriptionSeconds(): Long =
+        repository.remainingOnlineTranscriptionSeconds(deviceIdHash, ProAccess.isPro)
 
     fun isProUser(): Boolean = ProAccess.isPro
 
-    /** 無料ユーザーがリワード広告を見てリモート会議モードを1回追加する。 */
+    /** 無料ユーザーがリワード広告を見てリモート会議モードを45分ぶん追加する。 */
     fun watchAdForRemoteTranscription(activity: Activity, onGranted: () -> Unit) {
         rewardedAdController.show(activity) {
             viewModelScope.launch {
@@ -312,7 +312,8 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
                 val bytes = file.readBytes()
                 anthropicClient.transcribeAudio(bytes, AudioFileRecorder.MIME_TYPE)
             }.onSuccess { text ->
-                repository.consumeOnlineTranscription(deviceIdHash, ProAccess.isPro)
+                val durationSeconds = _recordingElapsedMs.value / 1000
+                repository.recordOnlineTranscriptionUsage(deviceIdHash, durationSeconds)
                 val preprocessed = transcriptPreprocessor.preprocess(text)
                 originalTranscript = preprocessed
                 _editableTranscript.value = preprocessed

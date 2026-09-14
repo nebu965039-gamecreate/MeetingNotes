@@ -8,8 +8,12 @@ data class UserCreditsEntity(
     @PrimaryKey val deviceIdHash: String,
     val balance: Int,
     val lastResetYearMonth: String,
-    /** 今月このデバイスで実行したリモート会議モードの文字起こし回数。 */
-    val onlineTranscriptionsUsed: Int = 0,
+    /**
+     * 今月このデバイスで実行したリモート会議モードの文字起こし音声時間(秒、2026-09-21〜)。
+     * 旧: 回数(Int)。DB上は同じ INTEGER 列を `RENAME COLUMN` で転用しているため、
+     * 移行直後の既存値は「使用回数」が「使用秒数」として引き継がれる(実質ほぼ0扱いになるだけで実害なし)。
+     */
+    val onlineTranscriptionsUsedSeconds: Long = 0,
     /** 今月リワード広告で追加解放したリモート会議モードの回数(無料ユーザー用)。 */
     val onlineTranscriptionsBonus: Int = 0,
     /** 今日このデバイスで消費したAI要約のトークン数(2026-09-21〜、`CreditPolicy.DAILY_TOKEN_CAP` 参照)。 */

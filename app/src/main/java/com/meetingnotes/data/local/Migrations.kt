@@ -297,10 +297,25 @@ val MIGRATION_29_30 = object : Migration(29, 30) {
     }
 }
 
+/**
+ * v30 → v31: リモート会議モードの月間上限を「回数」から「音声時間(秒)」に変更(2026-09-21)。
+ * `user_credits.onlineTranscriptionsUsed`(Int、使用回数)を `onlineTranscriptionsUsedSeconds`
+ * (Long、使用秒数)にリネームするだけ。SQLite は列の型を厳密に区別しない(INTEGER親和性は共通)ため、
+ * 既存の小さな回数の値がそのまま「秒数」として引き継がれても実害はない(むしろ実質リセットに近い)。
+ */
+val MIGRATION_30_31 = object : Migration(30, 31) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE `user_credits` RENAME COLUMN `onlineTranscriptionsUsed` TO `onlineTranscriptionsUsedSeconds`"
+        )
+    }
+}
+
 val databaseMigrations: Array<Migration> = arrayOf(
     MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
     MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
     MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20,
     MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
-    MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30
+    MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30,
+    MIGRATION_30_31
 )
