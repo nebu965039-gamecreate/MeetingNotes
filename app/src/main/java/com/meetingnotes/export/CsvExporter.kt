@@ -13,23 +13,40 @@ import java.io.FileOutputStream
 object CsvExporter {
 
     private val HEADER = listOf("タスク", "担当", "期限", "完了")
+    private val HEADER_WITH_CLIENT = listOf("クライアント", "タスク", "担当", "期限", "完了")
 
     /** CSV テキスト(BOM なし)を生成する。Context 不要の純粋関数でテストしやすい。 */
-    fun buildCsv(todos: List<TodoEntity>): String {
+    fun buildCsv(todos: List<TodoEntity>): String =
+        buildCsvRows(HEADER, todos.map { rowOf(it) })
+
+    /** クライアント横断(全クライアントまとめ)版。先頭列に「クライアント」が付く。 */
+    fun buildCsvWithClient(rows: List<TodoWithClient>): String =
+        buildCsvRows(HEADER_WITH_CLIENT, rows.map { listOf(it.clientName) + rowOf(it.todo) })
+
+    fun exportToFile(context: Context, fileName: String, todos: List<TodoEntity>): File =
+        writeFile(context, fileName, buildCsv(todos))
+
+    fun exportToFileWithClient(context: Context, fileName: String, rows: List<TodoWithClient>): File =
+        writeFile(context, fileName, buildCsvWithClient(rows))
+
+    private fun rowOf(todo: TodoEntity): List<String> =
+        listOf(todo.task, todo.assignee, todoDeadlineText(todo), if (todo.isDone) "済" else "")
+
+    private fun buildCsvRows(header: List<String>, dataRows: List<List<String>>): String {
         val rows = buildList {
-            add(HEADER)
-            todos.forEach { add(listOf(it.task, it.assignee, it.deadline, if (it.isDone) "済" else "")) }
+            add(header)
+            addAll(dataRows)
         }
         return rows.joinToString("\r\n") { row -> row.joinToString(",") { escape(it) } } + "\r\n"
     }
 
-    fun exportToFile(context: Context, fileName: String, todos: List<TodoEntity>): File {
+    private fun writeFile(context: Context, fileName: String, csv: String): File {
         val dir = File(context.cacheDir, "exports").apply { mkdirs() }
         val file = File(dir, fileName)
         FileOutputStream(file).use { out ->
             // Excel が UTF-8 CSV を正しく開けるよう BOM を付ける。
             out.write(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()))
-            out.write(buildCsv(todos).toByteArray(Charsets.UTF_8))
+            out.write(csv.toByteArray(Charsets.UTF_8))
         }
         return file
     }

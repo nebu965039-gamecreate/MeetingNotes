@@ -521,6 +521,12 @@ private fun FollowupDialog(
                     }
                     androidx.compose.material3.HorizontalDivider()
                 }
+                // テンプレートを選んでいる間は、AI下書きと2つの本文が並んで紛らわしいため
+                // どちらか一方だけを表示する(テンプレート選択を解除すればAI下書きに戻る)。
+                if (selectedTemplate != null) return@Column
+                if (templates.isNotEmpty()) {
+                    Text("AI下書き", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 when (state) {
                     FollowupState.Idle -> Unit
                     FollowupState.Loading -> {
@@ -586,8 +592,7 @@ private val formatGroups = listOf(
         "議事録ぜんぶ",
         listOf(
             ExportFormat.PDF to "PDF",
-            ExportFormat.WORD to "Word",
-            ExportFormat.MARKDOWN to "Markdown"
+            ExportFormat.WORD to "Word"
         )
     ),
     FormatGroup(
@@ -612,7 +617,8 @@ private fun ExportOptionsDialog(
     onExport: (ExportFormat, Watermark?, String?) -> Unit
 ) {
     val groups = if (icsAvailable) formatGroups else formatGroups.filter { it.items.none { i -> i.first == ExportFormat.ICS } }
-    var format by remember { mutableStateOf(ExportFormat.PDF) }
+    // 開いた直後は何も選ばせない(誤って既定のPDFのまま書き出されるのを防ぐ)。
+    var format by remember { mutableStateOf<ExportFormat?>(null) }
     var paywallFeature by remember { mutableStateOf<String?>(null) }
     var watermarkEnabled by remember { mutableStateOf(false) }
     var watermarkText by remember { mutableStateOf("SAMPLE") }
@@ -641,14 +647,15 @@ private fun ExportOptionsDialog(
     // パスワード保護は Pro 限定。未加入では設定できない(常に null)。
     val passwordActive = format == ExportFormat.PDF && passwordEnabled && !ProAccess.shouldLock
     fun currentPassword(): String? = if (passwordActive && password.isNotBlank()) password else null
-    val canExport = !passwordActive || password.isNotBlank()
+    val canExport = format != null && (!passwordActive || password.isNotBlank())
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (action == ExportAction.SHARE) "共有する" else "デバイスに保存") },
         text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                // どの形式を選んでもモーダルの横幅が変わらないよう固定する(高さは内容に応じて変わってよい)。
+                modifier = Modifier.width(300.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 groups.forEach { group ->
@@ -751,7 +758,11 @@ private fun ExportOptionsDialog(
                     }
                 }
 
-                if (watermarkActive) {
+                // 透かしテキスト・位置・プレビューは実際に編集できる場合だけ表示する。
+                // 無料版では常に透かしが強制ONだが、内容は変更できないため(Pro限定)
+                // この編集UI自体を出さない(無料ユーザーがトグルを押していないのに
+                // 入力欄やプレビューが最初から出ているように見えるのを防ぐ)。
+                if (watermarkActive && !watermarkForced) {
                     OutlinedTextField(
                         value = watermarkText,
                         onValueChange = { watermarkText = it.take(com.meetingnotes.util.InputLimits.WATERMARK) },
@@ -843,7 +854,7 @@ private fun ExportOptionsDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onExport(format, currentWatermark(), currentPassword()) },
+                onClick = { format?.let { onExport(it, currentWatermark(), currentPassword()) } },
                 enabled = canExport
             ) {
                 Text(if (action == ExportAction.SHARE) "共有する" else "保存する")

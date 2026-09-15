@@ -50,6 +50,19 @@ class ExcelExporterTest {
     }
 
     @Test
+    fun `resolved due date is used in place of the relative original text`() {
+        val rows = ExcelExporter.buildRows(
+            listOf(
+                TodoEntity(
+                    id = 1, meetingId = 1, task = "見積書を送付", assignee = "山田",
+                    deadline = "翌日", dueDate = "2026-10-01", isDone = false
+                )
+            )
+        )
+        assertEquals(listOf("見積書を送付", "山田", "2026/10/01", ""), rows[1])
+    }
+
+    @Test
     fun `empty todos yields header only`() {
         assertEquals(listOf(listOf("タスク", "担当", "期限", "完了")), ExcelExporter.buildRows(emptyList()))
     }

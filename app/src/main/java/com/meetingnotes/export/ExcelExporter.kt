@@ -16,16 +16,30 @@ import java.util.zip.ZipOutputStream
 object ExcelExporter {
 
     private val HEADER = listOf("タスク", "担当", "期限", "完了")
+    private val HEADER_WITH_CLIENT = listOf("クライアント", "タスク", "担当", "期限", "完了")
 
     /** シートの行データ(各行 = A列からのセル文字列)を組み立てる。テスト用に公開。 */
     fun buildRows(todos: List<TodoEntity>): List<List<String>> = buildList {
         add(HEADER)
-        todos.forEach { add(listOf(it.task, it.assignee, it.deadline, if (it.isDone) "済" else "")) }
+        todos.forEach { add(rowOf(it)) }
     }
 
+    /** クライアント横断(全クライアントまとめ)版。先頭列に「クライアント」が付く。 */
+    fun buildRowsWithClient(rows: List<TodoWithClient>): List<List<String>> = buildList {
+        add(HEADER_WITH_CLIENT)
+        rows.forEach { add(listOf(it.clientName) + rowOf(it.todo)) }
+    }
+
+    private fun rowOf(todo: TodoEntity): List<String> =
+        listOf(todo.task, todo.assignee, todoDeadlineText(todo), if (todo.isDone) "済" else "")
+
     /** .xlsx(zip)のバイト列を生成する。 */
-    fun buildXlsx(todos: List<TodoEntity>): ByteArray {
-        val rows = buildRows(todos)
+    fun buildXlsx(todos: List<TodoEntity>): ByteArray = buildXlsxFromRows(buildRows(todos))
+
+    /** クライアント横断版の .xlsx。 */
+    fun buildXlsxWithClient(rows: List<TodoWithClient>): ByteArray = buildXlsxFromRows(buildRowsWithClient(rows))
+
+    private fun buildXlsxFromRows(rows: List<List<String>>): ByteArray {
         val sheetData = buildString {
             rows.forEachIndexed { index, cells ->
                 val r = index + 1
@@ -57,10 +71,16 @@ object ExcelExporter {
         return output.toByteArray()
     }
 
-    fun exportToFile(context: Context, fileName: String, todos: List<TodoEntity>): File {
+    fun exportToFile(context: Context, fileName: String, todos: List<TodoEntity>): File =
+        writeFile(context, fileName, buildXlsx(todos))
+
+    fun exportToFileWithClient(context: Context, fileName: String, rows: List<TodoWithClient>): File =
+        writeFile(context, fileName, buildXlsxWithClient(rows))
+
+    private fun writeFile(context: Context, fileName: String, bytes: ByteArray): File {
         val dir = File(context.cacheDir, "exports").apply { mkdirs() }
         val file = File(dir, fileName)
-        FileOutputStream(file).use { it.write(buildXlsx(todos)) }
+        FileOutputStream(file).use { it.write(bytes) }
         return file
     }
 

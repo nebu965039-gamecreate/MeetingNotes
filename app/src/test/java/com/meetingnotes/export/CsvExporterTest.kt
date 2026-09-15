@@ -26,6 +26,20 @@ class CsvExporterTest {
     }
 
     @Test
+    fun `resolved due date is used in place of the relative original text`() {
+        val csv = CsvExporter.buildCsv(
+            listOf(
+                TodoEntity(
+                    id = 1, meetingId = 1, task = "見積書を送付", assignee = "山田",
+                    deadline = "翌日", dueDate = "2026-10-01", isDone = false
+                )
+            )
+        )
+        assertTrue(csv.contains("見積書を送付,山田,2026/10/01,\r\n"))
+        assertTrue(!csv.contains("翌日"))
+    }
+
+    @Test
     fun `fields containing comma or quote are escaped`() {
         val csv = CsvExporter.buildCsv(
             listOf(

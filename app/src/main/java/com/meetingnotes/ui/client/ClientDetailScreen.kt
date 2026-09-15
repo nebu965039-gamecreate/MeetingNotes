@@ -19,6 +19,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -59,6 +62,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -67,6 +71,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,15 +84,25 @@ import com.meetingnotes.data.local.MeetingEntity
 import com.meetingnotes.data.local.TodoEntity
 import com.meetingnotes.data.local.ClientProjectEntity
 import com.meetingnotes.data.model.DealPhase
+import com.meetingnotes.export.CsvExporter
+import com.meetingnotes.export.ExcelExporter
+import com.meetingnotes.export.SaveFileHelper
+import com.meetingnotes.export.ShareFileHelper
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.DealPhaseChip
 import com.meetingnotes.ui.common.DealPhasePickerDialog
 import com.meetingnotes.ui.common.TextInputDialog
+import com.meetingnotes.ui.common.TodoExportDialog
+import com.meetingnotes.ui.common.TodoExportFormat
 import com.meetingnotes.ui.common.effectivePhase
 import com.meetingnotes.ui.theme.CreateActionAmber
+import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val dateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
 
@@ -246,6 +261,7 @@ fun ClientDetailScreen(
        Box(modifier = Modifier.fillMaxSize()) {
        when (selectedTab) {
         1 -> TodoTab(
+            clientId = clientId,
             openTodos = openTodos,
             doneTodos = doneTodos,
             sortOrder = todoSort,
@@ -1301,6 +1317,7 @@ private fun ProjectFormDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TodoTab(
+    clientId: Long,
     openTodos: List<TodoEntity>,
     doneTodos: List<TodoEntity>,
     sortOrder: TodoSortOrder,
@@ -1319,8 +1336,38 @@ private fun TodoTab(
     var editing by remember { mutableStateOf<TodoEntity?>(null) }
     var sortMenu by remember { mutableStateOf(false) }
     var showDeleteAllConfirm by remember { mutableStateOf(false) }
+    var showExport by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val exportScope = rememberCoroutineScope()
+    var pendingSaveFile by remember { mutableStateOf<File?>(null) }
+    val saveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*")
+    ) { uri ->
+        val file = pendingSaveFile
+        if (uri != null && file != null) SaveFileHelper.copyToUri(context, file, uri)
+        pendingSaveFile = null
+    }
+    suspend fun exportTodosFile(format: TodoExportFormat): File =
+        withContext(Dispatchers.IO) {
+            val all = openTodos + doneTodos
+            when (format) {
+                TodoExportFormat.EXCEL -> ExcelExporter.exportToFile(context, "client_${clientId}_todo.xlsx", all)
+                TodoExportFormat.CSV -> CsvExporter.exportToFile(context, "client_${clientId}_todo.csv", all)
+            }
+        }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            TextButton(onClick = { showExport = true }) {
+                Icon(Icons.Filled.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("ToDoを書き出す")
+            }
+        }
         PrimaryTabRow(
             selectedTabIndex = sub,
             containerColor = com.meetingnotes.ui.common.FolderTabDefaults.sheetColor
@@ -1441,6 +1488,27 @@ private fun TodoTab(
             onConfirm = {
                 onDeleteAllDone()
                 showDeleteAllConfirm = false
+            }
+        )
+    }
+    if (showExport) {
+        TodoExportDialog(
+            onDismiss = { showExport = false },
+            onShare = { format ->
+                showExport = false
+                exportScope.launch {
+                    val file = exportTodosFile(format)
+                    val mime = if (format == TodoExportFormat.EXCEL) ExcelExporter.MIME_TYPE else CsvExporter.MIME_TYPE
+                    ShareFileHelper.shareFile(context, file, mime, "ToDoを共有")
+                }
+            },
+            onSave = { format ->
+                showExport = false
+                exportScope.launch {
+                    val file = exportTodosFile(format)
+                    pendingSaveFile = file
+                    saveLauncher.launch(file.name)
+                }
             }
         )
     }

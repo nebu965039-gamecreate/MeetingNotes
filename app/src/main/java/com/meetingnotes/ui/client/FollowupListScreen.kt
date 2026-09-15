@@ -15,16 +15,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -40,12 +44,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meetingnotes.data.MeetingRepository
+import com.meetingnotes.export.CsvExporter
+import com.meetingnotes.export.ExcelExporter
+import com.meetingnotes.export.SaveFileHelper
+import com.meetingnotes.export.ShareFileHelper
+import com.meetingnotes.export.TodoWithClient
 import com.meetingnotes.ui.common.ConfirmDialog
 import com.meetingnotes.ui.common.FolderTab
 import com.meetingnotes.ui.common.FolderTabRow
@@ -53,9 +64,15 @@ import com.meetingnotes.ui.common.LabeledDropdownField
 import com.meetingnotes.ui.common.NextMeetingDateTimeDialog
 import com.meetingnotes.ui.common.TabTopBar
 import com.meetingnotes.ui.common.TodoDueFilter
+import com.meetingnotes.ui.common.TodoExportDialog
+import com.meetingnotes.ui.common.TodoExportFormat
 import com.meetingnotes.ui.common.TodoNotifyButton
 import com.meetingnotes.ui.common.TodoRow
 import com.meetingnotes.ui.common.TodoRowData
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +95,26 @@ fun FollowupListScreen(
     var tab by remember { mutableIntStateOf(0) }
     var showDeleteAllConfirm by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(false) }
+    var showExport by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val exportScope = rememberCoroutineScope()
+    var pendingSaveFile by remember { mutableStateOf<File?>(null) }
+    val saveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*")
+    ) { uri ->
+        val file = pendingSaveFile
+        if (uri != null && file != null) SaveFileHelper.copyToUri(context, file, uri)
+        pendingSaveFile = null
+    }
+    suspend fun exportTodosFile(format: TodoExportFormat): File =
+        withContext(Dispatchers.IO) {
+            val all = (open + done).map { TodoWithClient(it.clientName, it.todo) }
+            when (format) {
+                TodoExportFormat.EXCEL -> ExcelExporter.exportToFileWithClient(context, "todo_all.xlsx", all)
+                TodoExportFormat.CSV -> CsvExporter.exportToFileWithClient(context, "todo_all.csv", all)
+            }
+        }
 
     LaunchedEffect(initialFilter) {
         if (initialFilter != null) {
@@ -88,7 +125,16 @@ fun FollowupListScreen(
 
     Scaffold(
         topBar = {
-            TabTopBar(icon = Icons.Filled.CheckCircle, title = "ToDo", onHome = onHome)
+            TabTopBar(
+                icon = Icons.Filled.CheckCircle,
+                title = "ToDo",
+                onHome = onHome,
+                actions = {
+                    IconButton(onClick = { showExport = true }) {
+                        Icon(Icons.Filled.FileDownload, contentDescription = "ToDoを書き出す")
+                    }
+                }
+            )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
@@ -183,6 +229,27 @@ fun FollowupListScreen(
             onConfirm = { clientId, task, dueDate ->
                 viewModel.addManualTodo(clientId, task, dueDate)
                 showAdd = false
+            }
+        )
+    }
+    if (showExport) {
+        TodoExportDialog(
+            onDismiss = { showExport = false },
+            onShare = { format ->
+                showExport = false
+                exportScope.launch {
+                    val file = exportTodosFile(format)
+                    val mime = if (format == TodoExportFormat.EXCEL) ExcelExporter.MIME_TYPE else CsvExporter.MIME_TYPE
+                    ShareFileHelper.shareFile(context, file, mime, "ToDoを共有")
+                }
+            },
+            onSave = { format ->
+                showExport = false
+                exportScope.launch {
+                    val file = exportTodosFile(format)
+                    pendingSaveFile = file
+                    saveLauncher.launch(file.name)
+                }
             }
         )
     }
