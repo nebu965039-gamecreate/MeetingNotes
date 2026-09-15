@@ -51,6 +51,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -91,6 +92,8 @@ import com.meetingnotes.ui.common.ProGate
 import com.meetingnotes.ui.common.ProPaywallDialog
 import com.meetingnotes.ui.common.TextInputDialog
 import com.meetingnotes.ui.common.effectivePhase
+import com.meetingnotes.ui.theme.BrandNavy
+import com.meetingnotes.ui.theme.OnBrandNavy
 import com.meetingnotes.ui.theme.OnProGold
 import com.meetingnotes.ui.theme.ProGold
 import com.meetingnotes.ui.common.NextMeetingDateTimeDialog
@@ -184,7 +187,14 @@ fun MeetingDetailScreen(
                             }
                         )
                     }
-                }
+                },
+                // 他画面のヘッダーと統一(2026-09-21〜。旧: 未指定でM3既定の白背景のままだった)。
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = BrandNavy,
+                    titleContentColor = OnBrandNavy,
+                    navigationIconContentColor = OnBrandNavy,
+                    actionIconContentColor = OnBrandNavy
+                )
             )
         }
     ) { padding ->

@@ -1,6 +1,7 @@
 package com.meetingnotes.ui.result
 
 import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -87,12 +88,41 @@ fun ResultScreen(
         )
     }
 
+    // 要約済み(Success)だがまだ保存していない状態で戻ると、結果が失われ、次に見るには
+    // もう一度要約(=クレジットを再消費)する必要がある。戻る操作(ヘッダーのアイコン・システム
+    // バック両方)をこの状態のときだけ横取りして警告する(2026-09-21〜。旧: 無警告でそのまま
+    // popBackStackしており、意図せずクレジットを無駄にする経路になっていた)。
+    var showUnsavedWarning by remember { mutableStateOf(false) }
+    val handleBack: () -> Unit = {
+        if (state is SummaryUiState.Success) showUnsavedWarning = true else onBack()
+    }
+    BackHandler(enabled = state is SummaryUiState.Success) { showUnsavedWarning = true }
+
+    if (showUnsavedWarning) {
+        AlertDialog(
+            onDismissRequest = { showUnsavedWarning = false },
+            title = { Text("要約結果はまだ保存されていません") },
+            text = {
+                Text(
+                    "ここで戻ると、この要約結果は失われます。次に見るにはもう一度要約する" +
+                        "必要があり、AI要約のクレジットを再度消費します。よろしいですか?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showUnsavedWarning = false; onBack() }) { Text("戻る") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUnsavedWarning = false }) { Text("キャンセル") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("要約結果") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = handleBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                     }
                 },

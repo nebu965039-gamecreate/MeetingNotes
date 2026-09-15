@@ -39,6 +39,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -59,6 +60,8 @@ import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.data.backup.BackupManager
 import com.meetingnotes.notifications.NotificationHelper
 import com.meetingnotes.ui.common.ProPaywallDialog
+import com.meetingnotes.ui.theme.BrandNavy
+import com.meetingnotes.ui.theme.OnBrandNavy
 import com.meetingnotes.ui.theme.ThemeMode
 import java.time.LocalDate
 
@@ -128,7 +131,13 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                     }
-                }
+                },
+                // 他画面のヘッダーと統一(2026-09-21〜。旧: 未指定でM3既定の白背景のままだった)。
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = BrandNavy,
+                    titleContentColor = OnBrandNavy,
+                    navigationIconContentColor = OnBrandNavy
+                )
             )
         },
         bottomBar = { BannerAdView(Modifier.navigationBarsPadding()) }

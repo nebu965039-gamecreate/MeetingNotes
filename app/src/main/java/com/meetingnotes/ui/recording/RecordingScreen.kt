@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,6 +41,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -83,6 +85,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.meetingnotes.ads.BannerAdView
 import com.meetingnotes.data.remote.AnthropicClient
 import com.meetingnotes.ui.MeetingViewModel
 import com.meetingnotes.ui.RecordingPhase
@@ -232,6 +235,15 @@ fun RecordingScreen(
                     navigationIconContentColor = OnBrandNavy
                 )
             )
+        },
+        // 文字起こし編集画面(Editing)だけ下部に広告を出す(2026-09-21〜)。
+        // 「キャンセルボタンの下に使われない余白がある」というフィードバックを受けて追加
+        // (テキスト欄は残りの高さいっぱいに広げたので、ここは純粋な追加スペースの有効活用)。
+        // 録音中・カウントダウン等では表示しない(誤タップ・気が散るのを避けるため)。
+        bottomBar = {
+            if (phase == RecordingPhase.Editing) {
+                BannerAdView(Modifier.navigationBarsPadding())
+            }
         }
     ) { padding ->
         if (permissionDenied) {
@@ -254,6 +266,7 @@ fun RecordingScreen(
 
             RecordingPhase.Recording -> RecordingContent(
                 liveTranscript = liveTranscript,
+                isRemote = viewModel.currentMeetingType() == com.meetingnotes.data.model.MeetingType.REMOTE,
                 audioLevel = audioLevel,
                 errorMessage = errorMessage,
                 elapsedMs = recordingElapsedMs,
@@ -432,7 +445,7 @@ private fun RecordingModePicker(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("対面: 端末内で文字起こし（音声は端末外に出ません）", style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    "リモート会議: スピーカー越しの相手の声も高精度で文字起こし（Pro / 無料は月1回）",
+                    "リモート会議: スピーカー越しの相手の声も高精度で文字起こし（Pro は月30時間ぶん / 無料は月45分）",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -559,6 +572,7 @@ private fun CountdownContent(secondsLeft: Int, modifier: Modifier = Modifier) {
 @Composable
 private fun RecordingContent(
     liveTranscript: String,
+    isRemote: Boolean,
     audioLevel: Float,
     errorMessage: String?,
     elapsedMs: Long,
@@ -613,28 +627,64 @@ private fun RecordingContent(
             )
         }
 
-        // 文字起こしは残りの高さいっぱいに広げ、はみ出したぶんは内部スクロールで見る。
-        // 新しい行が来るたび自動で最下部へ追従させる(停止ボタンは常に画面下部に残る)。
-        val transcriptScroll = rememberScrollState()
-        LaunchedEffect(liveTranscript) {
-            transcriptScroll.animateScrollTo(transcriptScroll.maxValue)
-        }
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-        ) {
-            Text(
-                text = liveTranscript.ifBlank { "(話し始めると文字起こしが表示されます)" },
-                style = MaterialTheme.typography.bodyLarge,
+        if (isRemote) {
+            // リモート会議モードは音声ファイルを録音するだけで、停止するまで文字起こしは
+            // 行われない(オンデバイスのライブ文字起こしが効く対面モードとは仕組みが異なる)。
+            // 「話し始めると文字起こしが表示されます」は対面モード向けの文言で、リモートでは
+            // 録音中ずっと何も表示されず誤解を招くため、別のデザイン・文言で明示する
+            // (2026-09-21〜。旧: 対面と同じライブ文字起こし風のボックスを流用していた)。
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(transcriptScroll)
-                    .padding(12.dp)
-            )
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Filled.CloudUpload,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = "リモート会議モードでは、停止後にまとめて文字起こしされます。" +
+                            "録音中はこのまま会話を続けてください。",
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            // 対面モードは端末内でライブに文字起こしされる。残りの高さいっぱいに広げ、
+            // はみ出したぶんは内部スクロールで見る。新しい行が来るたび自動で最下部へ追従させる
+            // (停止ボタンは常に画面下部に残る)。
+            val transcriptScroll = rememberScrollState()
+            LaunchedEffect(liveTranscript) {
+                transcriptScroll.animateScrollTo(transcriptScroll.maxValue)
+            }
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                Text(
+                    text = liveTranscript.ifBlank { "(話し始めると文字起こしが表示されます)" },
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(transcriptScroll)
+                        .padding(12.dp)
+                )
+            }
         }
 
         SlideToStop(onStop = onStop)
@@ -776,12 +826,14 @@ private fun EditingContent(
             Text(text = it, color = MaterialTheme.colorScheme.error)
         }
 
+        // 残りの高さいっぱいに広げる(2026-09-21〜。旧: 固定240dpで、下の「キャンセル」ボタンの
+        // 下に使われない余白ができていた)。
         OutlinedTextField(
             value = editableTranscript,
             onValueChange = onTranscriptChange,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(240.dp),
+                .weight(1f),
             label = { Text("文字起こしテキスト(誤字修正可)") }
         )
 
