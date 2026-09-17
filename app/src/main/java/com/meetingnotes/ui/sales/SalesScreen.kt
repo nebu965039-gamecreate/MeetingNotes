@@ -86,7 +86,13 @@ fun SalesReportTab(repository: MeetingRepository, modifier: Modifier = Modifier)
                     SegmentedButton(
                         selected = p == period,
                         onClick = { viewModel.setPeriod(p) },
-                        shape = SegmentedButtonDefaults.itemShape(index, SalesPeriod.entries.size)
+                        shape = SegmentedButtonDefaults.itemShape(index, SalesPeriod.entries.size),
+                        // M3既定の選択色(secondaryContainer、紫)がテーマと合わないため青に統一(2026-09-18)。
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = AnalyticsChartColors.bar(darkTheme),
+                            activeContentColor = Color.White,
+                            activeBorderColor = AnalyticsChartColors.bar(darkTheme)
+                        )
                     ) { Text(p.label) }
                 }
             }

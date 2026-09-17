@@ -1358,16 +1358,6 @@ private fun TodoTab(
         }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.End
-        ) {
-            TextButton(onClick = { showExport = true }) {
-                Icon(Icons.Filled.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("ToDoを書き出す")
-            }
-        }
         PrimaryTabRow(
             selectedTabIndex = sub,
             containerColor = com.meetingnotes.ui.common.FolderTabDefaults.sheetColor
@@ -1397,10 +1387,12 @@ private fun TodoTab(
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = { showAdd = true }) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("ToDoを追加")
+                // アイコンのみのボタンに変更(2026-09-18): テキスト付きだと2つ並べたときに横幅を取りすぎるため。
+                IconButton(onClick = { showExport = true }) {
+                    Icon(Icons.Filled.FileDownload, contentDescription = "ToDoを書き出す")
+                }
+                IconButton(onClick = { showAdd = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = "ToDoを追加")
                 }
             }
         }

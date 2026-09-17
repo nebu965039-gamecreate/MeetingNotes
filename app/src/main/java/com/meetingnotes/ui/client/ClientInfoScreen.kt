@@ -100,114 +100,120 @@ fun ClientInfoContent(
 
         if (projects.isNotEmpty()) {
             Text("案件", style = MaterialTheme.typography.titleMedium)
-            projects.forEach { p ->
-                val cur = com.meetingnotes.util.Currency.of(p.currency)
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                p.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            com.meetingnotes.data.model.DealPhase.fromWire(p.phase)?.let {
-                                Spacer(Modifier.width(6.dp))
-                                DealPhaseChip(phase = it)
-                            }
-                        }
-                        Text(
-                            "見積 " + com.meetingnotes.util.formatMoney(p.estimatedAmount, cur) +
-                                " ・ 成約 " + com.meetingnotes.util.formatMoney(p.wonAmount, cur),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (com.meetingnotes.data.model.DealPhase.fromWire(p.phase) ==
-                            com.meetingnotes.data.model.DealPhase.LOST && !p.lostReason.isNullOrBlank()
-                        ) {
-                            Text(
-                                "失注理由: ${p.lostReason}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        val ph = com.meetingnotes.data.model.DealPhase.fromWire(p.phase)
-                        if (ph?.isActive != false) {
-                            val prob = p.probability ?: ph?.defaultProbability
-                            val bits = buildList {
-                                if (prob != null) add("確度 ${prob}%")
-                                p.expectedCloseAt?.let {
-                                    val d = java.time.Instant.ofEpochMilli(it)
-                                        .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                                    add("想定クローズ ${d.monthValue}/${d.dayOfMonth}")
+            // 各案件・合計行とも1枚の白背景カードにまとめる(2026-09-18): 従来は案件ごとに個別カードだった一方、
+            // 合計行はカード無しでページ地(ティール)に直接乗っており「金額が見づらい」というフィードバックを受けた。
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    projects.forEachIndexed { index, p ->
+                        if (index > 0) HorizontalDivider()
+                        val cur = com.meetingnotes.util.Currency.of(p.currency)
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    p.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                com.meetingnotes.data.model.DealPhase.fromWire(p.phase)?.let {
+                                    Spacer(Modifier.width(6.dp))
+                                    DealPhaseChip(phase = it)
                                 }
                             }
-                            if (bits.isNotEmpty()) {
+                            Text(
+                                "見積 " + com.meetingnotes.util.formatMoney(p.estimatedAmount, cur) +
+                                    " ・ 成約 " + com.meetingnotes.util.formatMoney(p.wonAmount, cur),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (com.meetingnotes.data.model.DealPhase.fromWire(p.phase) ==
+                                com.meetingnotes.data.model.DealPhase.LOST && !p.lostReason.isNullOrBlank()
+                            ) {
                                 Text(
-                                    bits.joinToString(" ・ "),
+                                    "失注理由: ${p.lostReason}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            val ph = com.meetingnotes.data.model.DealPhase.fromWire(p.phase)
+                            if (ph?.isActive != false) {
+                                val prob = p.probability ?: ph?.defaultProbability
+                                val bits = buildList {
+                                    if (prob != null) add("確度 ${prob}%")
+                                    p.expectedCloseAt?.let {
+                                        val d = java.time.Instant.ofEpochMilli(it)
+                                            .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                                        add("想定クローズ ${d.monthValue}/${d.dayOfMonth}")
+                                    }
+                                }
+                                if (bits.isNotEmpty()) {
+                                    Text(
+                                        bits.joinToString(" ・ "),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
                     }
-                }
-            }
-            // 通貨ごとの合計
-            projects.groupBy { it.currency }.forEach { (code, list) ->
-                val cur = com.meetingnotes.util.Currency.of(code)
-                val est = list.mapNotNull { it.estimatedAmount }.sum()
-                val won = list.mapNotNull { it.wonAmount }.sum()
-                Text(
-                    "合計 (${cur.code}): 見積 ${com.meetingnotes.util.formatMoney(est, cur)} ・ 成約 ${com.meetingnotes.util.formatMoney(won, cur)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        Text("担当者", style = MaterialTheme.typography.titleMedium)
-        if (contacts.isEmpty()) {
-            Text(
-                "登録されていません。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            contacts.forEach { contact ->
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            contact.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                        contact.note?.takeIf { it.isNotBlank() }?.let {
+                    HorizontalDivider()
+                    // 通貨ごとの合計
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        projects.groupBy { it.currency }.forEach { (code, list) ->
+                            val cur = com.meetingnotes.util.Currency.of(code)
+                            val est = list.mapNotNull { it.estimatedAmount }.sum()
+                            val won = list.mapNotNull { it.wonAmount }.sum()
                             Text(
-                                it,
+                                "合計 (${cur.code}): 見積 ${com.meetingnotes.util.formatMoney(est, cur)} ・ 成約 ${com.meetingnotes.util.formatMoney(won, cur)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        SelectionContainer {
-                            Column {
-                                contact.email?.takeIf { it.isNotBlank() }?.let {
-                                    Text("✉ $it", style = MaterialTheme.typography.bodyMedium)
-                                }
-                                contact.phone?.takeIf { it.isNotBlank() }?.let {
-                                    Text("☎ $it", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
+
+        Text("担当者", style = MaterialTheme.typography.titleMedium)
+        // 担当者も案件と同じく1枚の白背景カードにまとめる(2026-09-18、未登録時の案内文もカード内に)。
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (contacts.isEmpty()) {
+                    Text(
+                        "登録されていません。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    contacts.forEachIndexed { index, contact ->
+                        if (index > 0) HorizontalDivider()
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                contact.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            contact.note?.takeIf { it.isNotBlank() }?.let {
+                                Text(
+                                    it,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            SelectionContainer {
+                                Column {
+                                    contact.email?.takeIf { it.isNotBlank() }?.let {
+                                        Text("✉ $it", style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                    contact.phone?.takeIf { it.isNotBlank() }?.let {
+                                        Text("☎ $it", style = MaterialTheme.typography.bodyMedium)
+                                    }
                                 }
                             }
                         }
@@ -217,11 +223,18 @@ fun ClientInfoContent(
         }
 
         Text("備考", style = MaterialTheme.typography.titleMedium)
-        SelectionContainer {
-            Text(
-                c?.memo?.takeIf { it.isNotBlank() } ?: "（なし）",
-                style = MaterialTheme.typography.bodyMedium
-            )
+        // 備考は従来カード無しでページ地に直接テキストが乗っており見づらかったため白背景カード化(2026-09-18)。
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            SelectionContainer {
+                Text(
+                    c?.memo?.takeIf { it.isNotBlank() } ?: "（なし）",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(14.dp)
+                )
+            }
         }
         Spacer(Modifier.height(72.dp))
     }

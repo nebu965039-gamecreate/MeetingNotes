@@ -126,6 +126,7 @@ fun AnalyticsScreen(repository: MeetingRepository, onHome: () -> Unit) {
                         stats,
                         period = followPeriod,
                         onSetPeriod = viewModel::setFollowPeriod,
+                        periodColor = AnalyticsChartColors.bar(darkTheme),
                         todoColor = AnalyticsChartColors.followTodo(darkTheme),
                         emailColor = AnalyticsChartColors.followEmail(darkTheme),
                         modifier = contentMod
@@ -389,6 +390,7 @@ private fun FollowTab(
     stats: FollowStats?,
     period: SalesPeriod,
     onSetPeriod: (SalesPeriod) -> Unit,
+    periodColor: Color,
     todoColor: Color,
     emailColor: Color,
     modifier: Modifier
@@ -401,7 +403,13 @@ private fun FollowTab(
                 SegmentedButton(
                     selected = p == period,
                     onClick = { onSetPeriod(p) },
-                    shape = SegmentedButtonDefaults.itemShape(index, SalesPeriod.entries.size)
+                    shape = SegmentedButtonDefaults.itemShape(index, SalesPeriod.entries.size),
+                    // M3既定の選択色(secondaryContainer、紫)がテーマと合わないため青に統一(2026-09-18)。
+                    colors = SegmentedButtonDefaults.colors(
+                        activeContainerColor = periodColor,
+                        activeContentColor = Color.White,
+                        activeBorderColor = periodColor
+                    )
                 ) { Text(p.label) }
             }
         }

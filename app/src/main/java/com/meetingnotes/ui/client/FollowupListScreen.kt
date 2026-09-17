@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -48,9 +49,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.data.MeetingRepository
 import com.meetingnotes.export.CsvExporter
 import com.meetingnotes.export.ExcelExporter
@@ -69,6 +72,8 @@ import com.meetingnotes.ui.common.TodoExportFormat
 import com.meetingnotes.ui.common.TodoNotifyButton
 import com.meetingnotes.ui.common.TodoRow
 import com.meetingnotes.ui.common.TodoRowData
+import com.meetingnotes.ui.theme.AnalyticsChartColors
+import com.meetingnotes.ui.theme.ThemeMode
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -128,12 +133,7 @@ fun FollowupListScreen(
             TabTopBar(
                 icon = Icons.Filled.CheckCircle,
                 title = "ToDo",
-                onHome = onHome,
-                actions = {
-                    IconButton(onClick = { showExport = true }) {
-                        Icon(Icons.Filled.FileDownload, contentDescription = "ToDoを書き出す")
-                    }
-                }
+                onHome = onHome
             )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
@@ -166,6 +166,7 @@ fun FollowupListScreen(
                     TodoListToolRow(
                         sortOrder = sortOrder,
                         onSortChange = { viewModel.setSortOrder(it) },
+                        onExportClick = { showExport = true },
                         onAddClick = { showAdd = true }
                     )
                     TodoItemList(
@@ -255,11 +256,12 @@ fun FollowupListScreen(
     }
 }
 
-/** ToDo タブ直下のツール行(並び替え + 追加)。クライアント詳細の ToDo タブと同じ配置・見た目。 */
+/** ToDo タブ直下のツール行(並び替え + 書き出し + 追加)。クライアント詳細の ToDo タブと同じ配置・見た目。 */
 @Composable
 private fun TodoListToolRow(
     sortOrder: TodoSortOrder,
     onSortChange: (TodoSortOrder) -> Unit,
+    onExportClick: () -> Unit,
     onAddClick: () -> Unit
 ) {
     var sortMenu by remember { mutableStateOf(false) }
@@ -283,10 +285,13 @@ private fun TodoListToolRow(
             }
         }
         Spacer(Modifier.weight(1f))
-        TextButton(onClick = onAddClick) {
-            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(4.dp))
-            Text("ToDoを追加")
+        // アイコンのみのボタンに変更(2026-09-18): 書き出しをヘッダーからここへ移設し、
+        // テキスト付きだと2つ並べたときに横幅を取りすぎるため両方アイコンのみに揃えた。
+        IconButton(onClick = onExportClick) {
+            Icon(Icons.Filled.FileDownload, contentDescription = "ToDoを書き出す")
+        }
+        IconButton(onClick = onAddClick) {
+            Icon(Icons.Filled.Add, contentDescription = "ToDoを追加")
         }
     }
 }
@@ -357,6 +362,13 @@ private fun GlobalTodoAddDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TodoDueFilterRow(selected: TodoDueFilter, onSelect: (TodoDueFilter) -> Unit) {
+    val app = LocalContext.current.applicationContext as MeetingNotesApp
+    val darkTheme = when (app.themeModeState.value) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+    val periodColor = AnalyticsChartColors.bar(darkTheme)
     SingleChoiceSegmentedButtonRow(
         modifier = Modifier
             .fillMaxWidth()
@@ -366,7 +378,13 @@ private fun TodoDueFilterRow(selected: TodoDueFilter, onSelect: (TodoDueFilter) 
             SegmentedButton(
                 selected = selected == filter,
                 onClick = { onSelect(filter) },
-                shape = SegmentedButtonDefaults.itemShape(index, TodoDueFilter.entries.size)
+                shape = SegmentedButtonDefaults.itemShape(index, TodoDueFilter.entries.size),
+                // M3既定の選択色(secondaryContainer、紫)がテーマと合わないため青に統一(2026-09-18)。
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = periodColor,
+                    activeContentColor = Color.White,
+                    activeBorderColor = periodColor
+                )
             ) { Text(filter.label) }
         }
     }
