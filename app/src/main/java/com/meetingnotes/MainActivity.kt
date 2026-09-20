@@ -12,6 +12,7 @@ import com.meetingnotes.ui.MeetingNotesNavHost
 import com.meetingnotes.ui.theme.ThemeMode
 import com.meetingnotes.ui.theme.navyDarkColorScheme
 import com.meetingnotes.ui.theme.navyLightColorScheme
+import com.meetingnotes.widget.TodayWidgetProvider
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,5 +38,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // 別端末での購入・解約・払い戻しに追従する。
         (application as MeetingNotesApp).billingManager.refreshPurchases()
+        // アプリ内で予定・ToDoを更新してホーム画面に戻ったときに、ウィジェットの自動更新(最短30分)を
+        // 待たずに最新化する。ウィジェットが追加されていなければ内部で何もしない。
+        TodayWidgetProvider.requestUpdate(this)
     }
 }

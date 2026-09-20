@@ -319,6 +319,10 @@ class MeetingRepository(
     suspend fun getTodosDueOn(date: String): List<com.meetingnotes.data.local.OpenTodo> =
         todoDao.getTodosDueOn(date)
 
+    /** 指定日「まで」(当日+期限切れ)の未完了 ToDo(ホーム画面ウィジェット用)。 */
+    suspend fun getTodosDueOnOrBefore(date: String): List<com.meetingnotes.data.local.OpenTodo> =
+        todoDao.getTodosDueOnOrBefore(date)
+
     suspend fun getTodo(todoId: Long): TodoEntity? = todoDao.getById(todoId)
 
     /** ToDo 一件の通知予約日時を設定(null で解除)。実際の WorkManager 登録/解除は呼び出し側で行う。 */

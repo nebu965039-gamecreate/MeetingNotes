@@ -40,6 +40,19 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- ホーム画面ウィジェット: 「本日の予定」+「今日までのToDo」(2026-09-20)。 -->
+        <receiver
+            android:name=".widget.TodayWidgetProvider"
+            android:exported="false"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_widget_info" />
+        </receiver>
     </application>
 
 </manifest>

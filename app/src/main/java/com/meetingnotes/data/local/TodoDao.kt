@@ -91,4 +91,21 @@ interface TodoDao {
         """
     )
     suspend fun getTodosDueOn(date: String): List<OpenTodo>
+
+    /**
+     * 指定日「まで」(当日+期限切れ)が期限の未完了 ToDo(ウィジェット用、Flow でなく suspend)。
+     * `dueDate` は ISO yyyy-MM-dd のため文字列の `<=` 比較で日付順序と一致する。
+     */
+    @Query(
+        """
+        SELECT t.id AS todoId, t.meetingId AS meetingId, t.task AS task, t.assignee AS assignee,
+               t.deadline AS deadline, t.dueDate AS dueDate, t.isDone AS isDone,
+               t.clientId AS clientId, c.name AS clientName
+        FROM todos t
+        INNER JOIN clients c ON c.id = t.clientId
+        WHERE t.isDone = 0 AND t.dueDate IS NOT NULL AND t.dueDate <= :date
+        ORDER BY t.dueDate ASC
+        """
+    )
+    suspend fun getTodosDueOnOrBefore(date: String): List<OpenTodo>
 }

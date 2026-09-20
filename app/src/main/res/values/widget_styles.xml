@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ウィジェットの予定/ToDo各行の共通スタイル。1行に収め、はみ出す場合は末尾を省略。 -->
+    <style name="WidgetItemText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:textColor">@color/widget_on_background</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
+    <!-- 「+N件」「予定はありません」等の控えめな行。 -->
+    <style name="WidgetItemTextDim" parent="WidgetItemText">
+        <item name="android:textColor">@color/widget_on_background_dim</item>
+    </style>
+</resources>

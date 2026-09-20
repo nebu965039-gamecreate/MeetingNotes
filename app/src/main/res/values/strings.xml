@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SecretAlly</string>
+    <string name="widget_description">本日の予定と今日までのToDoを表示します。</string>
 </resources>
