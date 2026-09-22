@@ -14,6 +14,8 @@ import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
 import com.meetingnotes.ads.AppOpenAdController
 import com.meetingnotes.ads.RecordingScreenGuard
+import com.meetingnotes.analytics.AnalyticsPrefs
+import com.meetingnotes.analytics.AppAnalytics
 import com.meetingnotes.billing.BillingManager
 import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.data.MeetingRepository
@@ -61,6 +63,16 @@ class MeetingNotesApp : Application() {
 
     private val themePrefs: ThemePrefs by lazy { ThemePrefs(this) }
 
+    private val analyticsPrefs: AnalyticsPrefs by lazy { AnalyticsPrefs(this) }
+
+    /** 利用状況データ送信(Analytics/Crashlytics)のON/OFF。設定画面から呼ぶ。 */
+    fun setAnalyticsEnabled(enabled: Boolean) {
+        analyticsPrefs.enabled = enabled
+        AppAnalytics.setCollectionEnabled(enabled)
+    }
+
+    fun isAnalyticsEnabled(): Boolean = analyticsPrefs.enabled
+
     /** アプリ全体のテーマ(ライト/ダーク/端末設定)。Compose の状態として持ちどの画面からでも即時反映する。 */
     val themeModeState: MutableState<ThemeMode> by lazy { mutableStateOf(themePrefs.mode) }
 
@@ -93,6 +105,11 @@ class MeetingNotesApp : Application() {
         super.onCreate()
 
         DiagnosticsLog.init(this)
+
+        // Firebase Analytics / Crashlytics(2026-09-23〜)。google-services.json 未配置なら
+        // BuildConfig.FIREBASE_ENABLED=false で AppAnalytics 側が no-op になる。
+        AppAnalytics.init(this)
+        AppAnalytics.setCollectionEnabled(analyticsPrefs.enabled)
 
         // 前回の録音中にプロセスが落ちてメディア音量が 0 のままなら戻す。
         restoreLeftoverMediaVolume(this)

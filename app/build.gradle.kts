@@ -7,6 +7,20 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Firebase Crashlytics / Analytics(2026-09-23〜)。google-services.json は Firebase Console から
+// プロジェクトごとに個別ダウンロードするローカル専用ファイル(.gitignore対象、keystore.properties と同様の
+// 扱い)。この2プラグインは google-services.json の中身(アプリID等)をビルド時に読み込むため、
+// ファイルが無い環境(json未取得の開発者・CI)でビルドが壊れないよう、存在するときだけ適用する。
+// firebase-crashlytics/firebase-analytics の依存自体は(AppAnalytics.kt がコンパイル時に参照できるよう)
+// json の有無に関わらず常に含める — Firebase SDK は未設定(google-services.xml が無い)ときは
+// FirebaseApp の自動初期化を静かに諦める設計のため、json 未配置でもクラッシュはしない
+// (BuildConfig.FIREBASE_ENABLED で自前コードからの呼び出しはさらに確実にガードする、下記参照)。
+val hasGoogleServicesJson = file("google-services.json").exists()
+if (hasGoogleServicesJson) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) {
@@ -111,6 +125,12 @@ android {
             (localProperties.getProperty("PRO_GATING_ENABLED") ?: "false").toBoolean()
         logger.lifecycle("Pro gating: ${if (proGatingEnabled) "ON" else "OFF"}")
         buildConfigField("Boolean", "PRO_GATING_ENABLED", "$proGatingEnabled")
+
+        // --- Firebase (Analytics / Crashlytics) ---
+        // google-services.json 未配置のビルドでは AppAnalytics/MeetingNotesApp が Firebase の
+        // API を一切呼ばないようにするフラグ。
+        logger.lifecycle("Firebase: ${if (hasGoogleServicesJson) "有効" else "google-services.json 未配置のため無効"}")
+        buildConfigField("Boolean", "FIREBASE_ENABLED", "$hasGoogleServicesJson")
     }
 
     signingConfigs {
@@ -178,6 +198,9 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.pdfbox.android)
     implementation(libs.billing)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
 
     debugImplementation(libs.androidx.ui.tooling)
 

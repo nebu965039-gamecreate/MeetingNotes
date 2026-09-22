@@ -73,6 +73,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
     val app = context.applicationContext as MeetingNotesApp
     val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(application))
     val remindersEnabled by viewModel.remindersEnabled.collectAsState()
+    val analyticsEnabled by viewModel.analyticsEnabled.collectAsState()
     val themeMode = app.themeModeState.value
 
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -167,6 +168,28 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                             )
                         }
                         Switch(checked = remindersEnabled, onCheckedChange = toggleReminders)
+                    }
+                }
+            }
+
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("利用状況データを送信", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "アプリの改善のため、クラッシュ情報や機能の利用状況を送信します。" +
+                                    "商談内容や音声・クライアント情報は含みません。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(checked = analyticsEnabled, onCheckedChange = viewModel::setAnalyticsEnabled)
                     }
                 }
             }

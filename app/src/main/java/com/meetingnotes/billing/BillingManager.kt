@@ -3,6 +3,7 @@ package com.meetingnotes.billing
 import android.app.Activity
 import android.content.Context
 import android.util.Log
+import com.meetingnotes.analytics.AppAnalytics
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
@@ -157,6 +158,9 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
         client.acknowledgePurchase(params) { result ->
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
                 Log.w(TAG, "acknowledge failed: ${result.responseCode}")
+            } else {
+                // 未確認(＝初回)の購入だけがここに来るため、再起動時の再配信等での重複送信は起きない。
+                AppAnalytics.logEvent("pro_subscribed")
             }
         }
     }

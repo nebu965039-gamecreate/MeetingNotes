@@ -16,6 +16,10 @@ keystore.properties
 *.jks
 *.keystore
 
+# Firebase(Crashlytics/Analytics)。Firebase Console からプロジェクトごとに個別ダウンロードする
+# ローカル専用ファイル(公開リポジトリのため、プロジェクト識別子を含むこのファイルはコミットしない)。
+app/google-services.json
+
 # デザイン作業用のスクショ(コミットしない)
 docs/design/screens/
 

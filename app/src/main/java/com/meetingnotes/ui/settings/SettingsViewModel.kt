@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.meetingnotes.MeetingNotesApp
+import com.meetingnotes.analytics.AnalyticsPrefs
 import com.meetingnotes.data.backup.BackupManager
 import com.meetingnotes.notifications.ReminderPrefs
 import com.meetingnotes.notifications.ReminderScheduler
@@ -24,6 +25,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private val _remindersEnabled = MutableStateFlow(reminderPrefs.enabled)
     val remindersEnabled: StateFlow<Boolean> = _remindersEnabled.asStateFlow()
+
+    private val analyticsPrefs = AnalyticsPrefs(application)
+
+    private val _analyticsEnabled = MutableStateFlow(analyticsPrefs.enabled)
+    val analyticsEnabled: StateFlow<Boolean> = _analyticsEnabled.asStateFlow()
+
+    fun setAnalyticsEnabled(enabled: Boolean) {
+        _analyticsEnabled.value = enabled
+        (getApplication<Application>() as MeetingNotesApp).setAnalyticsEnabled(enabled)
+    }
 
     /** バックアップ/復元の進行・結果。 */
     sealed interface BackupState {

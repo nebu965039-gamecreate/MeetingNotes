@@ -5,6 +5,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.meetingnotes.MeetingNotesApp
+import com.meetingnotes.analytics.AppAnalytics
 import com.meetingnotes.ads.InterstitialAdController
 import com.meetingnotes.ads.RewardedAdController
 import com.meetingnotes.billing.ProAccess
@@ -467,6 +468,11 @@ class MeetingViewModel(application: Application) : AndroidViewModel(application)
         draftStore.clear()
         recordedAudioFile?.delete()
         recordedAudioFile = null
+
+        AppAnalytics.logEvent(
+            "meeting_saved",
+            mapOf("meeting_type" to meetingType.name)
+        )
 
         _postSavePrompt.value = buildPostSavePrompt(targetClientId, state.summary.dealPhase, clientName)
         _savedClientId.value = targetClientId
