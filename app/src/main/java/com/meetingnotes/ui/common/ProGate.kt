@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.meetingnotes.BuildConfig
 import com.meetingnotes.MeetingNotesApp
 import com.meetingnotes.billing.ProAccess
 import com.meetingnotes.ui.theme.OnProGold
@@ -130,7 +131,14 @@ fun ProPaywallDialog(featureName: String, onDismiss: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp)
                     )
-                    if (product == null) {
+                    if (BuildConfig.BETA_FREE_ONLY) {
+                        Text(
+                            "現在はテスト版のため、Pro へのご登録は行えません。無料版の範囲でお試しください。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    } else if (product == null) {
                         Text(
                             "現在ご登録いただけません。しばらくしてからお試しください。",
                             style = MaterialTheme.typography.bodySmall,
@@ -142,7 +150,7 @@ fun ProPaywallDialog(featureName: String, onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            if (isPro || product == null || activity == null) {
+            if (isPro || product == null || activity == null || BuildConfig.BETA_FREE_ONLY) {
                 TextButton(onClick = onDismiss) { Text("閉じる") }
             } else {
                 TextButton(onClick = {
@@ -153,7 +161,7 @@ fun ProPaywallDialog(featureName: String, onDismiss: () -> Unit) {
                 }
             }
         },
-        dismissButton = if (!isPro && product != null && activity != null) {
+        dismissButton = if (!isPro && product != null && activity != null && !BuildConfig.BETA_FREE_ONLY) {
             { TextButton(onClick = onDismiss) { Text("キャンセル") } }
         } else null
     )

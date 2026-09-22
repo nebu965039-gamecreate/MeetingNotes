@@ -252,7 +252,11 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Pro（サブスクリプション）", style = MaterialTheme.typography.titleSmall)
                             Text(
-                                if (isPro) "ご利用中・タップで管理" else "未登録・タップで詳細",
+                                when {
+                                    isPro -> "ご利用中・タップで管理"
+                                    BuildConfig.BETA_FREE_ONLY -> "テスト版のため登録不可・タップで詳細"
+                                    else -> "未登録・タップで詳細"
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -342,15 +346,17 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                 }
             }
 
-            if (BuildConfig.DEBUG) {
+            // サンプルデータ投入は通常デバッグビルド限定だが、BETA_FREE_ONLY(無料版のみのクローズド
+            // テスト)のときはリリースビルドのテスターにも使わせたいので条件に加える。
+            // 「Proロック表示をプレビュー」は開発者専用のツールなので BuildConfig.DEBUG のみのまま。
+            if (BuildConfig.DEBUG || BuildConfig.BETA_FREE_ONLY) {
                 item {
                     val working = backupState is SettingsViewModel.BackupState.Working
                     var showSeedConfirm by remember { mutableStateOf(false) }
-                    val debugPreviewLocked by ProAccess.debugPreviewLockedFlow.collectAsState()
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(vertical = 4.dp)) {
                             Text(
-                                "デバッグ",
+                                if (BuildConfig.DEBUG) "デバッグ" else "テストデータ",
                                 style = MaterialTheme.typography.titleSmall,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                             )
@@ -360,28 +366,32 @@ fun SettingsScreen(onBack: () -> Unit, onOpenEmailTemplates: () -> Unit = {}) {
                                 enabled = !working,
                                 onClick = { showSeedConfirm = true }
                             )
-                            HorizontalDivider()
-                            // 無料ユーザーが見るPro限定機能のロック表示(バッジ・ペイウォール)を、
-                            // 実際の購入状態に関わらずプレビューできるトグル(2026-09-21〜)。
-                            // PRO_GATING_ENABLED が本番でONになる前でも見比べられるようにする用途。
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("Proロック表示をプレビュー", style = MaterialTheme.typography.bodyLarge)
-                                    Text(
-                                        "ONの間、実際の加入状態に関わらず無料ユーザー向けのProバッジ・ペイウォールを表示します(分析画面・エクスポート形式など)。",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                            if (BuildConfig.DEBUG) {
+                                HorizontalDivider()
+                                // 無料ユーザーが見るPro限定機能のロック表示(バッジ・ペイウォール)を、
+                                // 実際の購入状態に関わらずプレビューできるトグル(2026-09-21〜)。
+                                // PRO_GATING_ENABLED が本番でONになる前でも見比べられるようにする用途。
+                                // 開発者専用のためテスター向けの BETA_FREE_ONLY ビルドでは出さない。
+                                val debugPreviewLocked by ProAccess.debugPreviewLockedFlow.collectAsState()
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Proロック表示をプレビュー", style = MaterialTheme.typography.bodyLarge)
+                                        Text(
+                                            "ONの間、実際の加入状態に関わらず無料ユーザー向けのProバッジ・ペイウォールを表示します(分析画面・エクスポート形式など)。",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Switch(
+                                        checked = debugPreviewLocked,
+                                        onCheckedChange = { ProAccess.setDebugPreviewLocked(it) }
                                     )
                                 }
-                                Switch(
-                                    checked = debugPreviewLocked,
-                                    onCheckedChange = { ProAccess.setDebugPreviewLocked(it) }
-                                )
                             }
                         }
                     }

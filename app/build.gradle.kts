@@ -126,6 +126,16 @@ android {
         logger.lifecycle("Pro gating: ${if (proGatingEnabled) "ON" else "OFF"}")
         buildConfigField("Boolean", "PRO_GATING_ENABLED", "$proGatingEnabled")
 
+        // クローズドテスト等で「Pro購入は一切できないが、サンプルデータ投入はテスターにも
+        // 使わせたい」場合に true にする(local.properties)。true の間:
+        //  - BillingManager.launchPurchase が何もしない(購入フローを起動しない、単一の関所)
+        //  - ProPaywallDialog の「登録する」ボタンが「閉じる」に差し替わる
+        //  - リリースビルドでも設定画面に「サンプルデータを投入」が表示される(通常は BuildConfig.DEBUG 限定)
+        val betaFreeOnly =
+            (localProperties.getProperty("BETA_FREE_ONLY_MODE") ?: "false").toBoolean()
+        logger.lifecycle("Beta free-only mode: ${if (betaFreeOnly) "ON(購入不可・サンプルデータ投入可)" else "OFF"}")
+        buildConfigField("Boolean", "BETA_FREE_ONLY", "$betaFreeOnly")
+
         // --- Firebase (Analytics / Crashlytics) ---
         // google-services.json 未配置のビルドでは AppAnalytics/MeetingNotesApp が Firebase の
         // API を一切呼ばないようにするフラグ。

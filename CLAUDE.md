@@ -142,6 +142,11 @@ Kotlin 2.4.0 / Jetpack Compose(Material3、BOM 2026.08.00) / Navigation Compose 
   - **カスタムイベントは最小限**(自動収集される `session_start`/`app_open`/`user_engagement` 等に加えて、ビジネス上意味のある2つだけ追加): `MeetingViewModel.persistMeeting`(打ち合わせ保存の共通処理)で `meeting_saved`(パラメータ: `meeting_type`)、`BillingManager` の購入確認成功コールバック内で `pro_subscribed`(未確認=初回購入時のみ発火するよう `acknowledgeIfNeeded` の成功パスに配置、アプリ再起動時の購入再配信での重複送信は起きない設計)。画面遷移の自動トラッキングは実装していない(Compose Navigationの単一Activity構成では素のFirebase自動画面計測が意味を持たないため。将来必要になれば個別画面での明示的な `logEvent` 追加を検討)。**イベント名・パラメータともに商談内容・クライアント名・音声・文字起こしは一切含まない**(`logEvent` のシグネチャ自体が `String`/`Boolean`/`Int`/`Long`/`Double` のみ受け付ける設計にして誤送信を予防)。
   - **ドキュメント更新**: `docs/privacy-policy.md/html` に「2.6 利用状況データ・クラッシュ情報」節 + 保存場所表の行 + INTERNET権限の用途説明を追加、`docs/play-data-safety.md` に該当するデータタイプ申告(収集はい・共有はい・任意〈トグルでOFF可〉)を追加。
   - エミュレータで両条件(json有/無)ともビルド・起動・クラッシュなしを確認、`SettingsScreen` のトグルON/OFF操作も実機相当で確認済み。`testDebugUnitTest lintDebug` はクリーン。**残作業はユーザー側のみ**: Firebase Console でのプロジェクト作成と `google-services.json` の配置。
+- **クローズドテスト用「ベータ(無料版のみ)モード」を新設(2026-09-23)**: 「テスターには無料版のテストをしてもらう。ベータ版はPro登録できないようにしたいが、サンプルデータは投入できるようにしてほしい」という要望を受けて実装。`local.properties` に `BETA_FREE_ONLY_MODE=true` を設定してビルドすると有効化される(`ADMOB_USE_PRODUCTION_ADS`/`PRO_GATING_ENABLED` と同じ、既定 false のローカルフラグ方式)。`BuildConfig.BETA_FREE_ONLY` として公開。
+  - **購入導線を1箇所(`BillingManager.launchPurchase`)で遮断**: コードベース内で実際に購入フローを起動している呼び出しはここ1箇所のみ(確認済み、`ProGate.kt#ProPaywallDialog` の確認ボタンから)。`BETA_FREE_ONLY` が true の間は先頭で即 return し、どのUI導線(設定画面のPro行・`RecordingScreen` のクレジット切れ/リモート上限ダイアログの「Proに登録する」ボタン、いずれも `ProPaywallDialog` 経由)から呼ばれても購入は起動しない。
+  - **`ProPaywallDialog` の表示も追従**: `BETA_FREE_ONLY` のとき「登録する」ボタンを「閉じる」に差し替え、赤字で「現在はテスト版のため、Pro へのご登録は行えません。無料版の範囲でお試しください。」を表示(黙って何も起きないボタンを置かない)。`SettingsScreen` のPro行のサブタイトルも「テスト版のため登録不可・タップで詳細」に変化。
+  - **サンプルデータ投入はテスターにも開放**: 従来「サンプルデータを投入」は `BuildConfig.DEBUG` 限定(設定画面の「デバッグ」カード内)だったが、クローズドテストはリリースビルドで配布されるため、このままでは非開発者のテスターは使えなかった。表示条件を `BuildConfig.DEBUG || BuildConfig.BETA_FREE_ONLY` に変更し、カードタイトルもリリースビルド時は「デバッグ」ではなく「テストデータ」に変更(テスターにとって分かりやすい表現に)。同じカード内の「Proロック表示をプレビュー」トグル(開発者専用ツール)は従来どおり `BuildConfig.DEBUG` のみで、テスター向けビルドには出さない。
+  - エミュレータで `BETA_FREE_ONLY_MODE=true` の debug ビルドを実際にインストールし、設定画面のPro行タップ→ペイウォールの表示文言・ボタン差し替えを確認済み(スクリーンショットで確認: 「閉じる」のみ表示、購入ボタンなし)。検証後は `local.properties` を元の状態(フラグ無し=OFF)に戻してコミットしている。
 
 ## コーディング上のルール
 

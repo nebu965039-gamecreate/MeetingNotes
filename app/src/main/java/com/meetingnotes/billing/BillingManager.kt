@@ -3,6 +3,7 @@ package com.meetingnotes.billing
 import android.app.Activity
 import android.content.Context
 import android.util.Log
+import com.meetingnotes.BuildConfig
 import com.meetingnotes.analytics.AppAnalytics
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
@@ -123,6 +124,8 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
 
     /** ペイウォールの「登録する」から呼ぶ。商品未取得なら何もしない。 */
     fun launchPurchase(activity: Activity) {
+        // ベータ(無料版のみ)テスト中はどの導線から呼ばれても購入フローを起動しない(単一の関所)。
+        if (BuildConfig.BETA_FREE_ONLY) return
         val product = _monthlyProduct.value ?: return
         val offerToken = product.subscriptionOfferDetails?.firstOrNull()?.offerToken ?: return
         val params = BillingFlowParams.newBuilder()
