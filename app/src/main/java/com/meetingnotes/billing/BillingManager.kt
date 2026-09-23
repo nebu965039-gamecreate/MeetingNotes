@@ -113,9 +113,10 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
                 )
             )
             .build()
-        client.queryProductDetailsAsync(params) { result, productDetailsList ->
+        client.queryProductDetailsAsync(params) { result, queryProductDetailsResult ->
             if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                _monthlyProduct.value = productDetailsList.firstOrNull { it.productId == PRODUCT_ID }
+                _monthlyProduct.value =
+                    queryProductDetailsResult.productDetailsList.firstOrNull { it.productId == PRODUCT_ID }
             } else {
                 Log.w(TAG, "queryProductDetails failed: ${result.responseCode}")
             }
